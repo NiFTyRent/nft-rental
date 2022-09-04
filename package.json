@@ -1,19 +1,25 @@
 {
-  "name": "nft-shop",
+  "name": "mooncake-nft",
   "version": "1.0.0",
   "license": "(MIT AND Apache-2.0)",
   "scripts": {
     "start": "cd frontend && yarn start",
-    "deploy": "yarn build:contract && cd contract && near dev-deploy --wasmFile ./target/wasm32-unknown-unknown/release/hello_near.wasm",
+    "deploy": "yarn build:contract && cd contract && near dev-deploy --wasmFile ./target/wasm32-unknown-unknown/release/mooncake_nft.wasm",
+    "deploy_testnet": "yarn build:contract && cd contract && near deploy --wasmFile ./target/wasm32-unknown-unknown/release/mooncake_nft.wasm --accountId mooncakenft.testnet",
+    "deploy_mainnet": "yarn build:contract && cd contract && NEAR_ENV=mainnet near deploy --wasmFile ./target/wasm32-unknown-unknown/release/mooncake_nft.wasm --accountId mooncakenft.near",
+    "preview": "cd frontend && yarn vite preview",
     "build": "yarn build:contract && yarn build:web",
     "build:web": "cd frontend && yarn build",
+    "build_testnet:web": "cd frontend && yarn build_testnet",
+    "build_mainnet:web": "cd frontend && yarn build_mainnet",
     "build:contract": "cd contract && rustup target add wasm32-unknown-unknown && cargo build --all --target wasm32-unknown-unknown --release",
     "test": "yarn test:unit && yarn test:integration",
     "test:unit": "cd contract && cargo test",
-    "test:integration": "yarn build:contract && cd integration-tests && cargo run --example integration-tests \"../contract/target/wasm32-unknown-unknown/release/hello_near.wasm\"",
+    "test:integration": "yarn build:contract && cd integration-tests && cargo run --example integration-tests \"../contract/target/wasm32-unknown-unknown/release/mooncake_nft.wasm\"",
     "deps-install": "yarn install && cd frontend && yarn install && cd .."
   },
   "devDependencies": {
+    "near-api-js": "^1.0.0",
     "near-cli": "^3.3.0"
   },
   "dependencies": {}

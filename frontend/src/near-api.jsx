@@ -2,7 +2,7 @@ import "near-api-js/dist/near-api-js.min.js";
 const { connect, Contract, keyStores, WalletConnection } = window.nearApi;
 import { getConfig } from "./near-config";
 
-const nearConfig = getConfig(import.meta.env.MODE || "development");
+export const nearConfig = getConfig(import.meta.env.MODE || "development");
 
 // Initialize contract & set global variables
 export async function initContract() {
@@ -26,10 +26,8 @@ export async function initContract() {
     window.walletConnection.account(),
     nearConfig.contractName,
     {
-      // View methods are read only. They don't modify the state, but usually return some value.
-      viewMethods: ["get_greeting"],
-      // Change methods can modify the state. But you don't receive the returned value when called.
-      changeMethods: ["set_greeting"],
+      viewMethods: ["nft_tokens_for_owner", "top_rank"],
+      changeMethods: ["nft_mint_2022"],
     }
   );
 }
@@ -48,14 +46,23 @@ export function signInWithNearWallet() {
   window.walletConnection.requestSignIn(nearConfig.contractName);
 }
 
-export async function setGreetingOnContract(message) {
-  let response = await window.contract.set_greeting({
-    args: { message: message },
+export async function nftMint2022(receiver_id) {
+  let response = await window.contract.nft_mint_2022({
+    args: { receiver_id: receiver_id },
+    amount: "1000000000000000000000000",
   });
+  console.log(response);
   return response;
 }
 
-export async function getGreetingFromContract() {
-  let greeting = await window.contract.get_greeting();
-  return greeting;
+export async function topRank() {
+  let rank = await window.contract.top_rank({});
+  return rank;
+}
+
+export async function myTokens() {
+  let tokens = await window.contract.nft_tokens_for_owner({
+    account_id: window.accountId,
+  });
+  return tokens;
 }

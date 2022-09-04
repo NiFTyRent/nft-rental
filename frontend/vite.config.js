@@ -5,4 +5,6 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   loader: { ".js": "jsx" },
+  // To read contract name
+  envPrefix: "CONTRACT_",
 });
