@@ -23,6 +23,16 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
+"@headlessui/react@^1.7.0":
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/@headlessui/react/-/react-1.7.0.tgz#7e36e6bbc25a24b02011527ae157a000dda88b85"
+  integrity sha512-/nDsijOXRwXVLpUBEiYuWguIBSIN3ZbKyah+KPUiD8bdIKtX1U/k+qLYUEr7NCQnSF2e4w1dr8me42ECuG3cvw==
+
+"@heroicons/react@^2.0.10":
+  version "2.0.10"
+  resolved "https://registry.yarnpkg.com/@heroicons/react/-/react-2.0.10.tgz#191a305aa2dc2271903f027c9f4700ca3dfa9e7b"
+  integrity sha512-Ufr+pgAElNiRCSklnHGOR10bXb02BLlosvbDK7sCRUMOcQ3R/HCXTfXs4BUkYZ4dKpx6l5dUD06VSW1dTpTEDw==
+
 "@jest/environment@^27.5.1":
   version "27.5.1"
   resolved "https://registry.yarnpkg.com/@jest/environment/-/environment-27.5.1.tgz#d7425820511fe7158abbecc010140c3fd3be9c74"
