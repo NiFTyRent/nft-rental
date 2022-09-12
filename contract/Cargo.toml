@@ -1,5 +1,5 @@
 [package]
-name = "nft_stream"
+name = "nft_rental"
 version = "1.0.0"
 authors = ["Libo <liboooshen@gmail.com>"]
 edition = "2021"
@@ -9,9 +9,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 near-sdk = "4.0.0"
-near-contract-standards = "4.0.0"
+# near-contract-standards = "4.0.0"
 uint = { version = "0.9.3", default-features = false }
-near-crypto = "0.14.0"
+# near-crypto = "0.14.0"
+# getrandom = { version = "0.2", features = ["js"] }
 
 [profile.release]
 codegen-units = 1
