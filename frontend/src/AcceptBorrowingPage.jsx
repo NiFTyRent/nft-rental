@@ -1,12 +1,12 @@
 import React from "react";
 
-export default function NewLendingPage() {
+export default function AcceptBorrowingPage() {
   return (
     <>
       <div className="py-6">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
           <h1 className="text-2xl mb-8 font-semibold text-gray-900">
-            New Lending
+            Review Lending
           </h1>
         </div>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
@@ -88,29 +88,8 @@ export default function NewLendingPage() {
 
                   <div>
                     <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      NFT
+                      Lending
                     </h3>
-                  </div>
-
-                  <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                    <label
-                      htmlFor="borrower"
-                      className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2"
-                    >
-                      Borrower
-                    </label>
-                    <div className="mt-1 sm:col-span-2 sm:mt-0">
-                      <input
-                        type="text"
-                        id="borrower"
-                        name="borrower"
-                        className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        defaultValue={""}
-                      />
-                      <p className="mt-2 text-sm text-gray-500">
-                        The account you want to lend the NFT to
-                      </p>
-                    </div>
                   </div>
 
                   <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
@@ -170,9 +149,13 @@ export default function NewLendingPage() {
                   type="submit"
                   className="ml-3 inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
-                  Submit
+                  Accept
                 </button>
               </div>
+              <p className="mt-2 text-xs text-gray-500 text-right">
+                By accepting this lending offer, you will deposit the agreed
+                amount as the conpensation for the lender.
+              </p>
             </div>
           </form>
         </div>

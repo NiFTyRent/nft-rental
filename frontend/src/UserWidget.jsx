@@ -4,12 +4,6 @@ import { Menu, Transition } from "@headlessui/react";
 import { classNames } from "./Utils";
 import { signInWithNearWallet, signOutNearWallet } from "./near-api";
 
-const userNavigation = [
-  { name: "Your Profile", href: "#" },
-  { name: "Settings", href: "#" },
-  { name: "Sign out", href: "#" },
-];
-
 export default function UserWidget() {
   let [showSignOut, setShowSignOut] = React.useState(false);
 

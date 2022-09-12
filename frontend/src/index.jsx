@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App";
 import Home from "./Home";
 import NewLendingPage from "./NewLendingPage";
+import AcceptBorrowingPage from "./AcceptBorrowingPage";
 import AboutPage from "./AboutPage";
 import { initContract } from "./near-api";
 
@@ -19,6 +20,7 @@ window.nearInitPromise = initContract()
             <Route index element={<Home />} />
             <Route path="about" element={<AboutPage />} />
             <Route path="lendings/new" element={<NewLendingPage />} />
+            <Route path="borrowings/accept" element={<AcceptBorrowingPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
