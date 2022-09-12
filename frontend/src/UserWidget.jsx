@@ -31,53 +31,23 @@ export default function UserWidget() {
           leaveTo="transform opacity-0 scale-95"
         >
           <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-            {userNavigation.map((item) => (
-              <Menu.Item key={item.name}>
-                {({ active }) => (
-                  <a
-                    href={item.href}
-                    className={classNames(
-                      active ? "bg-gray-100" : "",
-                      "block px-4 py-2 text-sm text-gray-700"
-                    )}
-                  >
-                    {item.name}
-                  </a>
-                )}
-              </Menu.Item>
-            ))}
+            <Menu.Item>
+              {({ active }) => (
+                <div
+                  className={classNames(
+                    active ? "bg-gray-200" : "",
+                    "block px-4 py-2 text-sm text-gray-700"
+                  )}
+                  onClick={signOutNearWallet}
+                >
+                  Sign out
+                </div>
+              )}
+            </Menu.Item>
           </Menu.Items>
         </Transition>
       </Menu>
     </>
-  ) : (
-    <button
-      onClick={signInWithNearWallet}
-      className="inline-block rounded-md border border-transparent bg-indigo-500 py-2 px-4 text-base font-medium text-white hover:bg-opacity-75"
-    >
-      Sign in
-    </button>
-  );
-
-  return window.walletConnection.isSignedIn() ? (
-    showSignOut ? (
-      <div
-        className="inline-block rounded-md border border-indigo-500 py-2 px-4 text-base font-medium hover:bg-indigo-500 cursor-pointer"
-        onClick={signOutNearWallet}
-      >
-        Sign out
-      </div>
-    ) : (
-      <div
-        className="inline-block rounded-md border border-indigo-500 py-2 px-4 text-base font-medium hover:bg-indigo-500 cursor-pointer"
-        onClick={(_) => {
-          setShowSignOut((_) => true);
-          setTimeout((_) => setShowSignOut((_) => false), 3000);
-        }}
-      >
-        {window.accountId}
-      </div>
-    )
   ) : (
     <button
       onClick={signInWithNearWallet}
