@@ -16,21 +16,26 @@ import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import { classNames } from "./Utils";
 
 const navigation = [
-  { name: "Home", href: "#", icon: HomeIcon, current: true },
-  { name: "Lend my NFT", href: "#", icon: SparklesIcon, current: false },
+  { name: "Home", href: "/", icon: HomeIcon, current: true },
+  {
+    name: "Lend my NFT",
+    href: "/lendings/new",
+    icon: SparklesIcon,
+    current: false,
+  },
   {
     name: "My Lendings",
-    href: "#",
+    href: "/lendings",
     icon: BuildingStorefrontIcon,
     current: false,
   },
-  { name: "My Borrowings", href: "#", icon: ShoppingBagIcon, current: false },
+  {
+    name: "My Borrowings",
+    href: "/borrowings",
+    icon: ShoppingBagIcon,
+    current: false,
+  },
   { name: "Reports", href: "#", icon: ChartBarIcon, current: false },
-];
-const userNavigation = [
-  { name: "Your Profile", href: "#" },
-  { name: "Settings", href: "#" },
-  { name: "Sign out", href: "#" },
 ];
 
 export default function App() {
