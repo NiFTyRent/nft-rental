@@ -5,6 +5,7 @@ use near_sdk::collections::{LazyOption, UnorderedMap};
 use near_sdk::ext_contract;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::Result;
+use near_sdk::json_types::{Base64VecU8};
 use near_sdk::{
     env, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
     PromiseOrValue,
@@ -201,7 +202,27 @@ impl Contract {
         return None;
     }
 
-    pub fn proxy_func_calls(&self, lease_id: AccountId, func_name: String, arg: String) {}
+
+    pub fn proxy_func_calls(
+        &self,
+        lease_id: AccountId,
+        method_name: String,
+        args: Base64VecU8,
+    ) {
+        // proxy function to open accessable functions calls in a NFT contract during lease
+        let mut promise = Promise::new(lease_id.clone());
+
+        // unreachable methods in leased NFT contract
+        assert!("nft_transfer" == &method_name, "Calling method is not accessiable!");
+        assert!("nft_approve" == &method_name, "Calling method is not accessiable!");
+
+        promise.function_call(
+            method_name.clone(),
+            args.into(),
+            env::attached_deposit(),
+            Gas(5 * TGAS),
+        );
+    }
 }
 
 //implementation of the trait
