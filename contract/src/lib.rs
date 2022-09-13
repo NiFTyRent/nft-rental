@@ -139,6 +139,16 @@ impl Contract {
         results
     }
 
+    pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
+        let mut results: Vec<(String, LeaseCondition)> = vec![];
+        for lease in self.lease_map.iter() {
+            if lease.1.borrower == account_id {
+                results.push(lease)
+            }
+        }
+        results
+    }
+
     #[payable]
     pub fn claim_back(&mut self, lease_id: LeaseId) {
         // Function to allow a user to claim back the NFT and rent after a lease expired.
@@ -181,11 +191,19 @@ impl Contract {
         Promise::new(to).transfer(amount);
     }
 
-    pub fn check_user(&self, contrac_id: AccountId, token_id: TokenId) {
-        // return current user of the NFT
+
+    pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
+        // return the current borrower of the NFTd
+        for lease in self.lease_map.iter() {
+            if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
+                return Some(lease.1.borrower);
+            }
+        } 
+        return None;
     }
 
-    // TODO: proxy_func_calls(&self, lease_id, func_name, arg,)
+    pub fn proxy_func_calls(&self, lease_id: AccountId, func_name: String, arg: String){
+    }
 }
 
 //implementation of the trait
