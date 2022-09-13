@@ -26,8 +26,8 @@ export async function initContract() {
     window.walletConnection.account(),
     nearConfig.contractName,
     {
-      viewMethods: ["nft_tokens_for_owner", "top_rank"],
-      changeMethods: ["nft_mint_2022"],
+      viewMethods: ["leases_by_borrower", "leases_by_owner"],
+      changeMethods: ["lending_accept"],
     }
   );
 }
@@ -46,23 +46,27 @@ export function signInWithNearWallet() {
   window.walletConnection.requestSignIn(nearConfig.contractName);
 }
 
-export async function nftMint2022(receiver_id) {
-  let response = await window.contract.nft_mint_2022({
-    args: { receiver_id: receiver_id },
-    amount: "1000000000000000000000000",
-  });
-  console.log(response);
-  return response;
-}
-
-export async function topRank() {
-  let rank = await window.contract.top_rank({});
-  return rank;
-}
-
-export async function myTokens() {
-  let tokens = await window.contract.nft_tokens_for_owner({
+export async function myLendings() {
+  let tokens = await window.contract.leases_by_owner({
     account_id: window.accountId,
   });
   return tokens;
+}
+
+export async function myBorrowings() {
+  let tokens = await window.contract.leases_by_borrower({
+    account_id: window.accountId,
+  });
+  return tokens;
+}
+
+export async function acceptLease(leaseId, rent) {
+  console.log(leaseId, rent);
+  let response = await window.contract.lending_accept({
+    args: {
+      lease_id: leaseId,
+    },
+    amount: (BigInt(rent) + BigInt(1e18)).toString(),
+  });
+  return response;
 }
