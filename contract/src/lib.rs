@@ -3,9 +3,9 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::bs58;
 use near_sdk::collections::{LazyOption, UnorderedMap};
 use near_sdk::ext_contract;
+use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::Result;
-use near_sdk::json_types::{Base64VecU8};
 use near_sdk::{
     env, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
     PromiseOrValue,
@@ -208,12 +208,18 @@ impl Contract {
         method_name: String,
         args: Base64VecU8,
     ) {
-        // proxy function to open accessable functions calls in a NFT contract during lease
+        // proxy function to open accessible functions calls in a NFT contract during lease
         let mut promise = Promise::new(contract_id.clone());
 
         // unreachable methods in leased NFT contract
-        assert_ne!("nft_transfer", &method_name, "Calling method is not accessiable!");
-        assert_ne!("nft_approve", &method_name, "Calling method is not accessiable!");
+        assert_ne!(
+            "nft_transfer", &method_name,
+            "Calling method is not accessiable!"
+        );
+        assert_ne!(
+            "nft_approve", &method_name,
+            "Calling method is not accessiable!"
+        );
 
         promise.function_call(
             method_name.clone(),
