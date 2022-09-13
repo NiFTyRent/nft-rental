@@ -28,6 +28,9 @@
     "vite": "^3.0.9"
   },
   "dependencies": {
+    "@apollo/client": "^3.6.9",
+    "@tailwindcss/forms": "^0.5.3",
+    "graphql": "^16.6.0",
     "near-api-js": "^0.44.2",
     "react": "^18.1.0",
     "react-dom": "^18.1.0",
@@ -38,7 +41,11 @@
     "@babel/preset-env": "7.13.8"
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",
