@@ -40,7 +40,7 @@ pub struct LeaseJson {
     token_id: TokenId,
     borrower: AccountId,
     expiration: u64, // TODO: duration
-    amount_near: u128,
+    amount_near: String,
 }
 
 //struct for keeping track of the lease conditions
@@ -191,19 +191,17 @@ impl Contract {
         Promise::new(to).transfer(amount);
     }
 
-
     pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
         // return the current borrower of the NFTd
         for lease in self.lease_map.iter() {
             if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
                 return Some(lease.1.borrower);
             }
-        } 
+        }
         return None;
     }
 
-    pub fn proxy_func_calls(&self, lease_id: AccountId, func_name: String, arg: String){
-    }
+    pub fn proxy_func_calls(&self, lease_id: AccountId, func_name: String, arg: String) {}
 }
 
 //implementation of the trait
@@ -231,7 +229,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             token_id: lease_json.token_id,
             borrower: lease_json.borrower,
             expiration: lease_json.expiration,
-            amount_near: lease_json.amount_near,
+            amount_near: lease_json.amount_near.parse::<u128>().unwrap(),
             state: LeaseState::Pending,
         };
 
