@@ -1,0 +1,19 @@
+// create a new nft
+near call nft.examples.testnet nft_mint '{"token_id": "lease_test", "receiver_id": "crypto_ty.testnet", "metadata": { "title": "GO TEAM", "description": "The Team Goes", "media": "https://bafybeidl4hjbpdr6u6xvlrizwxbrfcyqurzvcnn5xoilmcqbxfbdwrmp5m.ipfs.dweb.link/", "copies": 1}}' --accountId $NEARID --deposit 0.1
+
+// cross func call
+near call nft.examples.testnet nft_approve '{
+    "token_id": "lease_test",
+    "account_id": "dev-1663069114497-11129042426062",
+    "msg": "{\"contract_addr\": \"nft.examples.testnet\", \"token_id\": \"lease_test\", \"borrower\": \"iphone14.testnet\", \"expiration\": 3600, \"amount_near\": 1}"
+  }' --accountId crypto_ty.testnet --depositYocto 440000000000000000000
+
+
+// call lease contract function to check full list of active leases
+near call dev-1663069114497-11129042426062 leases_by_owner '{"account_id": "crypto_ty.testnet"}' --accountId crypto_ty.testnet
+
+// initialise a contract
+near call dev-1663069114497-11129042426062 new '{"owner_id": "crypto_ty.testnet"}' --accountId crypto_ty.testnet
+
+// 
+yarn deploy

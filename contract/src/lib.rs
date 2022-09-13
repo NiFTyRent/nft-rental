@@ -1,15 +1,30 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::bs58;
 use near_sdk::collections::{LazyOption, UnorderedMap};
+use near_sdk::ext_contract;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::Result;
-use near_sdk::bs58;
 use near_sdk::{
-    env, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
+    env, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    PromiseOrValue,
 };
+use near_contract_standards::non_fungible_token::TokenId;
 use std::string;
 
+#[ext_contract(nft)]
+trait Nft {
+    fn nft_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        token_id: TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+    );
+}
+pub const TGAS: u64 = 1_000_000_000_000;
+
 type LeaseId = String;
-type TokenId = String;
+
 #[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 enum LeaseState {
@@ -25,7 +40,7 @@ pub struct LeaseJson {
     token_id: TokenId,
     borrower: AccountId,
     expiration: u64, // TODO: duration
-    amount_near: i64,
+    amount_near: u128,
 }
 
 //struct for keeping track of the lease conditions
@@ -38,9 +53,10 @@ pub struct LeaseCondition {
     borrower: AccountId,
     approval_id: u64,
     expiration: u64, // TODO: duration
-    amount_near: i64,
+    amount_near: u128,
     state: LeaseState,
 }
+
 
 
 #[near_bindgen]
@@ -54,8 +70,6 @@ pub struct Contract {
 enum StorageKey {
     LendingsKey,
 }
-
-
 
 /*
     trait that will be used as the callback from the NFT contract. When nft_approve is
@@ -83,18 +97,72 @@ impl Contract {
         }
     }
 
-    // TODO
-    pub fn lending_accept(&mut self, lending_id: LeaseId) {}
+    #[payable]
+    pub fn lending_accept(&mut self, lease_id: LeaseId) {
+        // 1. retrive the lease data from the lease_map
+        // 2. Check is the tx send eq the borrower
+        // 3. Check the deposit is eq rent
+        // 4. transfer the NFT to the contract
+        // 5. update the state
 
-    pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<LeaseCondition> {
-        let mut results: Vec<LeaseCondition> = vec![];
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
+        assert!(
+            lease_condition.borrower == env::predecessor_account_id(),
+            "Borrower is not the same one!"
+        );
+        assert!(
+            env::attached_deposit() >= lease_condition.amount_near,
+            "Depostive is less than the agreed rent!"
+        );
+        let promise = nft::ext(lease_condition.contract_addr.clone())
+            .with_static_gas(Gas(5 * TGAS))
+            .with_attached_deposit(1)
+            .nft_transfer(
+                env::current_account_id(),
+                lease_condition.token_id.clone(),
+                Some(lease_condition.approval_id),
+                None,
+            );
+
+        let new_lease_condition = LeaseCondition{
+            // contract_addr: lease_condition.contract_addr,
+            // token_id: lease_condition.token_id,
+            // owner_id: lease_condition.owner_id,
+            // borrower: lease_condition.borrower,
+            // approval_id: lease_condition.approval_id,
+            // expiration: lease_condition.expiration, // TODO: duration
+            // amount_near: lease_condition.amount_near,
+
+            state: LeaseState::Active,
+            ..lease_condition
+
+        };
+        self.lease_map.insert(&lease_id, &new_lease_condition);
+    }
+    
+
+    pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
+        let mut results: Vec<(String, LeaseCondition)> = vec![];
         for lease in self.lease_map.iter() {
             if lease.1.owner_id == account_id {
-                results.push(lease.1)
+                results.push(lease)
             }
         }
         results
     }
+
+    #[payable]
+    pub fn claim_back(&mut self, lease_id: LeaseId) {
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
+
+        // 1. check expire time
+        // 2. check state == active
+        // 3. send rent to owner
+        // 4. transfer nft to owner
+        // 5. remove map record
+        
+    }
+    
 }
 
 //implementation of the trait
@@ -112,8 +180,8 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
     ) {
         //the lease conditions come from the msg field
         let lease_json: LeaseJson =
-        near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
- 
+            near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
+
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
             owner_id: owner_id,
@@ -127,9 +195,10 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         };
 
         let seed = near_sdk::env::random_seed();
-        let key = bs58::encode(seed).with_alphabet(bs58::Alphabet::BITCOIN).into_string();
-        self.lease_map
-            .insert(&key, &lease_condition);
+        let key = bs58::encode(seed)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
+        self.lease_map.insert(&key, &lease_condition);
     }
 }
 
