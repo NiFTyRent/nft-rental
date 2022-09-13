@@ -27,7 +27,7 @@ export async function initContract() {
     nearConfig.contractName,
     {
       viewMethods: ["leases_by_borrower", "leases_by_owner"],
-      changeMethods: ["lending_accept"],
+      changeMethods: ["lending_accept", "claim_back"],
     }
   );
 }
@@ -61,12 +61,21 @@ export async function myBorrowings() {
 }
 
 export async function acceptLease(leaseId, rent) {
-  console.log(leaseId, rent);
   let response = await window.contract.lending_accept({
     args: {
       lease_id: leaseId,
     },
     amount: (BigInt(rent) + BigInt(1e18)).toString(),
+  });
+  return response;
+}
+
+export async function claimBack(leaseId) {
+  let response = await window.contract.claim_back({
+    args: {
+      lease_id: leaseId,
+    },
+    amount: 1,
   });
   return response;
 }

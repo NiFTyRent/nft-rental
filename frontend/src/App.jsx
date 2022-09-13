@@ -16,7 +16,7 @@ import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import { classNames } from "./Utils";
 
 const navigation = [
-  { name: "Home", href: "/", icon: HomeIcon, current: true },
+  { name: "Home", href: "/", icon: HomeIcon, current: false },
   {
     name: "Lend my NFT",
     href: "/lendings/new",

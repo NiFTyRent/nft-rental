@@ -7,6 +7,7 @@ import Home from "./Home";
 import NewLendingPage from "./NewLendingPage";
 import AcceptBorrowingPage from "./AcceptBorrowingPage";
 import BorrowingsPage from "./BorrowingsPage";
+import LendingsPage from "./LendingsPage";
 import { initContract } from "./near-api";
 import {
   ApolloClient,
@@ -25,6 +26,7 @@ window.nearInitPromise = initContract()
           <Routes>
             <Route path="/" element={<App />}>
               <Route index element={<Home />} />
+              <Route path="lendings" element={<LendingsPage />} />
               <Route path="lendings/new" element={<NewLendingPage />} />
               <Route path="borrowings" element={<BorrowingsPage />} />
               <Route
