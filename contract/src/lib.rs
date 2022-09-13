@@ -202,19 +202,18 @@ impl Contract {
         return None;
     }
 
-
     pub fn proxy_func_calls(
         &self,
-        lease_id: AccountId,
+        contract_id: AccountId, //TODO: rename
         method_name: String,
         args: Base64VecU8,
     ) {
         // proxy function to open accessable functions calls in a NFT contract during lease
-        let mut promise = Promise::new(lease_id.clone());
+        let mut promise = Promise::new(contract_id.clone());
 
         // unreachable methods in leased NFT contract
-        assert!("nft_transfer" == &method_name, "Calling method is not accessiable!");
-        assert!("nft_approve" == &method_name, "Calling method is not accessiable!");
+        assert_ne!("nft_transfer", &method_name, "Calling method is not accessiable!");
+        assert_ne!("nft_approve", &method_name, "Calling method is not accessiable!");
 
         promise.function_call(
             method_name.clone(),

@@ -1,19 +1,36 @@
 // create a new nft
 near call nft.examples.testnet nft_mint '{"token_id": "lease_test", "receiver_id": "crypto_ty.testnet", "metadata": { "title": "GO TEAM", "description": "The Team Goes", "media": "https://bafybeidl4hjbpdr6u6xvlrizwxbrfcyqurzvcnn5xoilmcqbxfbdwrmp5m.ipfs.dweb.link/", "copies": 1}}' --accountId $NEARID --deposit 0.1
 
-// cross func call
+// test cross func call: approve a nft listing -- success
 near call nft.examples.testnet nft_approve '{
     "token_id": "lease_test",
     "account_id": "dev-1663069114497-11129042426062",
-    "msg": "{\"contract_addr\": \"nft.examples.testnet\", \"token_id\": \"lease_test\", \"borrower\": \"iphone14.testnet\", \"expiration\": 3600, \"amount_near\": 1}"
+    "msg": "{\"contract_addr\": \"nft.examples.testnet\", \"token_id\": \"lease_test\", \"borrower\": \"ty_dev.testnet\", \"expiration\": 3600, \"amount_near\": "1"}"
   }' --accountId crypto_ty.testnet --depositYocto 440000000000000000000
 
+// call function: borrower to accept the lease
+near call dev-1663069114497-11129042426062 lending_accept '{"lease_id": "2GeKqFXYHqEw8qT1Lj7Yfx42jwdbaZVfHp2uZBDsCB4V"}' --accountId ty_dev.testnet --depositYocto 1
 
-// call lease contract function to check full list of active leases
+// call contract function: to check full list of active leases by owner -- success
 near call dev-1663069114497-11129042426062 leases_by_owner '{"account_id": "crypto_ty.testnet"}' --accountId crypto_ty.testnet
+
+// call contract function: to check full list of active leases by borrower -- success 
+near call dev-1663069114497-11129042426062 leases_by_borrower '{"account_id": "ty_dev.testnet"}' --accountId crypto_ty.testnet
+
+// call contract function: to check all an active lease's borrower -- success
+near call dev-1663069114497-11129042426062 get_borrower '{"contract_id": "nft.examples.testnet","token_id": "lease_test"}' --accountId crypto_ty.testnet
+
+// test: contract function - test proxy method call - reject
+near call dev-1663069114497-11129042426062 proxy_func_calls '{"contract_id": "nft.examples.testnet","method_name": "nft_transfer", "args": ""}' --accountId crypto_ty.testnet
+// test: contract function - test proxy method call - pass
+near call dev-1663069114497-11129042426062 proxy_func_calls '{"contract_id": "nft.examples.testnet","method_name": "nft_88", "args": ""}' --accountId crypto_ty.testnet
+
+//call claim function
+near call dev-1663069114497-11129042426062 claim_back '{"lease_id": "2GeKqFXYHqEw8qT1Lj7Yfx42jwdbaZVfHp2uZBDsCB4V"}' --accountId crypto_ty.testnet
 
 // initialise a contract
 near call dev-1663069114497-11129042426062 new '{"owner_id": "crypto_ty.testnet"}' --accountId crypto_ty.testnet
 
 // 
 yarn deploy
+
