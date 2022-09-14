@@ -114,7 +114,9 @@ export default function AcceptBorrowingPage() {
                     <div className="mt-1 sm:col-span-2 sm:mt-0">
                       <div className="flex flex-row space-x-2">
                         <div>
-                          {new Date(borrowing[1].expiration).toLocaleString()}
+                          {new Date(
+                            borrowing[1].expiration * 1000
+                          ).toLocaleString()}
                         </div>
                       </div>
                     </div>

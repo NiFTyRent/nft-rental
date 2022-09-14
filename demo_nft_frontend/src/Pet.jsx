@@ -1,7 +1,6 @@
 import React from "react";
 import { myBorrowings, acceptLease } from "./near-api";
 import { initContract, getToken } from "./NftContract";
-import { nearConfig } from "./near-api";
 import {
   initContract as initRentalContract,
   getBorrower,
@@ -16,22 +15,20 @@ export default function PetPage() {
   const [eyes, setEyes] = React.useState("oo");
   React.useEffect(() => {
     async function fetchTokens() {
-      let contract = await initContract(nearConfig.contractName);
+      let contract = await initContract(contractId);
       let token = await getToken(contract, petId);
       setMessage(`I'm ${token.metadata.title}`);
-      if (token && token.owner_id == window.accountId) {
-        setIsOwner(true);
-        return;
-      }
-      let rentalContract = await initRentalContract(contractId);
-      let borrower = await getBorrower(
-        rentalContract,
-        nearConfig.contractName,
-        petId
-      );
-      if (borrower && borrower == window.accountId) {
-        setIsOwner(true);
-        return;
+      if (token) {
+        if (token.owner_id == window.accountId) {
+          setIsOwner(true);
+          return;
+        }
+        let rentalContract = await initRentalContract(token.owner_id);
+        let borrower = await getBorrower(rentalContract, contractId, petId);
+        if (borrower && borrower == window.accountId) {
+          setIsOwner(true);
+          return;
+        }
       }
     }
     fetchTokens();
@@ -61,7 +58,7 @@ export default function PetPage() {
           <pre>
             {`
               +---------+
-              |   Pet   |
+              |   Pat   |
               +---------+
             `}
           </pre>

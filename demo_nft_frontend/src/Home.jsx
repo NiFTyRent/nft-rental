@@ -2,8 +2,9 @@ import React from "react";
 
 export default function Home() {
   return (
-    <pre>
-      {String.raw`
+    <>
+      <pre>
+        {String.raw`
   _   _ ______          _____    _______                                _       _     _
  | \ | |  ____|   /\   |  __ \  |__   __|                              | |     | |   (_)
  |  \| | |__     /  \  | |__) |    | | __ _ _ __ ___   __ _  __ _  ___ | |_ ___| |__  _
@@ -13,6 +14,16 @@ export default function Home() {
                                                              __/ |
                                                             |___/
             `}
-    </pre>
+      </pre>
+      <a href="/pets/tamagotchi-nft.testnet/cute_cow">
+        <pre>
+          {`
+              +---------+
+              |   Try   |
+              +---------+
+            `}
+        </pre>
+      </a>
+    </>
   );
 }

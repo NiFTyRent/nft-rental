@@ -28,10 +28,10 @@ export default function NewLendingPage() {
   let onSubmit = async () => {
     let contract = await initContract(selectedContract.id);
     let expiration =
-      Date.now() +
+      Math.trunc(Date.now() / 1000) +
       durationDay * 24 * 3600 +
       durationHour * 3600 +
-      durationMinute;
+      durationMinute * 60;
 
     newLease(contract, selectedToken.id, borrower, expiration, rent);
   };
