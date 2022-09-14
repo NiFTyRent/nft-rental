@@ -202,12 +202,7 @@ impl Contract {
         return None;
     }
 
-    pub fn proxy_func_calls(
-        &self,
-        contract_id: AccountId,
-        method_name: String,
-        args: String,
-    ) {
+    pub fn proxy_func_calls(&self, contract_id: AccountId, method_name: String, args: String) {
         // proxy function to open accessible functions calls in a NFT contract during lease
         let mut promise = Promise::new(contract_id.clone());
 
