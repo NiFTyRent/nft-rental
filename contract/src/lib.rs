@@ -1,16 +1,12 @@
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::bs58;
-use near_sdk::collections::{LazyOption, UnorderedMap};
+use near_sdk::collections::UnorderedMap;
 use near_sdk::ext_contract;
-use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::serde_json::Result;
 use near_sdk::{
     env, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
-    PromiseOrValue,
 };
-use std::string;
 
 #[ext_contract(nft)]
 trait Nft {
@@ -98,7 +94,7 @@ impl Contract {
 
     #[payable]
     pub fn lending_accept(&mut self, lease_id: LeaseId) {
-        // 1. retrive the lease data from the lease_map
+        // 1. retrieve the lease data from the lease_map
         // 2. Check is the tx send eq the borrower
         // 3. Check the deposit is eq rent
         // 4. transfer the NFT to the contract
@@ -111,9 +107,10 @@ impl Contract {
         );
         assert!(
             env::attached_deposit() >= lease_condition.amount_near,
-            "Depostive is less than the agreed rent!"
+            "Deposit is less than the agreed rent!"
         );
-        let promise = nft::ext(lease_condition.contract_addr.clone())
+        // TODO: Handle the promise
+        nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer(
@@ -132,6 +129,7 @@ impl Contract {
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results: Vec<(String, LeaseCondition)> = vec![];
+        // TODO: use better data structure to optimise this operation.
         for lease in self.lease_map.iter() {
             if lease.1.owner_id == account_id {
                 results.push(lease)
@@ -142,6 +140,7 @@ impl Contract {
 
     pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results: Vec<(String, LeaseCondition)> = vec![];
+        // TODO: use better data structure to optimise this operation.
         for lease in self.lease_map.iter() {
             if lease.1.borrower == account_id {
                 results.push(lease)
@@ -194,6 +193,7 @@ impl Contract {
 
     pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
         // return the current borrower of the NFTd
+        // TODO: use better data structure to optimise this operation.
         for lease in self.lease_map.iter() {
             if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
                 return Some(lease.1.borrower);
@@ -206,6 +206,7 @@ impl Contract {
         // proxy function to open accessible functions calls in a NFT contract during lease
         let mut promise = Promise::new(contract_id.clone());
 
+        // TODO: allow the lend to define white list of method names.
         // unreachable methods in leased NFT contract
         assert_ne!(
             "nft_transfer", &method_name,
@@ -242,10 +243,12 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         let lease_json: LeaseJson =
             near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
 
+        assert_eq!(token_id, lease_json.token_id);
+
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
             owner_id: owner_id.clone(),
-            approval_id: approval_id,
+            approval_id,
             contract_addr: lease_json.contract_addr,
             token_id: lease_json.token_id,
             borrower: lease_json.borrower,
@@ -280,6 +283,7 @@ mod tests {
         builder
     }
 
+    // TODO: Add tests
     #[test]
     fn test_new() {
         let mut context = get_context(accounts(0));
