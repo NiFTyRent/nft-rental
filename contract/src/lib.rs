@@ -1,24 +1,17 @@
+use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
+
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::bs58;
 use near_sdk::collections::UnorderedMap;
-use near_sdk::ext_contract;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    env, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    PromiseError,
 };
 
-#[ext_contract(nft)]
-trait Nft {
-    fn nft_transfer(
-        &mut self,
-        receiver_id: AccountId,
-        token_id: TokenId,
-        approval_id: Option<u64>,
-        memo: Option<String>,
-    );
-}
-pub const TGAS: u64 = 1_000_000_000_000;
+pub mod externals;
+pub use crate::externals::*;
 
 type LeaseId = String;
 
@@ -43,42 +36,29 @@ pub struct LeaseJson {
 //struct for keeping track of the lease conditions
 #[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
+
+/// Details about a Lease
 pub struct LeaseCondition {
-    contract_addr: AccountId,
-    token_id: TokenId,
-    owner_id: AccountId,
-    borrower: AccountId,
-    approval_id: u64,
-    expiration: u64, // TODO: duration
-    amount_near: u128,
-    state: LeaseState,
+    contract_addr: AccountId, // NFT contract
+    token_id: TokenId,        // NFT token
+    owner_id: AccountId,      // Owner of the NFT
+    borrower: AccountId,      // Borrower of the NFT
+    approval_id: u64,         // Approval from owner to lease
+    expiration: u64,          // TODO: duration
+    amount_near: u128,        // proposed lease cost
+    state: LeaseState,        // current lease state
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     owner: AccountId,
-    lease_map: UnorderedMap<LeaseId, LeaseCondition>, // (lending_id, lending)
+    lease_map: UnorderedMap<LeaseId, LeaseCondition>, // <lending_id, lending>, storing all Lease records
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
 enum StorageKey {
     LendingsKey,
-}
-
-/*
-    trait that will be used as the callback from the NFT contract. When nft_approve is
-    called, it will fire a cross contract call to this marketplace and this is the function
-    that is invoked.
-*/
-trait NonFungibleTokenApprovalsReceiver {
-    fn nft_on_approve(
-        &mut self,
-        token_id: TokenId,
-        owner_id: AccountId,
-        approval_id: u64,
-        msg: String,
-    );
 }
 
 #[near_bindgen]
@@ -93,12 +73,13 @@ impl Contract {
     }
 
     #[payable]
-    pub fn lending_accept(&mut self, lease_id: LeaseId) {
-        // 1. retrieve the lease data from the lease_map
-        // 2. Check is the tx send eq the borrower
-        // 3. Check the deposit is eq rent
-        // 4. transfer the NFT to the contract
-        // 5. update the state
+    pub fn lending_accept(&mut self, lease_id: LeaseId) -> Promise {
+        // A Borrower can accept the lease. When this happens, the lease contract does the following:
+        // 1. Retrieve the lease data from the lease_map
+        // 2. Check if the tx sender is the borrower
+        // 3. Check if the deposit equals rent
+        // 4. Transfer the NFT to the lease contract
+        // 5. Update the lease state, when transfer succeeds
 
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         assert!(
@@ -109,8 +90,8 @@ impl Contract {
             env::attached_deposit() >= lease_condition.amount_near,
             "Deposit is less than the agreed rent!"
         );
-        // TODO: Handle the promise
-        nft::ext(lease_condition.contract_addr.clone())
+        // TODO: Handle the promise - Update the lease condition only when transfer succeeds
+        let promise = nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer(
@@ -120,11 +101,32 @@ impl Contract {
                 None,
             );
 
+        return promise.then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(XCC_GAS)
+                .lending_accept_callback(lease_id),
+        );
+    }
+
+    #[private] //public - but only callable by enf::current_account_id()
+    pub fn lending_accept_callback(
+        &mut self,
+        lease_id: LeaseId,
+        #[callback_result] call_result: Result<String, PromiseError>,
+    ) -> bool {
+        if call_result.is_err() {
+            log!("Error occured when calling nft_transfer!");
+            return false;
+        }
+
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
+        // update the lease condition table
         let new_lease_condition = LeaseCondition {
             state: LeaseState::Active,
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
+        true
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -188,11 +190,12 @@ impl Contract {
     }
 
     fn transfer(&self, to: AccountId, amount: Balance) {
+        // helper function to perform FT transfer
         Promise::new(to).transfer(amount);
     }
 
     pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
-        // return the current borrower of the NFTd
+        // return the current borrower of the NFTs
         // TODO: use better data structure to optimise this operation.
         for lease in self.lease_map.iter() {
             if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
@@ -226,11 +229,23 @@ impl Contract {
     }
 }
 
-//implementation of the trait
+/**
+    trait that will be used as the callback from the NFT contract. When nft_approve is
+    called, it will fire a cross contract call to this marketplace and this is the function
+    that is invoked.
+*/
+trait NonFungibleTokenApprovalsReceiver {
+    fn nft_on_approve(
+        &mut self,
+        token_id: TokenId,
+        owner_id: AccountId,
+        approval_id: u64,
+        msg: String,
+    );
+}
 #[near_bindgen]
 impl NonFungibleTokenApprovalsReceiver for Contract {
     /// where we add the sale because we know nft owner can only call nft_approve
-
     #[payable]
     fn nft_on_approve(
         &mut self,
