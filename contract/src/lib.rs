@@ -1,4 +1,3 @@
-use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -91,7 +90,7 @@ impl Contract {
             "Deposit is less than the agreed rent!"
         );
 
-        // TODO: Handle the promise - Update the lease condition only when transfer succeeds
+        // Handle the promise - Update the lease condition only when transfer succeeds
         let promise = nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
@@ -176,7 +175,7 @@ impl Contract {
         );
 
         // 4. transfer nft to owner
-        let promise = nft::ext(lease_condition.contract_addr.clone())
+        nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer(
@@ -208,7 +207,7 @@ impl Contract {
 
     pub fn proxy_func_calls(&self, contract_id: AccountId, method_name: String, args: String) {
         // proxy function to open accessible functions calls in a NFT contract during lease
-        let mut promise = Promise::new(contract_id.clone());
+        let promise = Promise::new(contract_id.clone());
 
         // TODO: allow the lend to define white list of method names.
         // unreachable methods in leased NFT contract
