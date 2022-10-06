@@ -74,7 +74,7 @@ impl Contract {
 
     #[payable]
     pub fn lending_accept(&mut self, lease_id: LeaseId) -> Promise {
-        // A Borrower can accept the lease. When this happens, the lease contract does the following:
+        // When a borrower accepts the lending, the lease contract does the following:
         // 1. Retrieve the lease data from the lease_map
         // 2. Check if the tx sender is the borrower
         // 3. Check if the deposit equals rent
@@ -90,6 +90,7 @@ impl Contract {
             env::attached_deposit() >= lease_condition.amount_near,
             "Deposit is less than the agreed rent!"
         );
+
         // TODO: Handle the promise - Update the lease condition only when transfer succeeds
         let promise = nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
@@ -115,12 +116,12 @@ impl Contract {
         #[callback_result] call_result: Result<String, PromiseError>,
     ) -> bool {
         if call_result.is_err() {
-            log!("Error occured when calling nft_transfer!");
+            log!("Error occured when calling nft_transfer! Lease abandoned.");
             return false;
         }
 
+        // Update the lease state, only when transfer succeeds
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-        // update the lease condition table
         let new_lease_condition = LeaseCondition {
             state: LeaseState::Active,
             ..lease_condition
