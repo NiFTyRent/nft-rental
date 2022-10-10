@@ -1,12 +1,12 @@
 use near_contract_standards::non_fungible_token::TokenId;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::bs58;
 use near_sdk::collections::UnorderedMap;
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{bs58, PromiseOrValue};
 use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
-    PromiseError,
+    PromiseError, PromiseResult,
 };
 
 pub mod externals;
@@ -30,6 +30,12 @@ pub struct LeaseJson {
     borrower: AccountId,
     expiration: u64, // TODO: duration
     amount_near: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct NftOnTransferJson {
+    lease_id: String,
 }
 
 //struct for keeping track of the lease conditions
@@ -72,8 +78,8 @@ impl Contract {
     }
 
     #[payable]
-    pub fn lending_accept(&mut self, lease_id: LeaseId) -> Promise {
-        // When a borrower accepts the lending, the lease contract does the following:
+    pub fn lending_accept(&mut self, lease_id: LeaseId) {
+        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
         // 1. Retrieve the lease data from the lease_map
         // 2. Check if the tx sender is the borrower
         // 3. Check if the deposit equals rent
@@ -90,22 +96,33 @@ impl Contract {
             "Deposit is less than the agreed rent!"
         );
 
-        // Handle the promise - Update the lease condition only when transfer succeeds
-        let promise = nft::ext(lease_condition.contract_addr.clone())
-            .with_static_gas(Gas(5 * TGAS))
+        let promise = ext_nft::ext(lease_condition.contract_addr.clone())
+            .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
-            .nft_transfer(
+            .nft_transfer_call(
                 env::current_account_id(),
                 lease_condition.token_id.clone(),
-                Some(lease_condition.approval_id),
                 None,
+                format!(r#"{{"lease_id":"{}"}}"#, &lease_id), // message should include the leaseID
             );
 
-        return promise.then(
-            Self::ext(env::current_account_id())
-                .with_static_gas(XCC_GAS)
-                .lending_accept_callback(lease_id),
-        );
+        // let promise = ext_nft::ext(lease_condition.contract_addr.clone())
+        //     .with_static_gas(Gas(5 * TGAS))
+        //     .with_attached_deposit(1)
+        //     .nft_transfer(
+        //         env::current_account_id(),
+        //         lease_condition.token_id.clone(),
+        //         Some(lease_condition.approval_id),
+        //         None,
+        //     );
+        // log!("nft transfer has been called!");
+
+        // // Handle the promise - Update the lease condition only when transfer succeeds
+        // promise.then(
+        //     Self::ext(env::current_account_id())
+        //         .with_static_gas(XCC_GAS)
+        //         .lending_accept_callback(lease_id),
+        // )
     }
 
     #[private] //public - but only callable by enf::current_account_id()
@@ -114,12 +131,16 @@ impl Contract {
         lease_id: LeaseId,
         #[callback_result] call_result: Result<String, PromiseError>,
     ) -> bool {
+        log!("leanding_accpet_callback start. {}", lease_id);
+
+        // Update the lease state, only when transfer succeeds
         if call_result.is_err() {
             log!("Error occured when calling nft_transfer! Lease abandoned.");
             return false;
         }
 
-        // Update the lease state, only when transfer succeeds
+        log!("leanding_accpet_callback check finished. {}", lease_id);
+
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         let new_lease_condition = LeaseCondition {
             state: LeaseState::Active,
@@ -175,7 +196,7 @@ impl Contract {
         );
 
         // 4. transfer nft to owner
-        nft::ext(lease_condition.contract_addr.clone())
+        ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer(
@@ -229,6 +250,56 @@ impl Contract {
     }
 }
 
+trait NonFungibleTokenTransferReceiver {
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
+        msg: String,
+    ) -> bool;
+}
+
+#[near_bindgen]
+impl NonFungibleTokenTransferReceiver for Contract {
+    #[payable]
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
+        msg: String,
+    ) -> bool {
+
+        log!("NFT On Transfer is called! {}", msg);     //Debug
+        let nft_on_transfer_json: NftOnTransferJson =
+            near_sdk::serde_json::from_str(&msg).expect("Not valid msg for nft_on_transfer");
+        log!("lease id: {}", &nft_on_transfer_json.lease_id);   //DEBUG
+
+        return true
+        // match env::promise_result(0) {
+        //     PromiseResult::NotReady => env::abort(),
+
+        //     PromiseResult::Successful(val) => {
+        //         let lease_condition: LeaseCondition =
+        //             self.lease_map.get(&nft_on_transfer_json.lease_id).unwrap();
+        //         let new_lease_condition = LeaseCondition {
+        //             state: LeaseState::Active,
+        //             ..lease_condition
+        //         };
+        //         self.lease_map
+        //             .insert(&nft_on_transfer_json.lease_id, &new_lease_condition);
+        //         return false;
+        //     }
+        //     PromiseResult::Failed => {
+        //         env::panic_str("ERR_CALL_FAILED");
+        //         return true;
+        //     }
+        // }
+    }
+}
+
+//TODO: move nft callback function to separate file e.g. nft_callbacks.rs
 /**
     trait that will be used as the callback from the NFT contract. When nft_approve is
     called, it will fire a cross contract call to this marketplace and this is the function

@@ -5,14 +5,14 @@ pub const TGAS: u64 = 1_000_000_000_000;
 pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
 
 // Interface of this contract, for call backs
-#[ext_contract(this_contract)]
-trait Callbacks {
+#[ext_contract(ext_self)]
+pub trait Callbacks {
     fn lending_accept_callback(&mut self) -> bool;
 }
 
 // NFT interface, for cross-contract calls
-#[ext_contract(nft)]
-trait Nft {
+#[ext_contract(ext_nft)]
+pub trait Nft {
     // cross-contract call
     fn nft_transfer(
         &mut self,
@@ -20,5 +20,13 @@ trait Nft {
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
+    );
+
+    fn nft_transfer_call(
+        &mut self,
+        receiver_id: AccountId,
+        token_id: TokenId,
+        memo: Option<String>,
+        msg: String,
     );
 }
