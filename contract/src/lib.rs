@@ -1,12 +1,11 @@
 use near_contract_standards::non_fungible_token::TokenId;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::bs58;
 use near_sdk::collections::UnorderedMap;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{bs58, PromiseOrValue};
 use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
-    PromiseError, PromiseResult,
 };
 
 pub mod externals;
@@ -96,7 +95,7 @@ impl Contract {
             "Deposit is less than the agreed rent!"
         );
 
-        let promise = ext_nft::ext(lease_condition.contract_addr.clone())
+        ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer_call(
@@ -244,7 +243,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
         self.lease_map
             .insert(&nft_on_transfer_json.lease_id, &new_lease_condition);
 
-        // all updates are competed. Send false, so that nft_resolve_transfer() from nft contract will pick up
+        // all updates are competed. Return false, so that nft_resolve_transfer() from nft contract will pick up
         return false;
     }
 }
