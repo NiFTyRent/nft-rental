@@ -105,49 +105,6 @@ impl Contract {
                 None,
                 format!(r#"{{"lease_id":"{}"}}"#, &lease_id), // message should include the leaseID
             );
-
-        // let promise = ext_nft::ext(lease_condition.contract_addr.clone())
-        //     .with_static_gas(Gas(5 * TGAS))
-        //     .with_attached_deposit(1)
-        //     .nft_transfer(
-        //         env::current_account_id(),
-        //         lease_condition.token_id.clone(),
-        //         Some(lease_condition.approval_id),
-        //         None,
-        //     );
-        // log!("nft transfer has been called!");
-
-        // // Handle the promise - Update the lease condition only when transfer succeeds
-        // promise.then(
-        //     Self::ext(env::current_account_id())
-        //         .with_static_gas(XCC_GAS)
-        //         .lending_accept_callback(lease_id),
-        // )
-    }
-
-    #[private] //public - but only callable by enf::current_account_id()
-    pub fn lending_accept_callback(
-        &mut self,
-        lease_id: LeaseId,
-        #[callback_result] call_result: Result<String, PromiseError>,
-    ) -> bool {
-        log!("leanding_accpet_callback start. {}", lease_id);
-
-        // Update the lease state, only when transfer succeeds
-        if call_result.is_err() {
-            log!("Error occured when calling nft_transfer! Lease abandoned.");
-            return false;
-        }
-
-        log!("leanding_accpet_callback check finished. {}", lease_id);
-
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-        let new_lease_condition = LeaseCondition {
-            state: LeaseState::Active,
-            ..lease_condition
-        };
-        self.lease_map.insert(&lease_id, &new_lease_condition);
-        true
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -270,32 +227,25 @@ impl NonFungibleTokenTransferReceiver for Contract {
         token_id: TokenId,
         msg: String,
     ) -> bool {
-
-        log!("NFT On Transfer is called! {}", msg);     //Debug
         let nft_on_transfer_json: NftOnTransferJson =
             near_sdk::serde_json::from_str(&msg).expect("Not valid msg for nft_on_transfer");
-        log!("lease id: {}", &nft_on_transfer_json.lease_id);   //DEBUG
 
-        return true
-        // match env::promise_result(0) {
-        //     PromiseResult::NotReady => env::abort(),
+        log!(
+            " Updating lease condition for lease_id: {}",
+            &nft_on_transfer_json.lease_id
+        );
 
-        //     PromiseResult::Successful(val) => {
-        //         let lease_condition: LeaseCondition =
-        //             self.lease_map.get(&nft_on_transfer_json.lease_id).unwrap();
-        //         let new_lease_condition = LeaseCondition {
-        //             state: LeaseState::Active,
-        //             ..lease_condition
-        //         };
-        //         self.lease_map
-        //             .insert(&nft_on_transfer_json.lease_id, &new_lease_condition);
-        //         return false;
-        //     }
-        //     PromiseResult::Failed => {
-        //         env::panic_str("ERR_CALL_FAILED");
-        //         return true;
-        //     }
-        // }
+        let lease_condition: LeaseCondition =
+            self.lease_map.get(&nft_on_transfer_json.lease_id).unwrap();
+        let new_lease_condition = LeaseCondition {
+            state: LeaseState::Active,
+            ..lease_condition
+        };
+        self.lease_map
+            .insert(&nft_on_transfer_json.lease_id, &new_lease_condition);
+
+        // all updates are competed. Send false, so that nft_resolve_transfer() from nft contract will pick up
+        return false;
     }
 }
 

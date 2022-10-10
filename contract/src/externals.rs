@@ -4,11 +4,10 @@ use near_sdk::{ext_contract, AccountId, Gas};
 pub const TGAS: u64 = 1_000_000_000_000;
 pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
 
-// Interface of this contract, for call backs
-#[ext_contract(ext_self)]
-pub trait Callbacks {
-    fn lending_accept_callback(&mut self) -> bool;
-}
+// // Interface of this contract, for call backs - place holder
+// #[ext_contract(ext_self)]
+// pub trait Callbacks {
+// }
 
 // NFT interface, for cross-contract calls
 #[ext_contract(ext_nft)]
