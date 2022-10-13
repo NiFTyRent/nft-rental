@@ -102,9 +102,10 @@ impl Contract {
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer_call(
-                env::current_account_id(),
-                lease_condition.token_id.clone(),
-                None,
+                env::current_account_id(),                    // receiver_id
+                lease_condition.token_id.clone(),             // token_id
+                None,                                         // approval_id
+                None,                                         // memo
                 format!(r#"{{"lease_id":"{}"}}"#, &lease_id), // message should include the leaseID
             );
     }
@@ -209,12 +210,17 @@ impl Contract {
     }
 }
 
+// TODO: move this callback function trait to a separate file e.g. nft_callbacks.rs
+/**
+    Train that will handle the cross contract call from NFT contract. When nft.nft_transfer_call is called,
+    it will fire a cross contract call to this_contract.nft_on_transfer(). For deails, refer to NEP-171.
+*/
 trait NonFungibleTokenTransferReceiver {
     fn nft_on_transfer(
         &mut self,
-        sender_id: AccountId,
-        previous_owner_id: AccountId,
-        token_id: TokenId,
+        sender_id: AccountId, // account that initiated the nft.nft_transfer_call(). e.g. current contract
+        previous_owner_id: AccountId, // old owner of the token
+        token_id: TokenId,    // NFT token id
         msg: String,
     ) -> bool;
 }
@@ -229,6 +235,13 @@ impl NonFungibleTokenTransferReceiver for Contract {
         token_id: TokenId,
         msg: String,
     ) -> bool {
+        // This function can only be called by initial transfer sender, which should be the current lease contract.
+        assert_eq!(
+            sender_id,
+            env::current_account_id(),
+            "sender_id does NOT match current contract id!"
+        );
+
         let nft_on_transfer_json: NftOnTransferJson =
             near_sdk::serde_json::from_str(&msg).expect("Not valid msg for nft_on_transfer");
 
