@@ -48,7 +48,8 @@ export async function newLease(
       account_id: nearConfig.contractName,
       msg: message,
     },
-    amount: "500000000000000000000",
+    gas: "300000000000000",
+    amount: "1000000000000000000000",
   });
   return tokens;
 }
