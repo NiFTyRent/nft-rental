@@ -1,8 +1,5 @@
 use near_contract_standards::non_fungible_token::TokenId;
-use near_sdk::{ext_contract, AccountId, Gas};
-
-pub const TGAS: u64 = 1_000_000_000_000;
-pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
+use near_sdk::{ext_contract, AccountId};
 
 // // Interface of this contract, for call backs - place holder
 // #[ext_contract(ext_self)]

@@ -8,6 +8,9 @@ use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
 
+pub const TGAS: u64 = 1_000_000_000_000;
+pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
+
 pub mod externals;
 pub use crate::externals::*;
 
@@ -104,7 +107,6 @@ impl Contract {
                 None,
                 format!(r#"{{"lease_id":"{}"}}"#, &lease_id), // message should include the leaseID
             );
-    
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
