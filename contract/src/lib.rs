@@ -57,7 +57,7 @@ pub struct LeaseCondition {
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     owner: AccountId,
-    lease_map: UnorderedMap<LeaseId, LeaseCondition>, // <lending_id, lending>, storing all Lease records
+    lease_map: UnorderedMap<LeaseId, LeaseCondition>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -104,6 +104,7 @@ impl Contract {
                 None,
                 format!(r#"{{"lease_id":"{}"}}"#, &lease_id), // message should include the leaseID
             );
+    
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -230,7 +231,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
             near_sdk::serde_json::from_str(&msg).expect("Not valid msg for nft_on_transfer");
 
         log!(
-            " Updating lease condition for lease_id: {}",
+            "Updating lease condition for lease_id: {}",
             &nft_on_transfer_json.lease_id
         );
 
@@ -243,12 +244,12 @@ impl NonFungibleTokenTransferReceiver for Contract {
         self.lease_map
             .insert(&nft_on_transfer_json.lease_id, &new_lease_condition);
 
-        // all updates are competed. Return false, so that nft_resolve_transfer() from nft contract will pick up
+        // all updates are completed. Return false, so that nft_resolve_transfer() from nft contract will not revert this transfer
         return false;
     }
 }
 
-//TODO: move nft callback function to separate file e.g. nft_callbacks.rs
+// TODO: move nft callback function to separate file e.g. nft_callbacks.rs
 /**
     trait that will be used as the callback from the NFT contract. When nft_approve is
     called, it will fire a cross contract call to this marketplace and this is the function
