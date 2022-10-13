@@ -1,24 +1,18 @@
 use near_contract_standards::non_fungible_token::TokenId;
+
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::bs58;
 use near_sdk::collections::UnorderedMap;
-use near_sdk::ext_contract;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    env, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
 
-#[ext_contract(nft)]
-trait Nft {
-    fn nft_transfer(
-        &mut self,
-        receiver_id: AccountId,
-        token_id: TokenId,
-        approval_id: Option<u64>,
-        memo: Option<String>,
-    );
-}
 pub const TGAS: u64 = 1_000_000_000_000;
+pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
+
+pub mod externals;
+pub use crate::externals::*;
 
 type LeaseId = String;
 
@@ -40,45 +34,38 @@ pub struct LeaseJson {
     amount_near: String,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct NftOnTransferJson {
+    lease_id: String,
+}
+
 //struct for keeping track of the lease conditions
 #[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
+
+/// Details about a Lease
 pub struct LeaseCondition {
-    contract_addr: AccountId,
-    token_id: TokenId,
-    owner_id: AccountId,
-    borrower: AccountId,
-    approval_id: u64,
-    expiration: u64, // TODO: duration
-    amount_near: u128,
-    state: LeaseState,
+    contract_addr: AccountId, // NFT contract
+    token_id: TokenId,        // NFT token
+    owner_id: AccountId,      // Owner of the NFT
+    borrower: AccountId,      // Borrower of the NFT
+    approval_id: u64,         // Approval from owner to lease
+    expiration: u64,          // TODO: duration
+    amount_near: u128,        // proposed lease cost
+    state: LeaseState,        // current lease state
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     owner: AccountId,
-    lease_map: UnorderedMap<LeaseId, LeaseCondition>, // (lending_id, lending)
+    lease_map: UnorderedMap<LeaseId, LeaseCondition>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
 enum StorageKey {
     LendingsKey,
-}
-
-/*
-    trait that will be used as the callback from the NFT contract. When nft_approve is
-    called, it will fire a cross contract call to this marketplace and this is the function
-    that is invoked.
-*/
-trait NonFungibleTokenApprovalsReceiver {
-    fn nft_on_approve(
-        &mut self,
-        token_id: TokenId,
-        owner_id: AccountId,
-        approval_id: u64,
-        msg: String,
-    );
 }
 
 #[near_bindgen]
@@ -94,11 +81,12 @@ impl Contract {
 
     #[payable]
     pub fn lending_accept(&mut self, lease_id: LeaseId) {
-        // 1. retrieve the lease data from the lease_map
-        // 2. Check is the tx send eq the borrower
-        // 3. Check the deposit is eq rent
-        // 4. transfer the NFT to the contract
-        // 5. update the state
+        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
+        // 1. Retrieve the lease data from the lease_map
+        // 2. Check if the tx sender is the borrower
+        // 3. Check if the deposit equals rent
+        // 4. Transfer the NFT to the lease contract
+        // 5. Update the lease state, when transfer succeeds
 
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         assert!(
@@ -109,22 +97,17 @@ impl Contract {
             env::attached_deposit() >= lease_condition.amount_near,
             "Deposit is less than the agreed rent!"
         );
-        // TODO: Handle the promise
-        nft::ext(lease_condition.contract_addr.clone())
-            .with_static_gas(Gas(5 * TGAS))
-            .with_attached_deposit(1)
-            .nft_transfer(
-                env::current_account_id(),
-                lease_condition.token_id.clone(),
-                Some(lease_condition.approval_id),
-                None,
-            );
 
-        let new_lease_condition = LeaseCondition {
-            state: LeaseState::Active,
-            ..lease_condition
-        };
-        self.lease_map.insert(&lease_id, &new_lease_condition);
+        ext_nft::ext(lease_condition.contract_addr.clone())
+            .with_static_gas(Gas(10 * TGAS))
+            .with_attached_deposit(1)
+            .nft_transfer_call(
+                env::current_account_id(),                    // receiver_id
+                lease_condition.token_id.clone(),             // token_id
+                None,                                         // approval_id
+                None,                                         // memo
+                format!(r#"{{"lease_id":"{}"}}"#, &lease_id), // message should include the leaseID
+            );
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -173,7 +156,7 @@ impl Contract {
         );
 
         // 4. transfer nft to owner
-        let promise = nft::ext(lease_condition.contract_addr.clone())
+        ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer(
@@ -188,11 +171,12 @@ impl Contract {
     }
 
     fn transfer(&self, to: AccountId, amount: Balance) {
+        // helper function to perform FT transfer
         Promise::new(to).transfer(amount);
     }
 
     pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
-        // return the current borrower of the NFTd
+        // return the current borrower of the NFTs
         // TODO: use better data structure to optimise this operation.
         for lease in self.lease_map.iter() {
             if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
@@ -204,7 +188,7 @@ impl Contract {
 
     pub fn proxy_func_calls(&self, contract_id: AccountId, method_name: String, args: String) {
         // proxy function to open accessible functions calls in a NFT contract during lease
-        let mut promise = Promise::new(contract_id.clone());
+        let promise = Promise::new(contract_id.clone());
 
         // TODO: allow the lend to define white list of method names.
         // unreachable methods in leased NFT contract
@@ -226,11 +210,78 @@ impl Contract {
     }
 }
 
-//implementation of the trait
+// TODO: move this callback function trait to a separate file e.g. nft_callbacks.rs
+/**
+    Train that will handle the cross contract call from NFT contract. When nft.nft_transfer_call is called,
+    it will fire a cross contract call to this_contract.nft_on_transfer(). For deails, refer to NEP-171.
+*/
+trait NonFungibleTokenTransferReceiver {
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId, // account that initiated the nft.nft_transfer_call(). e.g. current contract
+        previous_owner_id: AccountId, // old owner of the token
+        token_id: TokenId,    // NFT token id
+        msg: String,
+    ) -> bool;
+}
+
+#[near_bindgen]
+impl NonFungibleTokenTransferReceiver for Contract {
+    #[payable]
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
+        msg: String,
+    ) -> bool {
+        // This function can only be called by initial transfer sender, which should be the current lease contract.
+        assert_eq!(
+            sender_id,
+            env::current_account_id(),
+            "sender_id does NOT match current contract id!"
+        );
+
+        let nft_on_transfer_json: NftOnTransferJson =
+            near_sdk::serde_json::from_str(&msg).expect("Not valid msg for nft_on_transfer");
+
+        log!(
+            "Updating lease condition for lease_id: {}",
+            &nft_on_transfer_json.lease_id
+        );
+
+        let lease_condition: LeaseCondition =
+            self.lease_map.get(&nft_on_transfer_json.lease_id).unwrap();
+        let new_lease_condition = LeaseCondition {
+            state: LeaseState::Active,
+            ..lease_condition
+        };
+        self.lease_map
+            .insert(&nft_on_transfer_json.lease_id, &new_lease_condition);
+
+        // all updates are completed. Return false, so that nft_resolve_transfer() from nft contract will not revert this transfer
+        return false;
+    }
+}
+
+// TODO: move nft callback function to separate file e.g. nft_callbacks.rs
+/**
+    trait that will be used as the callback from the NFT contract. When nft_approve is
+    called, it will fire a cross contract call to this marketplace and this is the function
+    that is invoked.
+*/
+trait NonFungibleTokenApprovalsReceiver {
+    fn nft_on_approve(
+        &mut self,
+        token_id: TokenId,
+        owner_id: AccountId,
+        approval_id: u64,
+        msg: String,
+    );
+}
 #[near_bindgen]
 impl NonFungibleTokenApprovalsReceiver for Contract {
     /// where we add the sale because we know nft owner can only call nft_approve
-
     #[payable]
     fn nft_on_approve(
         &mut self,
