@@ -24,7 +24,7 @@ pub trait Nft {
         receiver_id: AccountId,   // account to receive the token
         token_id: TokenId,        // nft token to be sent
         approval_id: Option<u64>, // approval ID, in case transfer is sent from ppl with valid approval
-        memo: Option<String>,     
-        msg: String,              // info needed by the receiving contract to handl the transfer.
+        memo: Option<String>,
+        msg: String, // info needed by the receiving contract to handl the transfer.
     );
 }
