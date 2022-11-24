@@ -40,7 +40,7 @@ pub struct NftOnTransferJson {
     lease_id: String,
 }
 
-//struct for keeping track of the lease conditions
+// struct for keeping track of the lease conditions
 #[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 
