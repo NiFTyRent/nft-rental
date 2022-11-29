@@ -16,6 +16,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 workspaces = "0.4.0"
 pkg-config = "0.3.1"
+near-sdk = "4.0.0"
+# testing-contract = { path = "../con", version = "1.0" }
+
 
 [[example]]
 name = "integration-tests"
