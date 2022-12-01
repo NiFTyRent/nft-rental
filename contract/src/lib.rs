@@ -387,15 +387,95 @@ mod tests {
         assert_eq!(expiration, lease_condition.expiration);
     }
 
-    // lending_accept: wrong borrower
-    // lending_accept: insufficient deposit
-    // lending_accept: success
+    #[test]
+    #[should_panic(expected = "Borrower is not the same one!")]
+    fn test_lending_accept_wrong_borrower() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition();
+        let key = "test_key".to_string();
+
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let wrong_borrower: AccountId = accounts(4).into();
+        get_context(wrong_borrower.clone()).build();
+        contract.lending_accept(key);
+    }
+
+    #[test]
+    fn test_lending_accept_correct_borrower() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition();
+        let key = "test_key".to_string();
+
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let mut context = get_context(lease_condition.borrower.clone());
+
+        testing_env!(context
+            .attached_deposit(lease_condition.amount_near)
+            .build());
+        contract.lending_accept(key);
+    }
+
+    #[test]
+    fn test_lending_accept_insufficient_deposit() {
+        todo!()
+    }
+
+    #[test]
+    #[should_panic(expected = "Lease has not expired yet!")]
+    fn test_claim_back_not_expired_yet() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition();
+
+        lease_condition.state = LeaseState::Active;
+        lease_condition.expiration = 1000;
+
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let mut context = get_context(lease_condition.owner_id.clone());
+
+        testing_env!(context
+            .block_timestamp(lease_condition.expiration - 1)
+            .build());
+        contract.claim_back(key);
+    }
+
+    #[test]
+    fn test_claim_back_wrong_lender() {
+        todo!()
+    }
+
+    fn create_lease_condition() -> LeaseCondition {
+        let token_id: TokenId = "test_token".to_string();
+        let approval_id = 1;
+        let lender: AccountId = accounts(2).into();
+        let borrower: AccountId = accounts(3).into();
+        let nft_address: AccountId = accounts(4).into();
+        let expiration = 1000;
+        let amount_near = 1;
+
+        let lease_condition: LeaseCondition = LeaseCondition {
+            owner_id: lender.clone(),
+            approval_id,
+            contract_addr: nft_address.clone(),
+            token_id: token_id.clone(),
+            borrower: borrower.clone(),
+            expiration: expiration.clone(),
+            amount_near: amount_near,
+            state: LeaseState::Pending,
+        };
+
+        return lease_condition;
+    }
+
     // (Maybe integration test) lending_accept: NFT already lent
     // (Maybe integration test) lending_accept: NFT has been transfered to other account
-    //
+
     // leases_by_owner: only returns owner's leases
     // leases_by_borrower: only returns borrower's leases
-    //
+
     // claim_back: not expired yet
     // claim_back: inactive lease
     // claim_back: missing lease
