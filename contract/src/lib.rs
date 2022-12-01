@@ -318,6 +318,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+    use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::testing_env;
 
@@ -337,14 +338,69 @@ mod tests {
     // TODO: Add tests
     #[test]
     fn test_new() {
-        let mut context = get_context(accounts(0));
-        testing_env!(context.build());
+        // let mut context = get_context(accounts(0));
+        // testing_env!(context.build());
+        let contract = Contract::new(accounts(1).into());
+        assert_eq!(accounts(1), contract.owner);
+        assert!(UnorderedMap::is_empty(&contract.lease_map));
+
+        // testing_env!(context
+        //     .storage_usage(env::storage_usage())
+        //     .attached_deposit(MINT_COST)
+        //     .predecessor_account_id(accounts(0))
+        //     .build());
+    }
+
+    #[test]
+    fn test_nft_on_approve_success() {
         let mut contract = Contract::new(accounts(1).into());
 
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(MINT_COST)
-            .predecessor_account_id(accounts(0))
-            .build());
+        let token_id: TokenId = "test_token".to_string();
+        let approval_id = 1;
+        let lender: AccountId = accounts(2).into();
+        let borrower: AccountId = accounts(3).into();
+        let nft_address: AccountId = accounts(4).into();
+        let expiration = 1000;
+        let amount_near = 1;
+
+        contract.nft_on_approve(
+            token_id.clone(),
+            lender.clone(),
+            approval_id,
+            json!({
+                "contract_addr": nft_address,
+                "token_id": token_id.clone(),
+                "borrower": borrower,
+                "expiration": expiration,
+                "amount_near": amount_near.to_string()
+            })
+            .to_string(),
+        );
+        assert!(!contract.lease_map.is_empty());
+        let lease_condition = &contract.leases_by_owner(lender.clone())[0].1;
+
+        assert_eq!(nft_address, lease_condition.contract_addr);
+        assert_eq!(token_id, lease_condition.token_id);
+        assert_eq!(lender, lease_condition.owner_id);
+        assert_eq!(borrower, lease_condition.borrower);
+        assert_eq!(amount_near, lease_condition.amount_near);
+        assert_eq!(expiration, lease_condition.expiration);
     }
+
+    // lending_accept: wrong borrower
+    // lending_accept: insufficient deposit
+    // lending_accept: success
+    // (Maybe integration test) lending_accept: NFT already lent
+    // (Maybe integration test) lending_accept: NFT has been transfered to other account
+    //
+    // leases_by_owner: only returns owner's leases
+    // leases_by_borrower: only returns borrower's leases
+    //
+    // claim_back: not expired yet
+    // claim_back: inactive lease
+    // claim_back: missing lease
+    // claim_back: success
+    //
+    // get_borrower: not found
+    // get_borrower: success
 }
