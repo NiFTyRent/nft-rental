@@ -411,7 +411,6 @@ mod tests {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
         let key = "test_key".to_string();
-
         contract.lease_map.insert(&key, &lease_condition);
 
         let mut context = get_context(lease_condition.borrower.clone());
@@ -423,8 +422,20 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Deposit is less than the agreed rent!")]
     fn test_lending_accept_insufficient_deposit() {
-        todo!()
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let mut context = get_context(lease_condition.borrower.clone());
+
+        testing_env!(context
+            .attached_deposit(lease_condition.amount_near - 1)
+            .build());
+
+        contract.lending_accept(key);
     }
 
     #[test]
@@ -439,8 +450,7 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut context = get_context(
-            lease_condition.owner_id.clone());
+        let mut context = get_context(lease_condition.owner_id.clone());
 
         testing_env!(context
             .block_timestamp(lease_condition.expiration - 1)
@@ -457,8 +467,7 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut context = get_context(
-            accounts(5).into());
+        let mut context = get_context(accounts(5).into());
 
         testing_env!(context
             .block_timestamp(lease_condition.expiration + 1)
@@ -475,7 +484,7 @@ mod tests {
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
         let expiration = 1000;
-        let amount_near = 1;
+        let amount_near = 5;
 
         create_lease_condition(
             nft_address,
