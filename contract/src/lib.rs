@@ -158,7 +158,7 @@ impl Contract {
         // 4. send rent to owner
         self.transfer(
             lease_condition.owner_id.clone(),
-            lease_condition.amount_near,
+            lease_condition.amount_near,  //TODO: check if this needs to be converted to yocto
         );
 
         // 5. transfer nft to owner
