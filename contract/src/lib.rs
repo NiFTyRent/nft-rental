@@ -149,10 +149,11 @@ impl Contract {
             "Querying Lease is no longer active!"
         );
 
-        // 3. only original lender can claim back from expried lease
+        // 3. only original lender or service contract owner can claim back from expried lease
         assert!(
-            lease_condition.owner_id == env::predecessor_account_id(),
-            "Only original lender can claim back!"
+            (lease_condition.owner_id == env::predecessor_account_id())
+            ||(self.owner == env::predecessor_account_id()),
+            "Only original lender or service owner can claim back!"
         );
 
         // 4. send rent to owner
@@ -460,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Only original lender can claim back!")]
+    #[should_panic(expected = "Only original lender or service owner can claim back!")]
     fn test_claim_back_wrong_lender() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
