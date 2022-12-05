@@ -324,6 +324,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+    use near_sdk::env::log;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::testing_env;
@@ -332,7 +333,7 @@ mod tests {
 
     const MINT_COST: u128 = 1000000000000000000000000;
 
-    fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
+    fn get_context_builder(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
         builder
             .current_account_id(accounts(0))
@@ -402,7 +403,7 @@ mod tests {
         contract.lease_map.insert(&key, &lease_condition);
 
         let wrong_borrower: AccountId = accounts(4).into();
-        get_context(wrong_borrower.clone()).build();
+        get_context_builder(wrong_borrower.clone()).build();
         contract.lending_accept(key);
     }
 
@@ -413,9 +414,9 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut context = get_context(lease_condition.borrower.clone());
+        let mut builder = get_context_builder(lease_condition.borrower.clone());
 
-        testing_env!(context
+        testing_env!(builder
             .attached_deposit(lease_condition.amount_near)
             .build());
         contract.lending_accept(key);
@@ -429,9 +430,9 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut context = get_context(lease_condition.borrower.clone());
+        let mut builder = get_context_builder(lease_condition.borrower.clone());
 
-        testing_env!(context
+        testing_env!(builder
             .attached_deposit(lease_condition.amount_near - 1)
             .build());
 
@@ -450,9 +451,9 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut context = get_context(lease_condition.owner_id.clone());
+        let mut builder = get_context_builder(lease_condition.owner_id.clone());
 
-        testing_env!(context
+        testing_env!(builder
             .block_timestamp(lease_condition.expiration - 1)
             .build());
         contract.claim_back(key);
@@ -467,13 +468,79 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut context = get_context(accounts(5).into());
+        let mut builder = get_context_builder(accounts(5).into());
 
-        testing_env!(context
+        testing_env!(builder
             .block_timestamp(lease_condition.expiration + 1)
             .build());
 
         contract.claim_back(key);
+    }
+
+    #[test]
+    #[should_panic(expected = "Querying Lease is no longer active!")]
+    fn test_claim_back_inactive_lease() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Expired;
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let mut builder = get_context_builder(lease_condition.owner_id.clone());
+
+        testing_env!(builder
+            .block_timestamp(lease_condition.expiration + 1)
+            .build());
+
+        contract.claim_back(key);
+    }
+
+    // claim_back: missing lease
+
+    // claim_back: success
+    #[test]
+    fn test_claim_back_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+        lease_condition.amount_near = 20;
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let initial_balance: u128 = 100;
+        let mut builder = get_context_builder(lease_condition.owner_id.clone());
+
+        testing_env!(builder
+            .storage_usage(env::storage_usage())
+            .account_balance(initial_balance) //set initial balance
+            .block_timestamp(lease_condition.expiration + 1)
+            .build());
+
+        contract.claim_back(key);
+
+        testing_env!(builder
+            .storage_usage(env::storage_usage())
+            .account_balance(env::account_balance())
+            .build());
+
+        assert!(
+            // service account balance should be reduced by the lease amount.
+            // -1 due to gas cost
+            builder.context.account_balance == (initial_balance - lease_condition.amount_near) - 1
+        );
+        assert!(contract.lease_map.is_empty());
+        // TODO: NFT transfer check
+        // TODO: ft_balance_of() to check lease amount receival.
+    }
+
+    #[test]
+    fn test_leases_by_borrower() {
+        todo!()
+    }
+
+    #[test]
+    fn test_leases_by_owner() {
+        todo!()
     }
 
     // Helper function to return a lease condition using default seting
@@ -524,13 +591,6 @@ mod tests {
     // (Maybe integration test) lending_accept: NFT already lent
     // (Maybe integration test) lending_accept: NFT has been transfered to other account
 
-    // leases_by_owner: only returns owner's leases
-    // leases_by_borrower: only returns borrower's leases
-
-    // claim_back: not expired yet
-    // claim_back: inactive lease
-    // claim_back: missing lease
-    // claim_back: success
     //
     // get_borrower: not found
     // get_borrower: success
