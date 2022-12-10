@@ -554,14 +554,77 @@ mod tests {
         // TODO: ft_balance_of() to check lease amount receival.
     }
 
+    // #[test]
+    // fn test_leases_by_borrower_success() {
+    //     todo!()
+    // }
+
+    // #[test]
+    // fn test_leases_by_owner_success() {
+    //     todo!()
+    // }
+
     #[test]
-    fn test_leases_by_borrower() {
-        todo!()
+    fn test_get_borrower_not_found() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let expected_contract_address: AccountId = accounts(4).into();
+        let expected_token_id = "test_token".to_string();
+        let expected_borrower_id: AccountId = accounts(3).into();
+
+        lease_condition.state = LeaseState::Active;
+        lease_condition.contract_addr = expected_contract_address.clone();
+        lease_condition.token_id = expected_token_id.clone();
+        lease_condition.borrower = expected_borrower_id.clone();
+
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+        let mut builder = get_context_builder(lease_condition.owner_id.clone());
+
+        testing_env!(builder
+            .block_timestamp(lease_condition.expiration + 1)
+            .build());
+
+        let test_contract_id: AccountId = accounts(5).into();
+        let test_token_id = "dummy_token".to_string();
+
+        let result_borrower =
+            contract.get_borrower(test_contract_id.clone(), expected_token_id.clone());
+        assert!(result_borrower.is_none());
+
+        let result_borrower =
+            contract.get_borrower(expected_contract_address.clone(), test_token_id.clone());
+        assert!(result_borrower.is_none());
     }
 
     #[test]
-    fn test_leases_by_owner() {
-        todo!()
+    fn test_get_borrower_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let expected_contract_address: AccountId = accounts(4).into();
+        let expected_token_id = "test_token".to_string();
+        let expected_borrower_id: AccountId = accounts(3).into();
+
+        lease_condition.state = LeaseState::Active;
+        lease_condition.contract_addr = expected_contract_address.clone();
+        lease_condition.token_id = expected_token_id.clone();
+        lease_condition.borrower = expected_borrower_id.clone();
+
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let mut builder = get_context_builder(lease_condition.owner_id.clone());
+
+        testing_env!(builder
+            .block_timestamp(lease_condition.expiration + 1)
+            .build());
+
+        let result_borrower = contract
+            .get_borrower(expected_contract_address, expected_token_id)
+            .unwrap();
+        assert!(result_borrower == expected_borrower_id)
     }
 
     // Helper function to return a lease condition using default seting
@@ -608,8 +671,4 @@ mod tests {
             state: state,
         }
     }
-
-    //
-    // get_borrower: not found
-    // get_borrower: success
 }
