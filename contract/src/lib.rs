@@ -554,16 +554,6 @@ mod tests {
         // TODO: ft_balance_of() to check lease amount receival.
     }
 
-    // #[test]
-    // fn test_leases_by_borrower_success() {
-    //     todo!()
-    // }
-
-    // #[test]
-    // fn test_leases_by_owner_success() {
-    //     todo!()
-    // }
-
     #[test]
     fn test_get_borrower_not_found() {
         let mut contract = Contract::new(accounts(1).into());
@@ -625,6 +615,68 @@ mod tests {
             .get_borrower(expected_contract_address, expected_token_id)
             .unwrap();
         assert!(result_borrower == expected_borrower_id)
+    }
+
+    #[test]
+    fn test_leases_by_borrower_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        let expected_borrower_id: AccountId = accounts(3).into();
+
+        let mut lease_condition_1 = create_lease_condition_default();
+        lease_condition_1.state = LeaseState::Active;
+        lease_condition_1.token_id = "test_token_1".to_string();
+        lease_condition_1.borrower = expected_borrower_id.clone();
+
+        let key_1 = "test_key_1".to_string();
+        contract.lease_map.insert(&key_1, &lease_condition_1);
+
+        let mut lease_condition_2 = create_lease_condition_default();
+        lease_condition_2.state = LeaseState::Active;
+        lease_condition_2.token_id = "test_token_2".to_string();
+        lease_condition_2.borrower = expected_borrower_id.clone();
+
+        let key_2 = "test_key_2".to_string();
+        contract.lease_map.insert(&key_2, &lease_condition_2);
+
+        let mut builder = get_context_builder(lease_condition_1.owner_id.clone());
+        testing_env!(builder
+            .block_timestamp(lease_condition_1.expiration + 1)
+            .predecessor_account_id(lease_condition_1.owner_id.clone())
+            .build());
+
+        let result = contract.leases_by_borrower(expected_borrower_id.clone());
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_leases_by_owner_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        let expected_owner_id: AccountId = accounts(2).into();
+
+        let mut lease_condition_1 = create_lease_condition_default();
+        lease_condition_1.state = LeaseState::Active;
+        lease_condition_1.token_id = "test_token_1".to_string();
+        lease_condition_1.owner_id = expected_owner_id.clone();
+
+        let key_1 = "test_key_1".to_string();
+        contract.lease_map.insert(&key_1, &lease_condition_1);
+
+        let mut lease_condition_2 = create_lease_condition_default();
+        lease_condition_2.state = LeaseState::Active;
+        lease_condition_2.token_id = "test_token_2".to_string();
+        lease_condition_2.owner_id = expected_owner_id.clone();
+
+        let key_2 = "test_key_2".to_string();
+        contract.lease_map.insert(&key_2, &lease_condition_2);
+
+        let mut builder = get_context_builder(lease_condition_1.owner_id.clone());
+        testing_env!(builder
+            .block_timestamp(lease_condition_1.expiration + 1)
+            .predecessor_account_id(lease_condition_1.owner_id.clone())
+            .build());
+
+        let result = contract.leases_by_owner(expected_owner_id.clone());
+        assert_eq!(result.len(), 2);
     }
 
     // Helper function to return a lease condition using default seting
