@@ -342,7 +342,7 @@ mod tests {
     const MINT_COST: u128 = 1000000000000000000000000;
 
     // Helper functions
-    // TODO(syu): remove input parameter and set default value
+    // TODO(syu): check if need to remove input parameter and set default value
     fn get_context_builder(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
         builder
