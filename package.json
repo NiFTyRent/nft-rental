@@ -22,6 +22,7 @@
     "test": "yarn test:unit && yarn test:integration",
     "test:unit": "cd contract && cargo test",
     "test:integration": "yarn build:contract && yarn build:demo_nft && cd integration-tests && cargo test --test integration -- --nocapture",
+    "test:gas": "yarn build:contract && yarn build:demo_nft && cd integration-tests && cargo test --test gas_usage -- --nocapture",
     "deps-install": "yarn install && cd frontend && yarn install && cd ..",
     "deps-install:demo_web": "yarn install && cd demo_nft_frontend && yarn install && cd .."
   },
