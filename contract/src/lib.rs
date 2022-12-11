@@ -339,10 +339,7 @@ mod tests {
 
     use super::*;
 
-    const MINT_COST: u128 = 1000000000000000000000000;
-
-    // Helper functions
-    // TODO(syu): check if need to remove input parameter and set default value
+    // TODO(syu): replace this function by using VMContextBuilder::new() directly.
     fn get_context_builder(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
         builder
@@ -605,11 +602,7 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut builder = get_context_builder(lease_condition.owner_id.clone());
-
-        testing_env!(builder
-            .block_timestamp(lease_condition.expiration + 1)
-            .build());
+        get_context_builder(lease_condition.owner_id.clone()).build();
 
         let result_borrower = contract
             .get_borrower(expected_contract_address, expected_token_id)
