@@ -547,8 +547,6 @@ mod tests {
             builder.context.account_balance == (initial_balance - lease_condition.amount_near) - 1
         );
         assert!(contract.lease_map.is_empty());
-        // TODO: NFT transfer check
-        // TODO: ft_balance_of() to check lease amount receival.
     }
 
     #[test]
@@ -567,11 +565,7 @@ mod tests {
 
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
-        let mut builder = get_context_builder(lease_condition.owner_id.clone());
-
-        testing_env!(builder
-            .block_timestamp(lease_condition.expiration + 1)
-            .build());
+        get_context_builder(lease_condition.owner_id.clone()).build();
 
         let test_contract_id: AccountId = accounts(5).into();
         let test_token_id = "dummy_token".to_string();
