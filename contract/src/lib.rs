@@ -11,7 +11,6 @@ use near_sdk::{
 
 pub const TGAS: u64 = 1_000_000_000_000;
 pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
-pub const NEAR_TO_YACTO: u128 = 1_000_000_000_000_000_000_000_000;
 
 pub mod externals;
 pub use crate::externals::*;
@@ -334,7 +333,7 @@ mod tests {
     */
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::testing_env;
+    use near_sdk::{testing_env, ONE_NEAR};
 
     use super::*;
 
@@ -365,7 +364,7 @@ mod tests {
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
         let expiration = 1000;
-        let price = 1 * NEAR_TO_YACTO;
+        let price = 1 * ONE_NEAR;
 
         contract.nft_on_approve(
             token_id.clone(),
