@@ -189,9 +189,9 @@ async fn test_create_lease() -> anyhow::Result<()> {
 
 
 // TODO: lending_accept - NFT already lent
-// TODO: lending_accept - NFT has been transfered to other account
+// TODO: lending_accept - NFT has been transferred to other account
 // TODO: claim_back - NFT transfer check
-// TODO: claim_back - check lease amount receival, probably by using ft_balance_of().
+// TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
 
 
 // async fn test_changes_message(
