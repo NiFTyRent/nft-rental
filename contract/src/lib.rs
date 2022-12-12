@@ -3,6 +3,7 @@ use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::bs58;
 use near_sdk::collections::UnorderedMap;
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
@@ -10,17 +11,19 @@ use near_sdk::{
 
 pub const TGAS: u64 = 1_000_000_000_000;
 pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
+pub const NEAR_TO_YACTO: u128 = 1_000_000_000_000_000_000_000_000;
 
 pub mod externals;
 pub use crate::externals::*;
 
 type LeaseId = String;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, PartialEq)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
 enum LeaseState {
     Pending,
     Active,
+    // TODO(libo): Expired is not ever been used. Clean it up.
     Expired,
 }
 
@@ -31,7 +34,7 @@ pub struct LeaseJson {
     token_id: TokenId,
     borrower: AccountId,
     expiration: u64, // TODO: duration
-    amount_near: String,
+    price: U128,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -40,11 +43,9 @@ pub struct NftOnTransferJson {
     lease_id: String,
 }
 
-// struct for keeping track of the lease conditions
+/// Struct for keeping track of the lease conditions
 #[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-
-/// Details about a Lease
 pub struct LeaseCondition {
     contract_addr: AccountId, // NFT contract
     token_id: TokenId,        // NFT token
@@ -52,7 +53,7 @@ pub struct LeaseCondition {
     borrower: AccountId,      // Borrower of the NFT
     approval_id: u64,         // Approval from owner to lease
     expiration: u64,          // TODO: duration
-    amount_near: u128,        // proposed lease cost
+    price: u128,              // proposed lease cost
     state: LeaseState,        // current lease state
 }
 
@@ -94,7 +95,7 @@ impl Contract {
             "Borrower is not the same one!"
         );
         assert!(
-            env::attached_deposit() >= lease_condition.amount_near,
+            env::attached_deposit() >= lease_condition.price,
             "Deposit is less than the agreed rent!"
         );
 
@@ -144,8 +145,9 @@ impl Contract {
             "Lease has not expired yet!"
         );
         // 2. check state == active
-        assert!(
-            lease_condition.state == LeaseState::Active,
+        assert_eq!(
+            lease_condition.state,
+            LeaseState::Active,
             "Queried Lease is no longer active!"
         );
 
@@ -157,10 +159,8 @@ impl Contract {
         );
 
         // 4. send rent to owner
-        self.transfer(
-            lease_condition.owner_id.clone(),
-            lease_condition.amount_near, //TODO(syu): check if this needs to be converted to yocto
-        );
+        // TODO(libo): handle the promise in a transaction
+        self.transfer(lease_condition.owner_id.clone(), lease_condition.price);
 
         // 5. transfer nft to owner
         ext_nft::ext(lease_condition.contract_addr.clone())
@@ -311,7 +311,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             token_id: lease_json.token_id,
             borrower: lease_json.borrower,
             expiration: lease_json.expiration,
-            amount_near: lease_json.amount_near.parse::<u128>().unwrap(),
+            price: lease_json.price.0,
             state: LeaseState::Pending,
         };
 
@@ -332,7 +332,6 @@ mod tests {
     - When more than one test cases are needed for one function,
     follow the order of testing failing conditions first and success condition last
     */
-    use near_sdk::env::log;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::testing_env;
@@ -366,7 +365,7 @@ mod tests {
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
         let expiration = 1000;
-        let amount_near = 1;
+        let price = 1 * NEAR_TO_YACTO;
 
         contract.nft_on_approve(
             token_id.clone(),
@@ -377,7 +376,7 @@ mod tests {
                 "token_id": token_id.clone(),
                 "borrower": borrower,
                 "expiration": expiration,
-                "amount_near": amount_near.to_string()
+                "price": price.to_string(),
             })
             .to_string(),
         );
@@ -388,7 +387,7 @@ mod tests {
         assert_eq!(token_id, lease_condition.token_id);
         assert_eq!(lender, lease_condition.owner_id);
         assert_eq!(borrower, lease_condition.borrower);
-        assert_eq!(amount_near, lease_condition.amount_near);
+        assert_eq!(price, lease_condition.price);
         assert_eq!(expiration, lease_condition.expiration);
     }
 
@@ -416,9 +415,7 @@ mod tests {
 
         let mut builder = get_context_builder(lease_condition.borrower.clone());
 
-        testing_env!(builder
-            .attached_deposit(lease_condition.amount_near - 1)
-            .build());
+        testing_env!(builder.attached_deposit(lease_condition.price - 1).build());
 
         contract.lending_accept(key);
     }
@@ -431,9 +428,7 @@ mod tests {
         contract.lease_map.insert(&key, &lease_condition);
 
         let mut builder = get_context_builder(lease_condition.borrower.clone());
-        testing_env!(builder
-            .attached_deposit(lease_condition.amount_near)
-            .build());
+        testing_env!(builder.attached_deposit(lease_condition.price).build());
 
         contract.lending_accept(key);
     }
@@ -520,7 +515,7 @@ mod tests {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
-        lease_condition.amount_near = 20;
+        lease_condition.price = 20;
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
@@ -544,7 +539,7 @@ mod tests {
         assert!(
             // service account balance should be reduced by the lease amount.
             // -1 due to gas cost
-            builder.context.account_balance == (initial_balance - lease_condition.amount_near) - 1
+            builder.context.account_balance == (initial_balance - lease_condition.price) - 1
         );
         assert!(contract.lease_map.is_empty());
     }
@@ -674,7 +669,7 @@ mod tests {
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
         let expiration = 1000;
-        let amount_near = 5;
+        let price = 5;
 
         create_lease_condition(
             nft_address,
@@ -683,7 +678,7 @@ mod tests {
             borrower.clone(),
             approval_id,
             expiration.clone(),
-            amount_near,
+            price,
             LeaseState::Pending,
         )
     }
@@ -696,18 +691,18 @@ mod tests {
         borrower: AccountId,
         approval_id: u64,
         expiration: u64,
-        amount_near: u128,
+        price: u128,
         state: LeaseState,
     ) -> LeaseCondition {
         LeaseCondition {
-            contract_addr: contract_addr,
-            token_id: token_id,
-            owner_id: owner_id,
-            borrower: borrower,
-            approval_id: approval_id,
-            expiration: expiration,
-            amount_near: amount_near,
-            state: state,
+            contract_addr,
+            token_id,
+            owner_id,
+            borrower,
+            approval_id,
+            expiration,
+            price,
+            state,
         }
     }
 }

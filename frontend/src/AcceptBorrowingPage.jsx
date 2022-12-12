@@ -29,7 +29,7 @@ export default function AcceptBorrowingPage() {
   }, []);
 
   let onSubmit = () => {
-    console.log(acceptLease(leaseId, borrowing[1].amount_near));
+    console.log(acceptLease(leaseId, borrowing[1].price));
   };
 
   return borrowing ? (
@@ -128,7 +128,7 @@ export default function AcceptBorrowingPage() {
                     </label>
                     <div className="mt-1 sm:col-span-2 sm:mt-0">
                       {window.nearApi.utils.format.formatNearAmount(
-                        BigInt(borrowing[1].amount_near).toString()
+                        BigInt(borrowing[1].price).toString()
                       )}
                     </div>
                   </div>
