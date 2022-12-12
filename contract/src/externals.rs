@@ -1,16 +1,15 @@
-use near_contract_standards::non_fungible_token::TokenId;
-use near_sdk::{ext_contract, AccountId};
+use crate::*;
 
-// // Interface of this contract, for call backs - place holder
-// #[ext_contract(ext_self)]
-// pub trait Callbacks {
-// }
+/// Interface of this contract
+#[ext_contract(ext_self)]
+trait ExtSelf {
+    fn activate_lease(&mut self, lease_id: LeaseId) -> Promise;
+}
 
-// NFT interface, for cross-contract calls
-// For details, refer to NEP-171
+/// NFT interface, for cross-contract calls
+/// For details, refer to NEP-171
 #[ext_contract(ext_nft)]
 pub trait Nft {
-    // cross-contract call
     fn nft_transfer(
         &mut self,
         receiver_id: AccountId,
@@ -19,12 +18,15 @@ pub trait Nft {
         memo: Option<String>,
     );
 
-    fn nft_transfer_call(
+    /// Payout Support
+    /// See https://nomicon.io/Standards/Tokens/NonFungibleToken/Payout
+    fn nft_transfer_payout(
         &mut self,
-        receiver_id: AccountId,   // account to receive the token
-        token_id: TokenId,        // nft token to be sent
-        approval_id: Option<u64>, // approval ID, in case transfer is sent from ppl with valid approval
+        receiver_id: AccountId,
+        token_id: String,
+        approval_id: Option<u64>,
         memo: Option<String>,
-        msg: String, // info needed by the receiving contract to handl the transfer.
+        balance: U128,
+        max_len_payout: Option<u32>,
     );
 }
