@@ -40,7 +40,7 @@ export async function newLease(
     token_id: tokenId,
     borrower: borrower,
     expiration: expiration,
-    amount_near: amountYacto.toString(),
+    price: amountYacto.toString(),
   });
   let tokens = await contract.nft_approve({
     args: {
