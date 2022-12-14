@@ -331,21 +331,10 @@ mod tests {
     - When more than one test cases are needed for one function,
     follow the order of testing failing conditions first and success condition last
     */
+    use super::*;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::{testing_env, ONE_NEAR};
-
-    use super::*;
-
-    // TODO(syu): replace this function by using VMContextBuilder::new() directly.
-    fn get_context_builder(predecessor_account_id: AccountId) -> VMContextBuilder {
-        let mut builder = VMContextBuilder::new();
-        builder
-            .current_account_id(accounts(0))
-            .signer_account_id(predecessor_account_id.clone())
-            .predecessor_account_id(predecessor_account_id);
-        builder
-    }
 
     #[test]
     fn test_new() {
@@ -398,9 +387,13 @@ mod tests {
         let key = "test_key".to_string();
 
         contract.lease_map.insert(&key, &lease_condition);
-
         let wrong_borrower: AccountId = accounts(4).into();
-        get_context_builder(wrong_borrower.clone()).build();
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(wrong_borrower.clone())
+            .build());
+
         contract.lending_accept(key);
     }
 
@@ -412,9 +405,11 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut builder = get_context_builder(lease_condition.borrower.clone());
-
-        testing_env!(builder.attached_deposit(lease_condition.price - 1).build());
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.borrower.clone())
+            .attached_deposit(lease_condition.price - 1)
+            .build());
 
         contract.lending_accept(key);
     }
@@ -426,8 +421,11 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut builder = get_context_builder(lease_condition.borrower.clone());
-        testing_env!(builder.attached_deposit(lease_condition.price).build());
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.borrower.clone())
+            .attached_deposit(lease_condition.price)
+            .build());
 
         contract.lending_accept(key);
     }
@@ -444,11 +442,12 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut builder = get_context_builder(lease_condition.owner_id.clone());
-
-        testing_env!(builder
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.owner_id.clone())
             .block_timestamp(lease_condition.expiration - 1)
             .build());
+
         contract.claim_back(key);
     }
 
@@ -461,11 +460,10 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut builder = get_context_builder(accounts(5).into());
-
-        testing_env!(builder
-            .block_timestamp(lease_condition.expiration + 1)
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
             .predecessor_account_id(accounts(5).into()) // non-owner, non-lender
+            .block_timestamp(lease_condition.expiration + 1)
             .build());
 
         contract.claim_back(key);
@@ -480,11 +478,10 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut builder = get_context_builder(lease_condition.owner_id.clone());
-
-        testing_env!(builder
-            .block_timestamp(lease_condition.expiration + 1)
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.owner_id.clone())
+            .block_timestamp(lease_condition.expiration + 1)
             .build());
 
         contract.claim_back(key);
@@ -499,10 +496,10 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let mut builder = get_context_builder(lease_condition.owner_id.clone());
-        testing_env!(builder
-            .block_timestamp(lease_condition.expiration + 1)
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.owner_id.clone())
+            .block_timestamp(lease_condition.expiration + 1)
             .build());
 
         let non_existing_key = "dummy_key".to_string();
@@ -519,9 +516,11 @@ mod tests {
         contract.lease_map.insert(&key, &lease_condition);
 
         let initial_balance: u128 = 100;
-        let mut builder = get_context_builder(lease_condition.owner_id.clone());
 
+        let mut builder = VMContextBuilder::new();
         testing_env!(builder
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.owner_id.clone())
             .storage_usage(env::storage_usage())
             .account_balance(initial_balance) //set initial balance
             .block_timestamp(lease_condition.expiration + 1)
@@ -530,9 +529,8 @@ mod tests {
         contract.claim_back(key);
 
         testing_env!(builder
-            .predecessor_account_id(lease_condition.owner_id.clone())
             .storage_usage(env::storage_usage())
-            .account_balance(env::account_balance())
+            .account_balance(env::account_balance()) // current service account
             .build());
 
         assert!(
@@ -559,7 +557,11 @@ mod tests {
 
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
-        get_context_builder(lease_condition.owner_id.clone()).build();
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.owner_id.clone())
+            .build());
 
         let test_contract_id: AccountId = accounts(5).into();
         let test_token_id = "dummy_token".to_string();
@@ -590,7 +592,10 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        get_context_builder(lease_condition.owner_id.clone()).build();
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.owner_id.clone())
+            .build());
 
         let result_borrower = contract
             .get_borrower(expected_contract_address, expected_token_id)
@@ -619,10 +624,10 @@ mod tests {
         let key_2 = "test_key_2".to_string();
         contract.lease_map.insert(&key_2, &lease_condition_2);
 
-        let mut builder = get_context_builder(lease_condition_1.owner_id.clone());
-        testing_env!(builder
-            .block_timestamp(lease_condition_1.expiration + 1)
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition_1.owner_id.clone())
+            .block_timestamp(lease_condition_1.expiration + 1)
             .build());
 
         let result = contract.leases_by_borrower(expected_borrower_id.clone());
@@ -650,10 +655,11 @@ mod tests {
         let key_2 = "test_key_2".to_string();
         contract.lease_map.insert(&key_2, &lease_condition_2);
 
-        let mut builder = get_context_builder(lease_condition_1.owner_id.clone());
+        let mut builder = VMContextBuilder::new();
         testing_env!(builder
-            .block_timestamp(lease_condition_1.expiration + 1)
+            .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition_1.owner_id.clone())
+            .block_timestamp(lease_condition_1.expiration + 1)
             .build());
 
         let result = contract.leases_by_owner(expected_owner_id.clone());
