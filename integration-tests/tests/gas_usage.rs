@@ -1,7 +1,6 @@
 use near_sdk::serde::{Deserialize, Serialize};
 use near_units::parse_near;
 use serde_json::json;
-use workspaces::prelude::*;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
 
 struct Context {
@@ -25,35 +24,36 @@ async fn init() -> anyhow::Result<Context> {
     // create accounts
     let account = worker.dev_create_account().await?;
     let alice = account
-        .create_subaccount(&worker, "alice")
+        .create_subaccount("alice")
         .initial_balance(parse_near!("30 N"))
         .transact()
         .await?
         .into_result()?;
     let bob = account
-        .create_subaccount(&worker, "bob")
+        .create_subaccount("bob")
         .initial_balance(parse_near!("30 N"))
         .transact()
         .await?
         .into_result()?;
 
     account
-        .call(&worker, contract.id(), "new")
-        .args_json(json!({ "owner_id": account.id() }))?
+        .call(contract.id(), "new")
+        .args_json(json!({ "owner_id": account.id() }))
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
     account
-        .call(&worker, nft_contract.id(), "new_default_meta")
-        .args_json(json!({ "owner_id": alice.id() }))?
+        .call(nft_contract.id(), "new_default_meta")
+        .args_json(json!({ "owner_id": alice.id() }))
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
 
     Ok(Context {
         lender: alice,
         borrower: bob,
         contract,
         nft_contract,
-        worker,
     })
 }
 
@@ -84,19 +84,18 @@ async fn prepare_lease(context: &Context, token_id: String) -> anyhow::Result<()
     let borrower = &context.borrower;
     let contract = &context.contract;
     let nft_contract = &context.nft_contract;
-    let worker = &context.worker;
 
     let expiration_ts_nano = 1000;
     lender
-        .call(&worker, nft_contract.id(), "nft_mint")
+        .call( nft_contract.id(), "nft_mint")
         .args_json(
             json!({ "token_id": token_id, "receiver_id": lender.id(), "token_metadata": {"title": "Test"}}),
-        )?
+        )
         .deposit(parse_near!("0.1 N"))
         .transact()
-        .await?;
+        .await?.into_result()?;
     lender
-        .call(&worker, nft_contract.id(), "nft_approve")
+        .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
             "token_id": token_id,
             "account_id": contract.id(),
@@ -106,39 +105,41 @@ async fn prepare_lease(context: &Context, token_id: String) -> anyhow::Result<()
                           "expiration": expiration_ts_nano,
                           "amount_near": "1"
             }).to_string()
-        }))?
+        }))
         .deposit(parse_near!("1 N"))
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
 
     let leases: Vec<(String, LeaseCondition)> = contract
-        .call(&worker, "leases_by_owner")
-        .args_json(json!({"account_id": lender.id()}))?
+        .call("leases_by_owner")
+        .args_json(json!({"account_id": lender.id()}))
         .transact()
         .await?
         .json()?;
 
     let lease_id = &leases[0].0;
     borrower
-        .call(&worker, contract.id(), "lending_accept")
+        .call(contract.id(), "lending_accept")
         .args_json(json!({
             "lease_id": lease_id,
-        }))?
+        }))
         .deposit(1)
         .max_gas()
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
     Ok(())
 }
 
 #[tokio::test]
 async fn get_borrower() -> anyhow::Result<()> {
     let context = init().await?;
-    let worker = context.worker.clone();
     let borrower = context.borrower.clone();
     let contract = context.contract.clone();
     let nft_contract = context.nft_contract.clone();
 
+    println!("Prepare 20 leases ...");
     tokio::join!(
         prepare_lease(&context, "0".to_string()),
         prepare_lease(&context, "1".to_string()),
@@ -162,16 +163,15 @@ async fn get_borrower() -> anyhow::Result<()> {
         prepare_lease(&context, "19".to_string()),
     );
 
+    println!("Querying the borrower");
     let res = borrower
-        .call(&worker, contract.id(), "get_borrower")
+        .call(contract.id(), "get_borrower")
         .args_json(json!({
             "contract_id": nft_contract.id(),
             "token_id": "10",
-        }))?
+        }))
         .transact()
         .await?;
-
-    println!("{:?}", res.json::<Option<String>>()?);
 
     println!(
         "    ⛽Total burnt gas: {} TGas",
