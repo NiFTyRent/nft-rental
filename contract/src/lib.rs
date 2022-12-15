@@ -1,21 +1,41 @@
+use std::collections::HashMap;
+
 use near_contract_standards::non_fungible_token::TokenId;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::bs58;
 use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{bs58, ext_contract, promise_result_as_success, serde_json};
 use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
 
-pub const TGAS: u64 = 1_000_000_000_000;
-pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
-
 pub mod externals;
 pub use crate::externals::*;
 
-type LeaseId = String;
+// Copied from Paras market contract. Will need to be fine-tuned.
+// https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17
+pub const TGAS: u64 = 1_000_000_000_000;
+pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
+pub const GAS_FOR_NFT_TRANSFER: Gas = Gas(20_000_000_000_000);
+pub const BASE_GAS: Gas = Gas(5 * TGAS);
+pub const GAS_FOR_ROYALTIES: Gas = Gas(BASE_GAS.0 * 10u64);
+
+pub type LeaseId = String;
+pub type PayoutHashMap = HashMap<AccountId, U128>;
+
+/// A mapping of NEAR accounts to the amount each should be paid out, in
+/// the event of a token-sale. The payout mapping MUST be shorter than the
+/// maximum length specified by the financial contract obtaining this
+/// payout data. Any mapping of length 10 or less MUST be accepted by
+/// financial contracts, so 10 is a safe upper limit.
+/// See more: https://nomicon.io/Standards/Tokens/NonFungibleToken/Payout#reference-implementation
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(crate = "near_sdk::serde")]
+pub struct Payout {
+    pub payout: PayoutHashMap,
+}
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
@@ -52,8 +72,9 @@ pub struct LeaseCondition {
     borrower: AccountId,      // Borrower of the NFT
     approval_id: u64,         // Approval from owner to lease
     expiration: u64,          // TODO: duration
-    price: u128,              // proposed lease cost
-    state: LeaseState,        // current lease state
+    price: u128,              // Proposed lease price
+    payout: Option<Payout>,   // Payout info (e.g. for Royalty split)
+    state: LeaseState,        // Current lease state
 }
 
 #[near_bindgen]
@@ -101,13 +122,40 @@ impl Contract {
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
-            .nft_transfer_call(
-                env::current_account_id(),                    // receiver_id
-                lease_condition.token_id.clone(),             // token_id
-                None,                                         // approval_id
-                None,                                         // memo
-                format!(r#"{{"lease_id":"{}"}}"#, &lease_id), // message should include the leaseID
+            .nft_transfer_payout(
+                env::current_account_id(),                 // receiver_id
+                lease_condition.token_id.clone(),          // token_id
+                Some(lease_condition.approval_id.clone()), // approval_id
+                None,                                      // memo
+                U128::from(lease_condition.price),         // price
+                Some(50u32),                               // max length payout
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_attached_deposit(0)
+                    .with_static_gas(GAS_FOR_ROYALTIES)
+                    .activate_lease(lease_id),
             );
+    }
+
+    #[private]
+    pub fn activate_lease(&mut self, lease_id: LeaseId) {
+        log!("Activating lease ({})", &lease_id);
+
+        // TODO: avoid re-fetch lease condition
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
+
+        let optional_payout: Option<Payout> = promise_result_as_success().and_then(|value| {
+            // TODO(libo): validate the payout
+            serde_json::from_slice::<Payout>(&value).ok()
+        });
+
+        let new_lease_condition = LeaseCondition {
+            state: LeaseState::Active,
+            payout: optional_payout,
+            ..lease_condition
+        };
+        self.lease_map.insert(&lease_id, &new_lease_condition);
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -216,60 +264,6 @@ impl Contract {
     }
 }
 
-// TODO: move this callback function trait to a separate file e.g. nft_callbacks.rs
-/**
-    Train that will handle the cross contract call from NFT contract. When nft.nft_transfer_call is called,
-    it will fire a cross contract call to this_contract.nft_on_transfer(). For deails, refer to NEP-171.
-*/
-trait NonFungibleTokenTransferReceiver {
-    fn nft_on_transfer(
-        &mut self,
-        sender_id: AccountId, // account that initiated the nft.nft_transfer_call(). e.g. current contract
-        previous_owner_id: AccountId, // old owner of the token
-        token_id: TokenId,    // NFT token id
-        msg: String,
-    ) -> bool;
-}
-
-#[near_bindgen]
-impl NonFungibleTokenTransferReceiver for Contract {
-    #[payable]
-    fn nft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        previous_owner_id: AccountId,
-        token_id: TokenId,
-        msg: String,
-    ) -> bool {
-        // This function can only be called by initial transfer sender, which should be the current lease contract.
-        assert_eq!(
-            sender_id,
-            env::current_account_id(),
-            "sender_id does NOT match current contract id!"
-        );
-
-        let nft_on_transfer_json: NftOnTransferJson =
-            near_sdk::serde_json::from_str(&msg).expect("Not valid msg for nft_on_transfer");
-
-        log!(
-            "Updating lease condition for lease_id: {}",
-            &nft_on_transfer_json.lease_id
-        );
-
-        let lease_condition: LeaseCondition =
-            self.lease_map.get(&nft_on_transfer_json.lease_id).unwrap();
-        let new_lease_condition = LeaseCondition {
-            state: LeaseState::Active,
-            ..lease_condition
-        };
-        self.lease_map
-            .insert(&nft_on_transfer_json.lease_id, &new_lease_condition);
-
-        // all updates are completed. Return false, so that nft_resolve_transfer() from nft contract will not revert this transfer
-        return false;
-    }
-}
-
 // TODO: move nft callback function to separate file e.g. nft_callbacks.rs
 /**
     trait that will be used as the callback from the NFT contract. When nft_approve is
@@ -311,6 +305,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             borrower: lease_json.borrower,
             expiration: lease_json.expiration,
             price: lease_json.price.0,
+            payout: None,
             state: LeaseState::Pending,
         };
 
@@ -334,7 +329,7 @@ mod tests {
     use super::*;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, ONE_NEAR};
+    use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig, ONE_NEAR};
 
     #[test]
     fn test_new() {
@@ -428,6 +423,38 @@ mod tests {
             .build());
 
         contract.lending_accept(key);
+    }
+
+    #[test]
+    fn test_activate_lease_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let payout = Payout {
+            payout: HashMap::from([(accounts(2).into(), U128::from(1))]),
+        };
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition.borrower.clone())
+                .attached_deposit(lease_condition.price)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(
+                serde_json::to_vec(&payout).unwrap()
+            )],
+        );
+
+        contract.activate_lease(key.clone());
+
+        let lease_condition_result = contract.lease_map.get(&key).unwrap();
+        assert_eq!(lease_condition_result.payout, Some(payout));
+        assert_eq!(lease_condition_result.state, LeaseState::Active);
     }
 
     #[test]
@@ -684,6 +711,7 @@ mod tests {
             approval_id,
             expiration.clone(),
             price,
+            None,
             LeaseState::Pending,
         )
     }
@@ -697,6 +725,7 @@ mod tests {
         approval_id: u64,
         expiration: u64,
         price: u128,
+        payout: Option<Payout>,
         state: LeaseState,
     ) -> LeaseCondition {
         LeaseCondition {
@@ -707,6 +736,7 @@ mod tests {
             approval_id,
             expiration,
             price,
+            payout,
             state,
         }
     }
