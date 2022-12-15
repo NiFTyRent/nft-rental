@@ -436,7 +436,9 @@ mod tests {
         };
 
         testing_env!(
-            get_context_builder(lease_condition.borrower.clone())
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition.borrower.clone())
                 .attached_deposit(lease_condition.price)
                 .build(),
             VMConfig::test(),
