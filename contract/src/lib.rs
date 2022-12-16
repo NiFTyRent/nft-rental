@@ -219,13 +219,14 @@ impl Contract {
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results: Vec<(String, LeaseCondition)> = vec![];
-        // TODO: use better data structure to optimise this operation.
-        for lease in self.lease_map.iter() {
-            if lease.1.owner_id == account_id {
-                results.push(lease)
-            }
+        
+        let lease_ids = self.lease_ids_by_borrower.get(&account_id).unwrap();
+        for id in lease_ids.iter(){
+            let lease_condition = self.lease_map.get(&id).unwrap();
+            results.push((id, lease_condition));
         }
-        results
+
+        return results;
     }
 
     pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -241,7 +242,7 @@ impl Contract {
 
     pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
         // return the current borrower of the NFTs
-        // TODO: use better data structure to optimise this operation. Can a NFT contract hold this info?
+        // TODO: use better data structure to optimise this operation. Can a NFT contract keep this info?
         for lease in self.lease_map.iter() {
             if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
                 return Some(lease.1.borrower);
@@ -275,7 +276,7 @@ impl Contract {
 
     // helper method to remove records of a lease
     fn internal_remove_lease(&mut self, lease_id: &LeaseId) {
-        // check if a leasecondition exist
+        // check if a lease condition exist
         let lease_condition = self
             .lease_map
             .get(&lease_id)
