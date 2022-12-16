@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::result;
 
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
 
@@ -83,7 +84,7 @@ pub struct Contract {
     owner: AccountId,
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
     lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>, // helper index
-    lease_ids_by_borrrower: LookupMap<AccountId, UnorderedSet<LeaseId>>, // helper index
+    lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>, // helper index
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -103,10 +104,8 @@ impl Contract {
         Self {
             owner: owner_id,
             lease_map: UnorderedMap::new(StorageKey::LendingsKey),
-            lease_ids_by_lender: LookupMap::new(StorageKey::LeaseIdsByLender.try_to_vec().unwrap()),
-            lease_ids_by_borrrower: LookupMap::new(
-                StorageKey::LeaseIdsByBorrower.try_to_vec().unwrap(),
-            ),
+            lease_ids_by_lender: LookupMap::new(StorageKey::LeaseIdsByLender),
+            lease_ids_by_borrower: LookupMap::new(StorageKey::LeaseIdsByBorrower),
         }
     }
 
@@ -168,28 +167,6 @@ impl Contract {
         self.lease_map.insert(&lease_id, &new_lease_condition);
     }
 
-    pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
-        let mut results: Vec<(String, LeaseCondition)> = vec![];
-        // TODO: use better data structure to optimise this operation.
-        for lease in self.lease_map.iter() {
-            if lease.1.owner_id == account_id {
-                results.push(lease)
-            }
-        }
-        results
-    }
-
-    pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
-        let mut results: Vec<(String, LeaseCondition)> = vec![];
-        // TODO: use better data structure to optimise this operation.
-        for lease in self.lease_map.iter() {
-            if lease.1.borrower == account_id {
-                results.push(lease)
-            }
-        }
-        results
-    }
-
     #[payable]
     pub fn claim_back(&mut self, lease_id: LeaseId) {
         // Function to allow a user to claim back the NFT and rent after a lease expired.
@@ -230,13 +207,76 @@ impl Contract {
                 None,
             );
 
-        // 6. remove map record
+        // 6. remove lease record
+        self.internal_remove_lease(&lease_id)
+
+    }
+
+    // helper method to remove records of a lease
+    fn internal_remove_lease(&mut self, lease_id: &LeaseId) {
+
+        let lease_condition = self
+            .lease_map
+            .get(&lease_id)
+            .expect("Input lease_id does not exist");
+
+        // remove lease map record
         self.lease_map.remove(&lease_id);
+
+        // remove from index by_lender
+        let mut lease_set = self
+            .lease_ids_by_lender
+            .get(&lease_condition.owner_id)
+            .unwrap();
+        lease_set.remove(&lease_id);
+
+        if lease_set.is_empty() {
+            self.lease_ids_by_lender.remove(&lease_condition.owner_id);
+        } else {
+            self.lease_ids_by_lender
+                .insert(&lease_condition.owner_id, &lease_set);
+        }
+
+        // remove from index by_borrower
+        let mut lease_set = self
+            .lease_ids_by_borrower
+            .get(&lease_condition.borrower)
+            .unwrap();
+        lease_set.remove(&lease_id);
+
+        if lease_set.is_empty() {
+            self.lease_ids_by_borrower.remove(&lease_condition.borrower);
+        } else {
+            self.lease_ids_by_borrower
+                .insert(&lease_condition.borrower, &lease_set);
+        }
     }
 
     fn transfer(&self, to: AccountId, amount: Balance) {
         // helper function to perform FT transfer
         Promise::new(to).transfer(amount);
+    }
+
+    pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
+        let mut results: Vec<(String, LeaseCondition)> = vec![];
+        // TODO: use better data structure to optimise this operation.
+        for lease in self.lease_map.iter() {
+            if lease.1.owner_id == account_id {
+                results.push(lease)
+            }
+        }
+        results
+    }
+
+    pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
+        let mut results: Vec<(String, LeaseCondition)> = vec![];
+
+        let lease_ids = self.lease_ids_by_borrower.get(&account_id).unwrap();
+        for id in lease_ids.iter() {
+            let lease_condition = self.lease_map.get(&id).unwrap();
+            results.push((id, lease_condition))
+        }
+        return results;
     }
 
     pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
@@ -325,14 +365,14 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             .into_string();
         self.lease_map.insert(&key, &lease_condition);
 
-        //update index
+        //update index for leases by lender. If there are none, create a new empty set
         let mut lease_ids_set = self
             .lease_ids_by_lender
             .get(&lease_condition.owner_id)
             .unwrap_or_else(|| {
-                // if the lender doesn't have any lease yet, create a new set
                 UnorderedSet::new(
-                    StorageKey::LeaseIdsByBorrowerInner {
+                    StorageKey::LeasesIdsByLenderInner {
+                        // get a new unique prefix for the collection by hashing owner
                         account_id_hash: hash_account_id(&lease_condition.owner_id),
                     }
                     .try_to_vec()
@@ -343,13 +383,14 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         self.lease_ids_by_lender
             .insert(&lease_condition.owner_id, &lease_ids_set);
 
-        // update index
+        // update index for leases by borrower. If there are none, create a new empty set
         let mut lease_ids_set = self
-            .lease_ids_by_borrrower
+            .lease_ids_by_borrower
             .get(&lease_condition.borrower)
             .unwrap_or_else(|| {
                 UnorderedSet::new(
                     StorageKey::LeaseIdsByBorrowerInner {
+                        // get a new unique prefix for the collection by hashing owner
                         account_id_hash: hash_account_id(&lease_condition.borrower),
                     }
                     .try_to_vec()
@@ -357,7 +398,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                 )
             });
         lease_ids_set.insert(&key);
-        self.lease_ids_by_borrrower
+        self.lease_ids_by_borrower
             .insert(&lease_condition.borrower, &lease_ids_set);
     }
 }
