@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use near_contract_standards::non_fungible_token::TokenId;
+use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::UnorderedMap;
+use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{bs58, ext_contract, promise_result_as_success, serde_json};
+use near_sdk::{bs58, ext_contract, promise_result_as_success, serde_json, CryptoHash};
 use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
@@ -82,11 +82,17 @@ pub struct LeaseCondition {
 pub struct Contract {
     owner: AccountId,
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
+    lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>, // helper index
+    lease_ids_by_borrrower: LookupMap<AccountId, UnorderedSet<LeaseId>>, // helper index
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
 enum StorageKey {
     LendingsKey,
+    LeaseIdsByLender,
+    LeasesIdsByLenderInner { account_id_hash: CryptoHash },
+    LeaseIdsByBorrower,
+    LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
 }
 
 #[near_bindgen]
@@ -97,6 +103,10 @@ impl Contract {
         Self {
             owner: owner_id,
             lease_map: UnorderedMap::new(StorageKey::LendingsKey),
+            lease_ids_by_lender: LookupMap::new(StorageKey::LeaseIdsByLender.try_to_vec().unwrap()),
+            lease_ids_by_borrrower: LookupMap::new(
+                StorageKey::LeaseIdsByBorrower.try_to_vec().unwrap(),
+            ),
         }
     }
 
@@ -314,6 +324,41 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             .with_alphabet(bs58::Alphabet::BITCOIN)
             .into_string();
         self.lease_map.insert(&key, &lease_condition);
+
+        //update index
+        let mut lease_ids_set = self
+            .lease_ids_by_lender
+            .get(&lease_condition.owner_id)
+            .unwrap_or_else(|| {
+                // if the lender doesn't have any lease yet, create a new set
+                UnorderedSet::new(
+                    StorageKey::LeaseIdsByBorrowerInner {
+                        account_id_hash: hash_account_id(&lease_condition.owner_id),
+                    }
+                    .try_to_vec()
+                    .unwrap(),
+                )
+            });
+        lease_ids_set.insert(&key);
+        self.lease_ids_by_lender
+            .insert(&lease_condition.owner_id, &lease_ids_set);
+
+        // update index
+        let mut lease_ids_set = self
+            .lease_ids_by_borrrower
+            .get(&lease_condition.borrower)
+            .unwrap_or_else(|| {
+                UnorderedSet::new(
+                    StorageKey::LeaseIdsByBorrowerInner {
+                        account_id_hash: hash_account_id(&lease_condition.borrower),
+                    }
+                    .try_to_vec()
+                    .unwrap(),
+                )
+            });
+        lease_ids_set.insert(&key);
+        self.lease_ids_by_borrrower
+            .insert(&lease_condition.borrower, &lease_ids_set);
     }
 }
 
