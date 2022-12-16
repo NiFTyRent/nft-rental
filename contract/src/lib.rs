@@ -578,7 +578,7 @@ mod tests {
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
         let key = "test_key".to_string();
-        //TODO(syu): update index too
+
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -597,7 +597,7 @@ mod tests {
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Expired;
         let key = "test_key".to_string();
-        //TODO(syu): update index too
+
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -616,7 +616,6 @@ mod tests {
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
         let key = "test_key".to_string();
-        //TODO(syu): update index too
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -636,8 +635,8 @@ mod tests {
         lease_condition.state = LeaseState::Active;
         lease_condition.price = 20;
         let key = "test_key".to_string();
-        //TODO(syu): udpate index too
-        contract.lease_map.insert(&key, &lease_condition);
+
+        contract.internal_insert_lease(&key, &lease_condition);
 
         let initial_balance: u128 = 100;
 
@@ -680,7 +679,6 @@ mod tests {
         lease_condition.borrower = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
-        //TODO: update index
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -715,7 +713,6 @@ mod tests {
         lease_condition.borrower = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
-        //TODO: update index
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -740,8 +737,7 @@ mod tests {
         lease_condition_1.borrower = expected_borrower_id.clone();
 
         let key_1 = "test_key_1".to_string();
-        // TODO: update index
-        contract.lease_map.insert(&key_1, &lease_condition_1);
+        contract.internal_insert_lease(&key_1, &lease_condition_1);
 
         let mut lease_condition_2 = create_lease_condition_default();
         lease_condition_2.state = LeaseState::Active;
@@ -749,7 +745,7 @@ mod tests {
         lease_condition_2.borrower = expected_borrower_id.clone();
 
         let key_2 = "test_key_2".to_string();
-        contract.lease_map.insert(&key_2, &lease_condition_2);
+        contract.internal_insert_lease(&key_2, &lease_condition_2);
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
@@ -772,8 +768,7 @@ mod tests {
         lease_condition_1.owner_id = expected_owner_id.clone();
 
         let key_1 = "test_key_1".to_string();
-        // TODO: update index
-        contract.lease_map.insert(&key_1, &lease_condition_1);
+        contract.internal_insert_lease(&key_1, &lease_condition_1);
 
         let mut lease_condition_2 = create_lease_condition_default();
         lease_condition_2.state = LeaseState::Active;
@@ -781,7 +776,7 @@ mod tests {
         lease_condition_2.owner_id = expected_owner_id.clone();
 
         let key_2 = "test_key_2".to_string();
-        contract.lease_map.insert(&key_2, &lease_condition_2);
+        contract.internal_insert_lease(&key_2, &lease_condition_2);
 
         let mut builder = VMContextBuilder::new();
         testing_env!(builder
