@@ -2,7 +2,6 @@ use near_contract_standards::non_fungible_token::Token;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_units::parse_near;
 use serde_json::json;
-use workspaces::prelude::*;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
 
 const ONE_BLOCK_IN_NANO: u64 = 2000000000;
@@ -28,36 +27,39 @@ async fn init() -> anyhow::Result<Context> {
     // create accounts
     let account = worker.dev_create_account().await?;
     let alice = account
-        .create_subaccount(&worker, "alice")
+        .create_subaccount("alice")
         .initial_balance(parse_near!("30 N"))
         .transact()
         .await?
         .into_result()?;
     let bob = account
-        .create_subaccount(&worker, "bob")
+        .create_subaccount("bob")
         .initial_balance(parse_near!("30 N"))
         .transact()
         .await?
         .into_result()?;
 
     account
-        .call(&worker, contract.id(), "new")
-        .args_json(json!({ "owner_id": account.id() }))?
+        .call(contract.id(), "new")
+        .args_json(json!({ "owner_id": account.id() }))
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
     account
-        .call(&worker, nft_contract.id(), "new_default_meta")
-        .args_json(json!({ "owner_id": account.id() }))?
+        .call(nft_contract.id(), "new_default_meta")
+        .args_json(json!({ "owner_id": account.id() }))
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
     account
-        .call(&worker, nft_contract.id(), "nft_mint")
+        .call(nft_contract.id(), "nft_mint")
         .args_json(
             json!({ "token_id": "test", "receiver_id": alice.id(), "token_metadata": {"title": "Test"}}),
-        )?
+        )
         .deposit(parse_near!("0.1 N"))
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
 
     Ok(Context {
         lender: alice,
@@ -98,11 +100,12 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
     let nft_contract = context.nft_contract;
     let worker = context.worker;
     let token_id = "test";
-    let latest_block = worker.view_latest_block().await?;
+    let latest_block = worker.view_block().await?;
     let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
 
+    println!("Creating lease ...");
     lender
-        .call(&worker, nft_contract.id(), "nft_approve")
+        .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
             "token_id": token_id,
             "account_id": contract.id(),
@@ -112,14 +115,17 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
                           "expiration": expiration_ts_nano,
                           "price": "1"
             }).to_string()
-        }))?
+        }))
         .deposit(parse_near!("1 N"))
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
+    println!("      ✅ Lease created");
 
+    println!("Confirming the created lease ...");
     let leases: Vec<(String, LeaseCondition)> = contract
-        .call(&worker, "leases_by_owner")
-        .args_json(json!({"account_id": lender.id()}))?
+        .call("leases_by_owner")
+        .args_json(json!({"account_id": lender.id()}))
         .transact()
         .await?
         .json()?;
@@ -134,47 +140,52 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
     assert_eq!(lease.expiration, expiration_ts_nano);
     assert_eq!(lease.price, 1);
     assert_eq!(lease.state, LeaseState::Pending);
+    println!("      ✅ Lease creation confirmed");
 
-    println!("      Passed ✅ create lease");
-
+    println!("Accepting the created lease ...");
     let lease_id = &leases[0].0;
     borrower
-        .call(&worker, contract.id(), "lending_accept")
+        .call(contract.id(), "lending_accept")
         .args_json(json!({
             "lease_id": lease_id,
-        }))?
+        }))
         .deposit(1)
         .max_gas()
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
+    println!("      ✅ Lease accepted");
 
+    println!("Confirm the lease is activated ...");
     let borrower_id_result: String = borrower
-        .call(&worker, contract.id(), "get_borrower")
+        .call(contract.id(), "get_borrower")
         .args_json(json!({
             "contract_id": nft_contract.id(),
             "token_id": token_id,
-        }))?
+        }))
         .transact()
         .await?
         .json()?;
 
     assert_eq!(borrower.id().to_string(), borrower_id_result);
+    println!("      ✅ Lease activation accepted");
 
     // Fast foward and check expiration
-    println!("testing post accept");
     worker.fast_forward(12).await?;
+    println!("Claiming back the NFT...");
     lender
-        .call(&worker, contract.id(), "claim_back")
+        .call(contract.id(), "claim_back")
         .args_json(json!({
             "lease_id": lease_id,
-        }))?
+        }))
         .max_gas()
         .transact()
-        .await?;
+        .await?
+        .into_result()?;
 
     let owned_tokens: Vec<Token> = nft_contract
-        .call(&worker, "nft_tokens_for_owner")
-        .args_json(json!({"account_id": lender.id().to_string()}))?
+        .call("nft_tokens_for_owner")
+        .args_json(json!({"account_id": lender.id().to_string()}))
         .transact()
         .await?
         .json()?;
@@ -182,7 +193,7 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
     let nft_token = &owned_tokens[0];
     assert_eq!(nft_token.token_id, token_id);
 
-    println!("      Passed ✅ claim back");
+    println!("      ✅ NFT claimed back");
     Ok(())
 }
 
