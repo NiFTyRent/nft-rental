@@ -209,12 +209,73 @@ impl Contract {
 
         // 6. remove lease record
         self.internal_remove_lease(&lease_id)
+    }
 
+
+    fn transfer(&self, to: AccountId, amount: Balance) {
+        // helper function to perform FT transfer
+        Promise::new(to).transfer(amount);
+    }
+
+    pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
+        let mut results: Vec<(String, LeaseCondition)> = vec![];
+        // TODO: use better data structure to optimise this operation.
+        for lease in self.lease_map.iter() {
+            if lease.1.owner_id == account_id {
+                results.push(lease)
+            }
+        }
+        results
+    }
+
+    pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
+        let mut results: Vec<(String, LeaseCondition)> = vec![];
+
+        let lease_ids = self.lease_ids_by_borrower.get(&account_id).unwrap();
+        for id in lease_ids.iter() {
+            let lease_condition = self.lease_map.get(&id).unwrap();
+            results.push((id, lease_condition))
+        }
+        return results;
+    }
+
+    pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
+        // return the current borrower of the NFTs
+        // TODO: use better data structure to optimise this operation. Can a NFT contract hold this info?
+        for lease in self.lease_map.iter() {
+            if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
+                return Some(lease.1.borrower);
+            }
+        }
+        return None;
+    }
+
+    pub fn proxy_func_calls(&self, contract_id: AccountId, method_name: String, args: String) {
+        // proxy function to open accessible functions calls in a NFT contract during lease
+        let promise = Promise::new(contract_id.clone());
+
+        // TODO: allow the lend to define white list of method names.
+        // unreachable methods in leased NFT contract
+        assert_ne!(
+            "nft_transfer", &method_name,
+            "Calling method is not accessiable!"
+        );
+        assert_ne!(
+            "nft_approve", &method_name,
+            "Calling method is not accessiable!"
+        );
+
+        promise.function_call(
+            method_name.clone(),
+            args.into(),
+            env::attached_deposit(),
+            Gas(5 * TGAS),
+        );
     }
 
     // helper method to remove records of a lease
     fn internal_remove_lease(&mut self, lease_id: &LeaseId) {
-
+        // check if a leasecondition exist
         let lease_condition = self
             .lease_map
             .get(&lease_id)
@@ -252,65 +313,50 @@ impl Contract {
         }
     }
 
-    fn transfer(&self, to: AccountId, amount: Balance) {
-        // helper function to perform FT transfer
-        Promise::new(to).transfer(amount);
-    }
+    // helper method to insert a new lease and update all indices
+    fn internal_insert_lease(
+        &mut self,
+        lease_id: &LeaseId,
+        lease_condition: &LeaseCondition,
+    ) {
+        // insert into lease map
+        self.lease_map.insert(&lease_id, &lease_condition);
 
-    pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
-        let mut results: Vec<(String, LeaseCondition)> = vec![];
-        // TODO: use better data structure to optimise this operation.
-        for lease in self.lease_map.iter() {
-            if lease.1.owner_id == account_id {
-                results.push(lease)
-            }
-        }
-        results
-    }
+        //update index for leases by lender. If there are none, create a new empty set
+        let mut lease_ids_set = self
+            .lease_ids_by_lender
+            .get(&lease_condition.owner_id)
+            .unwrap_or_else(|| {
+                UnorderedSet::new(
+                    StorageKey::LeasesIdsByLenderInner {
+                        // get a new unique prefix for the collection by hashing owner
+                        account_id_hash: hash_account_id(&lease_condition.owner_id),
+                    }
+                    .try_to_vec()
+                    .unwrap(),
+                )
+            });
+        lease_ids_set.insert(&lease_id);
+        self.lease_ids_by_lender
+            .insert(&lease_condition.owner_id, &lease_ids_set);
 
-    pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
-        let mut results: Vec<(String, LeaseCondition)> = vec![];
-
-        let lease_ids = self.lease_ids_by_borrower.get(&account_id).unwrap();
-        for id in lease_ids.iter() {
-            let lease_condition = self.lease_map.get(&id).unwrap();
-            results.push((id, lease_condition))
-        }
-        return results;
-    }
-
-    pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
-        // return the current borrower of the NFTs
-        // TODO: use better data structure to optimise this operation.
-        for lease in self.lease_map.iter() {
-            if (lease.1.contract_addr == contract_id) && (lease.1.token_id == token_id) {
-                return Some(lease.1.borrower);
-            }
-        }
-        return None;
-    }
-
-    pub fn proxy_func_calls(&self, contract_id: AccountId, method_name: String, args: String) {
-        // proxy function to open accessible functions calls in a NFT contract during lease
-        let promise = Promise::new(contract_id.clone());
-
-        // TODO: allow the lend to define white list of method names.
-        // unreachable methods in leased NFT contract
-        assert_ne!(
-            "nft_transfer", &method_name,
-            "Calling method is not accessiable!"
-        );
-        assert_ne!(
-            "nft_approve", &method_name,
-            "Calling method is not accessiable!"
-        );
-
-        promise.function_call(
-            method_name.clone(),
-            args.into(),
-            env::attached_deposit(),
-            Gas(5 * TGAS),
-        );
+        // update index for leases by borrower. If there are none, create a new empty set
+        let mut lease_ids_set = self
+            .lease_ids_by_borrower
+            .get(&lease_condition.borrower)
+            .unwrap_or_else(|| {
+                UnorderedSet::new(
+                    StorageKey::LeaseIdsByBorrowerInner {
+                        // get a new unique prefix for the collection by hashing owner
+                        account_id_hash: hash_account_id(&lease_condition.borrower),
+                    }
+                    .try_to_vec()
+                    .unwrap(),
+                )
+            });
+        lease_ids_set.insert(&lease_id);
+        self.lease_ids_by_borrower
+            .insert(&lease_condition.borrower, &lease_ids_set);
     }
 }
 
@@ -360,46 +406,12 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         };
 
         let seed = near_sdk::env::random_seed();
-        let key = bs58::encode(seed)
+        let lease_id = bs58::encode(seed)
             .with_alphabet(bs58::Alphabet::BITCOIN)
             .into_string();
-        self.lease_map.insert(&key, &lease_condition);
 
-        //update index for leases by lender. If there are none, create a new empty set
-        let mut lease_ids_set = self
-            .lease_ids_by_lender
-            .get(&lease_condition.owner_id)
-            .unwrap_or_else(|| {
-                UnorderedSet::new(
-                    StorageKey::LeasesIdsByLenderInner {
-                        // get a new unique prefix for the collection by hashing owner
-                        account_id_hash: hash_account_id(&lease_condition.owner_id),
-                    }
-                    .try_to_vec()
-                    .unwrap(),
-                )
-            });
-        lease_ids_set.insert(&key);
-        self.lease_ids_by_lender
-            .insert(&lease_condition.owner_id, &lease_ids_set);
+        self.internal_insert_lease(&lease_id, &lease_condition);
 
-        // update index for leases by borrower. If there are none, create a new empty set
-        let mut lease_ids_set = self
-            .lease_ids_by_borrower
-            .get(&lease_condition.borrower)
-            .unwrap_or_else(|| {
-                UnorderedSet::new(
-                    StorageKey::LeaseIdsByBorrowerInner {
-                        // get a new unique prefix for the collection by hashing owner
-                        account_id_hash: hash_account_id(&lease_condition.borrower),
-                    }
-                    .try_to_vec()
-                    .unwrap(),
-                )
-            });
-        lease_ids_set.insert(&key);
-        self.lease_ids_by_borrower
-            .insert(&lease_condition.borrower, &lease_ids_set);
     }
 }
 
@@ -571,6 +583,7 @@ mod tests {
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
         let key = "test_key".to_string();
+        //TODO(syu): update index too
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -589,6 +602,7 @@ mod tests {
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Expired;
         let key = "test_key".to_string();
+        //TODO(syu): update index too
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -607,6 +621,7 @@ mod tests {
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
         let key = "test_key".to_string();
+        //TODO(syu): update index too
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -626,6 +641,7 @@ mod tests {
         lease_condition.state = LeaseState::Active;
         lease_condition.price = 20;
         let key = "test_key".to_string();
+        //TODO(syu): udpate index too
         contract.lease_map.insert(&key, &lease_condition);
 
         let initial_balance: u128 = 100;
@@ -669,6 +685,7 @@ mod tests {
         lease_condition.borrower = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
+        //TODO: update index
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -703,6 +720,7 @@ mod tests {
         lease_condition.borrower = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
+        //TODO: update index
         contract.lease_map.insert(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -727,6 +745,7 @@ mod tests {
         lease_condition_1.borrower = expected_borrower_id.clone();
 
         let key_1 = "test_key_1".to_string();
+        // TODO: update index
         contract.lease_map.insert(&key_1, &lease_condition_1);
 
         let mut lease_condition_2 = create_lease_condition_default();
@@ -758,6 +777,7 @@ mod tests {
         lease_condition_1.owner_id = expected_owner_id.clone();
 
         let key_1 = "test_key_1".to_string();
+        // TODO: update index
         contract.lease_map.insert(&key_1, &lease_condition_1);
 
         let mut lease_condition_2 = create_lease_condition_default();
