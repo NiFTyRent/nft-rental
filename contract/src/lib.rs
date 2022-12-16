@@ -211,7 +211,6 @@ impl Contract {
         self.internal_remove_lease(&lease_id)
     }
 
-
     fn transfer(&self, to: AccountId, amount: Balance) {
         // helper function to perform FT transfer
         Promise::new(to).transfer(amount);
@@ -219,9 +218,9 @@ impl Contract {
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results: Vec<(String, LeaseCondition)> = vec![];
-        
-        let lease_ids = self.lease_ids_by_borrower.get(&account_id).unwrap();
-        for id in lease_ids.iter(){
+
+        let lease_ids = self.lease_ids_by_lender.get(&account_id).unwrap();
+        for id in lease_ids.iter() {
             let lease_condition = self.lease_map.get(&id).unwrap();
             results.push((id, lease_condition));
         }
@@ -315,11 +314,7 @@ impl Contract {
     }
 
     // helper method to insert a new lease and update all indices
-    fn internal_insert_lease(
-        &mut self,
-        lease_id: &LeaseId,
-        lease_condition: &LeaseCondition,
-    ) {
+    fn internal_insert_lease(&mut self, lease_id: &LeaseId, lease_condition: &LeaseCondition) {
         // insert into lease map
         self.lease_map.insert(&lease_id, &lease_condition);
 
@@ -412,7 +407,6 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             .into_string();
 
         self.internal_insert_lease(&lease_id, &lease_condition);
-
     }
 }
 
