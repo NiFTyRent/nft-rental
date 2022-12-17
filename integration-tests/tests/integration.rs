@@ -201,3 +201,4 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
 // TODO: lending_accept - NFT has been transferred to other account
 // TODO: claim_back - NFT transfer check
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
+// TODO: nft_on_approve - check all indices have been updated accordingly
