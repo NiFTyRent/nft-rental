@@ -21,6 +21,7 @@ pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
 pub const GAS_FOR_NFT_TRANSFER: Gas = Gas(20_000_000_000_000);
 pub const BASE_GAS: Gas = Gas(5 * TGAS);
 pub const GAS_FOR_ROYALTIES: Gas = Gas(BASE_GAS.0 * 10u64);
+pub const GAS_FOR_RESOLVE_CLAIM_BACK: Gas = Gas(BASE_GAS.0 * 10u64);
 
 pub type LeaseId = String;
 pub type PayoutHashMap = HashMap<AccountId, U128>;
@@ -68,13 +69,15 @@ pub struct NftOnTransferJson {
 pub struct LeaseCondition {
     contract_addr: AccountId, // NFT contract
     token_id: TokenId,        // NFT token
-    owner_id: AccountId,      // Owner of the NFT
-    borrower: AccountId,      // Borrower of the NFT
-    approval_id: u64,         // Approval from owner to lease
-    expiration: u64,          // TODO: duration
-    price: u128,              // Proposed lease price
-    payout: Option<Payout>,   // Payout info (e.g. for Royalty split)
-    state: LeaseState,        // Current lease state
+    // TODO: rename to lender_id
+    owner_id: AccountId, // Owner of the NFT
+    // TODO: rename to borrower_id
+    borrower: AccountId,    // Borrower of the NFT
+    approval_id: u64,       // Approval from owner to lease
+    expiration: u64,        // TODO: duration
+    price: u128,            // Proposed lease price
+    payout: Option<Payout>, // Payout info (e.g. for Royalty split)
+    state: LeaseState,      // Current lease state
 }
 
 #[near_bindgen]
@@ -195,7 +198,7 @@ impl Contract {
         assert_eq!(
             lease_condition.state,
             LeaseState::Active,
-            "Queried Lease is no longer active!"
+            "Queried Lease is not active!"
         );
 
         // 3. only original lender or service contract owner can claim back from expried lease
@@ -205,11 +208,7 @@ impl Contract {
             "Only original lender or service owner can claim back!"
         );
 
-        // 4. send rent to owner
-        // TODO(libo): handle the promise in a transaction
-        self.transfer(lease_condition.owner_id.clone(), lease_condition.price);
-
-        // 5. transfer nft to owner
+        // 4. transfer nft to owner
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
@@ -218,15 +217,38 @@ impl Contract {
                 lease_condition.token_id.clone(),
                 None,
                 None,
+            )
+            // 5. Pay the rent to lender and royalty to relevant parties. Finally remove the lease.
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_attached_deposit(0)
+                    .with_static_gas(GAS_FOR_RESOLVE_CLAIM_BACK)
+                    .resolve_claim_back(lease_id),
             );
+    }
 
-        // 6. remove map record
+    #[private]
+    pub fn resolve_claim_back(&mut self, lease_id: LeaseId) {
+        // TODO: avoid re-fetch lease condition
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
+
+        match lease_condition.payout {
+            Some(payout) => {
+                for (receiver_id, amount) in payout.payout {
+                    self.internal_transfer_near(receiver_id, amount.0);
+                }
+            }
+            None => {
+                self.internal_transfer_near(lease_condition.owner_id, lease_condition.price);
+            }
+        }
+
         self.lease_map.remove(&lease_id);
     }
 
-    fn transfer(&self, to: AccountId, amount: Balance) {
+    fn internal_transfer_near(&self, to: AccountId, amount: Balance) -> Promise {
         // helper function to perform FT transfer
-        Promise::new(to).transfer(amount);
+        Promise::new(to).transfer(amount)
     }
 
     pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
@@ -497,11 +519,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Queried Lease is no longer active!")]
+    #[should_panic(expected = "Queried Lease is not active!")]
     fn test_claim_back_inactive_lease() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Expired;
+        lease_condition.state = LeaseState::Pending;
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
@@ -542,29 +564,60 @@ mod tests {
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
 
-        let initial_balance: u128 = 100;
-
-        let mut builder = VMContextBuilder::new();
-        testing_env!(builder
+        testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.owner_id.clone())
-            .storage_usage(env::storage_usage())
-            .account_balance(initial_balance) //set initial balance
             .block_timestamp(lease_condition.expiration + 1)
             .build());
 
         contract.claim_back(key);
 
-        testing_env!(builder
-            .storage_usage(env::storage_usage())
-            .account_balance(env::account_balance()) // current service account
-            .build());
+        // Nothing can be checked, except the fact the call doesn't panic.
+    }
 
-        assert!(
-            // service account balance should be reduced by the lease amount.
-            // -1 due to gas cost
-            builder.context.account_balance == (initial_balance - lease_condition.price) - 1
-        );
+    #[test]
+    fn test_resolve_claim_back_succeeds_pay_royalty() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+        lease_condition.price = 20;
+        lease_condition.payout = Some(Payout {
+            payout: HashMap::from([(accounts(2), U128::from(5)), (accounts(3), U128::from(15))]),
+        });
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+        let init_balance = 100;
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(0))
+            .account_balance(init_balance)
+            .build());
+        contract.resolve_claim_back(key);
+
+        assert_eq!(env::account_balance(), init_balance - 20);
+        assert!(contract.lease_map.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_claim_back_succeeds_no_payout_info() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+        lease_condition.price = 20;
+        lease_condition.payout = None;
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+        let init_balance = 100;
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(0))
+            .account_balance(init_balance)
+            .build());
+        contract.resolve_claim_back(key);
+
+        assert_eq!(env::account_balance(), init_balance - 20);
         assert!(contract.lease_map.is_empty());
     }
 
