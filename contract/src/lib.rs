@@ -83,8 +83,9 @@ pub struct LeaseCondition {
 pub struct Contract {
     owner: AccountId,
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
-    lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>, // helper index
-    lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>, // helper index
+    lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
+    lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
+    // borrower_by_contract_addr_and_token_id = UnorderedMap<(AccountId, TokenId), AccountId> // to help implement get_borrower()
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -219,7 +220,7 @@ impl Contract {
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results: Vec<(String, LeaseCondition)> = vec![];
 
-        let lease_ids = self.lease_ids_by_lender.get(&account_id).unwrap();
+        let lease_ids = self.lease_ids_by_lender.get(&account_id).unwrap_or(UnorderedSet::new(b"s"));
         for id in lease_ids.iter() {
             let lease_condition = self.lease_map.get(&id).unwrap();
             results.push((id, lease_condition));
