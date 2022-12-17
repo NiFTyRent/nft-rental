@@ -789,6 +789,46 @@ mod tests {
         assert_eq!(result.len(), 2);
     }
 
+    #[test]
+    fn test_internal_insert_lease_success(){
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+        lease_condition.price = 20;
+        let key = "test_key".to_string();
+
+        assert!(contract.lease_map.is_empty());
+        assert!(!contract.lease_ids_by_borrower.contains_key(&lease_condition.borrower));
+        assert!(!contract.lease_ids_by_lender.contains_key(&lease_condition.owner_id));
+
+        contract.internal_insert_lease(&key, &lease_condition);
+
+        assert!(contract.lease_map.len() == 1);
+        assert!(contract.lease_ids_by_borrower.contains_key(&lease_condition.borrower));
+        assert!(contract.lease_ids_by_lender.contains_key(&lease_condition.owner_id));
+    }
+
+    #[test]
+    fn test_internal_remove_lease_success_only_one_lease(){
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+        lease_condition.price = 20;
+        let key = "test_key".to_string();
+
+        contract.internal_insert_lease(&key, &lease_condition);
+
+        assert!(contract.lease_map.len() == 1);
+        assert!(contract.lease_ids_by_borrower.contains_key(&lease_condition.borrower));
+        assert!(contract.lease_ids_by_lender.contains_key(&lease_condition.owner_id));
+
+        contract.internal_remove_lease(&key);
+
+        assert!(contract.lease_map.is_empty());
+        assert!(!contract.lease_ids_by_borrower.contains_key(&lease_condition.borrower));
+        assert!(!contract.lease_ids_by_lender.contains_key(&lease_condition.owner_id));
+    }
+
     // Helper function to return a lease condition using default seting
     fn create_lease_condition_default() -> LeaseCondition {
         let token_id: TokenId = "test_token".to_string();
