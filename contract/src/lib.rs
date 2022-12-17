@@ -576,7 +576,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_claim_back_successfully_pays_royalty() {
+    fn test_resolve_claim_back_succeeds_pay_royalty() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
@@ -600,7 +600,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_claim_back_succeeds_when_no_payout_info() {
+    fn test_resolve_claim_back_succeeds_no_payout_info() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
