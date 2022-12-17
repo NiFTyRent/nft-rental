@@ -4,6 +4,7 @@ use crate::*;
 #[ext_contract(ext_self)]
 trait ExtSelf {
     fn activate_lease(&mut self, lease_id: LeaseId) -> Promise;
+    fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
 }
 
 /// NFT interface, for cross-contract calls
