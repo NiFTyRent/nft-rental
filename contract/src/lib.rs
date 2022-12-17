@@ -829,6 +829,72 @@ mod tests {
         assert!(!contract.lease_ids_by_lender.contains_key(&lease_condition.owner_id));
     }
 
+    #[test]
+    fn test_internal_remove_lease_success_different_owners(){
+        let mut contract = Contract::new(accounts(1).into());
+        let owner_1: AccountId = accounts(2).into();
+        let owner_2: AccountId = accounts(4).into();
+
+        let mut lease_condition_1 = create_lease_condition_default();
+        lease_condition_1.state = LeaseState::Active;
+        lease_condition_1.token_id = "test_token_1".to_string();
+        lease_condition_1.owner_id = owner_1.clone();
+
+        let key_1 = "test_key_1".to_string();
+        contract.internal_insert_lease(&key_1, &lease_condition_1);
+
+        let mut lease_condition_2 = create_lease_condition_default();
+        lease_condition_2.state = LeaseState::Active;
+        lease_condition_2.token_id = "test_token_2".to_string();
+        lease_condition_2.owner_id = owner_2.clone();
+
+        let key_2 = "test_key_2".to_string();
+        contract.internal_insert_lease(&key_2, &lease_condition_2);
+
+        assert!(contract.lease_map.len()==2);
+        assert!(contract.lease_ids_by_lender.contains_key(&owner_1));
+        assert!(contract.lease_ids_by_lender.contains_key(&owner_2));
+
+        contract.internal_remove_lease(&key_1);
+
+        assert!(contract.lease_map.len()==1);
+        assert!(!contract.lease_ids_by_lender.contains_key(&owner_1));
+        assert!(contract.lease_ids_by_lender.contains_key(&owner_2));
+    }
+
+    #[test]
+    fn test_internal_remove_lease_success_different_borrowers(){
+        let mut contract = Contract::new(accounts(1).into());
+        let borrower_1: AccountId = accounts(3).into();
+        let borrower_2: AccountId = accounts(4).into();
+
+        let mut lease_condition_1 = create_lease_condition_default();
+        lease_condition_1.state = LeaseState::Active;
+        lease_condition_1.token_id = "test_token_1".to_string();
+        lease_condition_1.borrower = borrower_1.clone();
+
+        let key_1 = "test_key_1".to_string();
+        contract.internal_insert_lease(&key_1, &lease_condition_1);
+
+        let mut lease_condition_2 = create_lease_condition_default();
+        lease_condition_2.state = LeaseState::Active;
+        lease_condition_2.token_id = "test_token_2".to_string();
+        lease_condition_2.borrower = borrower_2.clone();
+
+        let key_2 = "test_key_2".to_string();
+        contract.internal_insert_lease(&key_2, &lease_condition_2);
+
+        assert!(contract.lease_map.len()==2);
+        assert!(contract.lease_ids_by_borrower.contains_key(&borrower_1));
+        assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
+
+        contract.internal_remove_lease(&key_1);
+
+        assert!(contract.lease_map.len()==1);
+        assert!(!contract.lease_ids_by_borrower.contains_key(&borrower_1));
+        assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
+    }
+
     // Helper function to return a lease condition using default seting
     fn create_lease_condition_default() -> LeaseCondition {
         let token_id: TokenId = "test_token".to_string();
