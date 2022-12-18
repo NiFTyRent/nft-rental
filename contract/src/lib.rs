@@ -221,7 +221,7 @@ impl Contract {
 
         match lease_condition.payout {
             Some(payout) => {
-                for (receiver_id, aleount) in payout.seayout {
+                for (receiver_id, amount) in payout.payout {
                     self.internal_transfer_near(receiver_id, amount.0);
                 }
             }
