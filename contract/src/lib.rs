@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::result;
 
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
 
@@ -231,13 +230,14 @@ impl Contract {
             }
         }
 
-        self.internal_remove_lease(&lease_id)
+        self.internal_remove_lease(&lease_id);
     }
 
     fn internal_transfer_near(&self, to: AccountId, amount: Balance) -> Promise {
         // helper function to perform FT transfer
         Promise::new(to).transfer(amount)
     }
+
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results: Vec<(String, LeaseCondition)> = vec![];
 
@@ -253,7 +253,7 @@ impl Contract {
     pub fn leases_by_borrower(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results: Vec<(String, LeaseCondition)> = vec![];
 
-        let lease_ids = self.lease_ids_by_borrower.get(&account_id).unwrap();
+        let lease_ids = self.lease_ids_by_borrower.get(&account_id).unwrap_or(UnorderedSet::new(b"s"));
         for id in lease_ids.iter() {
             let lease_condition = self.lease_map.get(&id).unwrap();
             results.push((id, lease_condition))
@@ -436,10 +436,11 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 mod tests {
     /*
     Unit test cases and helper functions
-    test naming format:
-    - test_{function_name}_{test_case}
+    
+    Test naming format for better readability:
+    - test_{function_name} _{succeeds_or_fails} _{condition}
     - When more than one test cases are needed for one function,
-    follow the order of testing failing conditions first and success condition last
+    follow the code order of testing failing conditions first and success condition last
     */
     use super::*;
     use near_sdk::serde_json::json;
@@ -680,7 +681,7 @@ mod tests {
             payout: HashMap::from([(accounts(2), U128::from(5)), (accounts(3), U128::from(15))]),
         });
         let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
+        contract.internal_insert_lease(&key, &lease_condition);
         let init_balance = 100;
 
         testing_env!(VMContextBuilder::new()
@@ -702,7 +703,7 @@ mod tests {
         lease_condition.price = 20;
         lease_condition.payout = None;
         let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
+        contract.internal_insert_lease(&key, &lease_condition);
         let init_balance = 100;
 
         testing_env!(VMContextBuilder::new()
