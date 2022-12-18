@@ -660,6 +660,7 @@ mod tests {
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
 
+
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.owner_id.clone())
@@ -704,6 +705,7 @@ mod tests {
         lease_condition.payout = None;
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
+
         let init_balance = 100;
 
         testing_env!(VMContextBuilder::new()
