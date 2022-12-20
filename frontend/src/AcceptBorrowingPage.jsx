@@ -103,7 +103,7 @@ export default function AcceptBorrowingPage() {
                       Borrower
                     </label>
                     <div className="mt-1 sm:col-span-2 sm:mt-0">
-                      {borrowing[1].borrower}
+                      {borrowing[1].borrower_id}
                     </div>
                   </div>
 

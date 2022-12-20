@@ -38,7 +38,7 @@ export async function newLease(
   let message = JSON.stringify({
     contract_addr: contract.contractId,
     token_id: tokenId,
-    borrower: borrower,
+    borrower_id: borrower,
     expiration: expiration,
     price: amountYacto.toString(),
   });
