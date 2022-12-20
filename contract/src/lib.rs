@@ -87,9 +87,7 @@ pub struct Contract {
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
     lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
-    // borrower_by_contract_addr_and_token_id = UnorderedMap<(AccountId, TokenId), AccountId> // to help implement get_borrower()
-    // TODO: deside if one token can be in multiple lease
-    lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>, // only active leases
+    lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -273,7 +271,7 @@ impl Contract {
         return results;
     }
 
-    pub fn get_borrower(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
+    pub fn get_borrower_by_contract_and_token(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
         // return the current borrower of the NFTs
         // Only active lease has valid borrower
 
@@ -754,7 +752,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_borrower_no_matching_borrower() {
+    fn test_get_borrower_by_contract_and_token_success_no_matching_borrower() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
 
@@ -779,16 +777,16 @@ mod tests {
         let test_token_id = "dummy_token".to_string();
 
         let result_borrower =
-            contract.get_borrower(test_contract_id.clone(), expected_token_id.clone());
+            contract.get_borrower_by_contract_and_token(test_contract_id.clone(), expected_token_id.clone());
         assert!(result_borrower.is_none());
 
         let result_borrower =
-            contract.get_borrower(expected_contract_address.clone(), test_token_id.clone());
+            contract.get_borrower_by_contract_and_token(expected_contract_address.clone(), test_token_id.clone());
         assert!(result_borrower.is_none());
     }
 
     #[test]
-    fn test_get_borrower_lease_is_inactive(){
+    fn test_get_borrower_by_contract_and_token_success_lease_is_inactive(){
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
 
@@ -811,12 +809,12 @@ mod tests {
             .build());
 
         let result_borrower = contract
-            .get_borrower(expected_contract_address, expected_token_id);
+            .get_borrower_by_contract_and_token(expected_contract_address, expected_token_id);
         assert!(result_borrower.is_none());
     }
 
     #[test]
-    fn test_get_borrower_success_found_matching_borrower() {
+    fn test_get_borrower_by_contract_and_token_success_found_matching_borrower() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
 
@@ -839,7 +837,7 @@ mod tests {
             .build());
 
         let result_borrower = contract
-            .get_borrower(expected_contract_address, expected_token_id)
+            .get_borrower_by_contract_and_token(expected_contract_address, expected_token_id)
             .unwrap();
         assert!(contract
             .lease_id_by_contract_addr_and_token_id
