@@ -768,11 +768,6 @@ mod tests {
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
 
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.owner_id.clone())
-            .build());
-
         let test_contract_id: AccountId = accounts(5).into();
         let test_token_id = "dummy_token".to_string();
 
@@ -802,11 +797,6 @@ mod tests {
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
 
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.owner_id.clone())
-            .build());
-
         let result_borrower = contract
             .get_borrower_by_contract_and_token(expected_contract_address, expected_token_id);
         assert!(result_borrower.is_none());
@@ -828,11 +818,6 @@ mod tests {
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.owner_id.clone())
-            .build());
 
         let result_borrower = contract
             .get_borrower_by_contract_and_token(expected_contract_address, expected_token_id)
