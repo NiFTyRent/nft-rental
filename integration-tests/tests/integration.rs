@@ -158,7 +158,7 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
 
     println!("Confirm the lease is activated ...");
     let borrower_id_result: String = borrower
-        .call(contract.id(), "get_borrower")
+        .call(contract.id(), "get_borrower_by_contract_and_token")
         .args_json(json!({
             "contract_id": nft_contract.id(),
             "token_id": token_id,
