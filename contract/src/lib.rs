@@ -800,7 +800,6 @@ mod tests {
         lease_condition.borrower = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
-        // contract.lease_map.insert(&key, &lease_condition);
         contract.internal_insert_lease(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -828,7 +827,6 @@ mod tests {
         lease_condition.borrower = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
-        // contract.lease_map.insert(&key, &lease_condition);
         contract.internal_insert_lease(&key, &lease_condition);
 
         testing_env!(VMContextBuilder::new()
@@ -839,9 +837,6 @@ mod tests {
         let result_borrower = contract
             .get_borrower_by_contract_and_token(expected_contract_address, expected_token_id)
             .unwrap();
-        assert!(contract
-            .lease_id_by_contract_addr_and_token_id
-            .contains_key(&(lease_condition.contract_addr, lease_condition.token_id)));
         assert!(result_borrower == expected_borrower_id);
     }
 
