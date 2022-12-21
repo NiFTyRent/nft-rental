@@ -7,5 +7,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: yarn install-deps
-      - run: yarn test
+      - run: yarn run install-deps
+      - run: yarn run test
