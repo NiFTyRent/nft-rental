@@ -82,14 +82,14 @@ enum LeaseState {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(crate = "near_sdk::serde")]
 struct LeaseCondition {
-    contract_addr: String, // NFT contract
-    token_id: String,      // NFT token
-    owner_id: String,      // Owner of the NFT
-    borrower: String,      // Borrower of the NFT
-    approval_id: u64,      // Approval from owner to lease
-    expiration: u64,       // TODO: duration
-    price: u128,           // proposed lease cost
-    state: LeaseState,     // current lease state
+    contract_addr: String,
+    token_id: String,
+    lender_id: String,
+    borrower_id: String,
+    approval_id: u64,
+    expiration: u64,
+    price: u128,
+    state: LeaseState,
 }
 #[tokio::test]
 async fn test_claim_back_success() -> anyhow::Result<()> {
@@ -111,7 +111,7 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
             "account_id": contract.id(),
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
-                          "borrower": borrower.id(),
+                          "borrower_id": borrower.id(),
                           "expiration": expiration_ts_nano,
                           "price": "1"
             }).to_string()
@@ -135,8 +135,8 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
 
     assert_eq!(lease.contract_addr, nft_contract.id().to_string());
     assert_eq!(lease.token_id, "test".to_string());
-    assert_eq!(lease.owner_id, lender.id().to_string());
-    assert_eq!(lease.borrower, borrower.id().to_string());
+    assert_eq!(lease.lender_id, lender.id().to_string());
+    assert_eq!(lease.borrower_id, borrower.id().to_string());
     assert_eq!(lease.expiration, expiration_ts_nano);
     assert_eq!(lease.price, 1);
     assert_eq!(lease.state, LeaseState::Pending);

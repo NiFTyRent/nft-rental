@@ -52,7 +52,7 @@ enum LeaseState {
 pub struct LeaseJson {
     contract_addr: AccountId,
     token_id: TokenId,
-    borrower: AccountId,
+    borrower_id: AccountId,
     expiration: u64, // TODO: duration
     price: U128,
 }
@@ -69,15 +69,13 @@ pub struct NftOnTransferJson {
 pub struct LeaseCondition {
     contract_addr: AccountId, // NFT contract
     token_id: TokenId,        // NFT token
-    // TODO: rename to lender_id
-    owner_id: AccountId, // Owner of the NFT
-    // TODO: rename to borrower_id
-    borrower: AccountId,    // Borrower of the NFT
-    approval_id: u64,       // Approval from owner to lease
-    expiration: u64,        // TODO: duration
-    price: u128,            // Proposed lease price
-    payout: Option<Payout>, // Payout info (e.g. for Royalty split)
-    state: LeaseState,      // Current lease state
+    lender_id: AccountId,     // Owner of the NFT
+    borrower_id: AccountId,   // Borrower of the NFT
+    approval_id: u64,         // Approval from owner to lease
+    expiration: u64,          // TODO: duration
+    price: u128,              // Proposed lease price
+    payout: Option<Payout>,   // Payout info (e.g. for Royalty split)
+    state: LeaseState,        // Current lease state
 }
 
 #[near_bindgen]
@@ -127,7 +125,7 @@ impl Contract {
 
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         assert!(
-            lease_condition.borrower == env::predecessor_account_id(),
+            lease_condition.borrower_id == env::predecessor_account_id(),
             "Borrower is not the same one!"
         );
         assert!(
@@ -194,7 +192,7 @@ impl Contract {
 
         // 3. only original lender or service contract owner can claim back from expried lease
         assert!(
-            (lease_condition.owner_id == env::predecessor_account_id())
+            (lease_condition.lender_id == env::predecessor_account_id())
                 || (self.owner == env::predecessor_account_id()),
             "Only original lender or service owner can claim back!"
         );
@@ -204,7 +202,7 @@ impl Contract {
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer(
-                lease_condition.owner_id.clone(),
+                lease_condition.lender_id.clone(),
                 lease_condition.token_id.clone(),
                 None,
                 None,
@@ -230,7 +228,7 @@ impl Contract {
                 }
             }
             None => {
-                self.internal_transfer_near(lease_condition.owner_id, lease_condition.price);
+                self.internal_transfer_near(lease_condition.lender_id, lease_condition.price);
             }
         }
 
@@ -271,7 +269,11 @@ impl Contract {
         return results;
     }
 
-    pub fn get_borrower_by_contract_and_token(&self, contract_id: AccountId, token_id: TokenId) -> Option<AccountId> {
+    pub fn get_borrower_by_contract_and_token(
+        &self,
+        contract_id: AccountId,
+        token_id: TokenId,
+    ) -> Option<AccountId> {
         // return the current borrower of the NFTs
         // Only active lease has valid borrower
 
@@ -285,7 +287,7 @@ impl Contract {
             let lease_condition = self.lease_map.get(&lease_id.unwrap()).unwrap();
             if lease_condition.state == LeaseState::Active {
                 // only active lease has valid borrower
-                return Some(lease_condition.borrower);
+                return Some(lease_condition.borrower_id);
             } else {
                 return None;
             }
@@ -329,29 +331,30 @@ impl Contract {
         // remove from index by_lender
         let mut lease_set = self
             .lease_ids_by_lender
-            .get(&lease_condition.owner_id)
+            .get(&lease_condition.lender_id)
             .unwrap();
         lease_set.remove(&lease_id);
 
         if lease_set.is_empty() {
-            self.lease_ids_by_lender.remove(&lease_condition.owner_id);
+            self.lease_ids_by_lender.remove(&lease_condition.lender_id);
         } else {
             self.lease_ids_by_lender
-                .insert(&lease_condition.owner_id, &lease_set);
+                .insert(&lease_condition.lender_id, &lease_set);
         }
 
         // remove from index by_borrower
         let mut lease_set = self
             .lease_ids_by_borrower
-            .get(&lease_condition.borrower)
+            .get(&lease_condition.borrower_id)
             .unwrap();
         lease_set.remove(&lease_id);
 
         if lease_set.is_empty() {
-            self.lease_ids_by_borrower.remove(&lease_condition.borrower);
+            self.lease_ids_by_borrower
+                .remove(&lease_condition.borrower_id);
         } else {
             self.lease_ids_by_borrower
-                .insert(&lease_condition.borrower, &lease_set);
+                .insert(&lease_condition.borrower_id, &lease_set);
         }
 
         // remove from index by_contract_addr_and_token_id
@@ -367,12 +370,12 @@ impl Contract {
         //update index for leases by lender. If there are none, create a new empty set
         let mut lease_ids_set = self
             .lease_ids_by_lender
-            .get(&lease_condition.owner_id)
+            .get(&lease_condition.lender_id)
             .unwrap_or_else(|| {
                 UnorderedSet::new(
                     StorageKey::LeasesIdsByLenderInner {
                         // get a new unique prefix for the collection by hashing owner
-                        account_id_hash: hash_account_id(&lease_condition.owner_id),
+                        account_id_hash: hash_account_id(&lease_condition.lender_id),
                     }
                     .try_to_vec()
                     .unwrap(),
@@ -380,17 +383,17 @@ impl Contract {
             });
         lease_ids_set.insert(&lease_id);
         self.lease_ids_by_lender
-            .insert(&lease_condition.owner_id, &lease_ids_set);
+            .insert(&lease_condition.lender_id, &lease_ids_set);
 
         // update index for leases by borrower. If there are none, create a new empty set
         let mut lease_ids_set = self
             .lease_ids_by_borrower
-            .get(&lease_condition.borrower)
+            .get(&lease_condition.borrower_id)
             .unwrap_or_else(|| {
                 UnorderedSet::new(
                     StorageKey::LeaseIdsByBorrowerInner {
                         // get a new unique prefix for the collection by hashing owner
-                        account_id_hash: hash_account_id(&lease_condition.borrower),
+                        account_id_hash: hash_account_id(&lease_condition.borrower_id),
                     }
                     .try_to_vec()
                     .unwrap(),
@@ -398,7 +401,7 @@ impl Contract {
             });
         lease_ids_set.insert(&lease_id);
         self.lease_ids_by_borrower
-            .insert(&lease_condition.borrower, &lease_ids_set);
+            .insert(&lease_condition.borrower_id, &lease_ids_set);
 
         // update index for lease_id_by_contract_addr_and_token_id
         self.lease_id_by_contract_addr_and_token_id.insert(
@@ -445,11 +448,11 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
-            owner_id: owner_id.clone(),
+            lender_id: owner_id.clone(),
             approval_id,
             contract_addr: lease_json.contract_addr,
             token_id: lease_json.token_id,
-            borrower: lease_json.borrower,
+            borrower_id: lease_json.borrower_id,
             expiration: lease_json.expiration,
             price: lease_json.price.0,
             payout: None,
@@ -506,7 +509,7 @@ mod tests {
             json!({
                 "contract_addr": nft_address,
                 "token_id": token_id.clone(),
-                "borrower": borrower,
+                "borrower_id": borrower,
                 "expiration": expiration,
                 "price": price.to_string(),
             })
@@ -517,8 +520,8 @@ mod tests {
 
         assert_eq!(nft_address, lease_condition.contract_addr);
         assert_eq!(token_id, lease_condition.token_id);
-        assert_eq!(lender, lease_condition.owner_id);
-        assert_eq!(borrower, lease_condition.borrower);
+        assert_eq!(lender, lease_condition.lender_id);
+        assert_eq!(borrower, lease_condition.borrower_id);
         assert_eq!(price, lease_condition.price);
         assert_eq!(expiration, lease_condition.expiration);
     }
@@ -551,7 +554,7 @@ mod tests {
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower.clone())
+            .predecessor_account_id(lease_condition.borrower_id.clone())
             .attached_deposit(lease_condition.price - 1)
             .build());
 
@@ -567,7 +570,7 @@ mod tests {
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower.clone())
+            .predecessor_account_id(lease_condition.borrower_id.clone())
             .attached_deposit(lease_condition.price)
             .build());
 
@@ -588,7 +591,7 @@ mod tests {
         testing_env!(
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
-                .predecessor_account_id(lease_condition.borrower.clone())
+                .predecessor_account_id(lease_condition.borrower_id.clone())
                 .attached_deposit(lease_condition.price)
                 .build(),
             VMConfig::test(),
@@ -620,7 +623,7 @@ mod tests {
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.owner_id.clone())
+            .predecessor_account_id(lease_condition.lender_id.clone())
             .block_timestamp(lease_condition.expiration - 1)
             .build());
 
@@ -658,7 +661,7 @@ mod tests {
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.owner_id.clone())
+            .predecessor_account_id(lease_condition.lender_id.clone())
             .block_timestamp(lease_condition.expiration + 1)
             .build());
 
@@ -676,7 +679,7 @@ mod tests {
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.owner_id.clone())
+            .predecessor_account_id(lease_condition.lender_id.clone())
             .block_timestamp(lease_condition.expiration + 1)
             .build());
 
@@ -695,7 +698,7 @@ mod tests {
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.owner_id.clone())
+            .predecessor_account_id(lease_condition.lender_id.clone())
             .block_timestamp(lease_condition.expiration + 1)
             .build());
 
@@ -763,7 +766,7 @@ mod tests {
         lease_condition.state = LeaseState::Active;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
-        lease_condition.borrower = expected_borrower_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
@@ -771,17 +774,21 @@ mod tests {
         let test_contract_id: AccountId = accounts(5).into();
         let test_token_id = "dummy_token".to_string();
 
-        let result_borrower =
-            contract.get_borrower_by_contract_and_token(test_contract_id.clone(), expected_token_id.clone());
+        let result_borrower = contract.get_borrower_by_contract_and_token(
+            test_contract_id.clone(),
+            expected_token_id.clone(),
+        );
         assert!(result_borrower.is_none());
 
-        let result_borrower =
-            contract.get_borrower_by_contract_and_token(expected_contract_address.clone(), test_token_id.clone());
+        let result_borrower = contract.get_borrower_by_contract_and_token(
+            expected_contract_address.clone(),
+            test_token_id.clone(),
+        );
         assert!(result_borrower.is_none());
     }
 
     #[test]
-    fn test_get_borrower_by_contract_and_token_success_lease_is_inactive(){
+    fn test_get_borrower_by_contract_and_token_success_lease_is_inactive() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
 
@@ -792,7 +799,7 @@ mod tests {
         lease_condition.state = LeaseState::Pending;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
-        lease_condition.borrower = expected_borrower_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
@@ -814,7 +821,7 @@ mod tests {
         lease_condition.state = LeaseState::Active;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
-        lease_condition.borrower = expected_borrower_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
@@ -833,7 +840,7 @@ mod tests {
         let mut lease_condition_1 = create_lease_condition_default();
         lease_condition_1.state = LeaseState::Active;
         lease_condition_1.token_id = "test_token_1".to_string();
-        lease_condition_1.borrower = expected_borrower_id.clone();
+        lease_condition_1.borrower_id = expected_borrower_id.clone();
 
         let key_1 = "test_key_1".to_string();
         contract.internal_insert_lease(&key_1, &lease_condition_1);
@@ -841,14 +848,14 @@ mod tests {
         let mut lease_condition_2 = create_lease_condition_default();
         lease_condition_2.state = LeaseState::Active;
         lease_condition_2.token_id = "test_token_2".to_string();
-        lease_condition_2.borrower = expected_borrower_id.clone();
+        lease_condition_2.borrower_id = expected_borrower_id.clone();
 
         let key_2 = "test_key_2".to_string();
         contract.internal_insert_lease(&key_2, &lease_condition_2);
 
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition_1.owner_id.clone())
+            .predecessor_account_id(lease_condition_1.lender_id.clone())
             .block_timestamp(lease_condition_1.expiration + 1)
             .build());
 
@@ -864,7 +871,7 @@ mod tests {
         let mut lease_condition_1 = create_lease_condition_default();
         lease_condition_1.state = LeaseState::Active;
         lease_condition_1.token_id = "test_token_1".to_string();
-        lease_condition_1.owner_id = expected_owner_id.clone();
+        lease_condition_1.lender_id = expected_owner_id.clone();
 
         let key_1 = "test_key_1".to_string();
         contract.internal_insert_lease(&key_1, &lease_condition_1);
@@ -872,7 +879,7 @@ mod tests {
         let mut lease_condition_2 = create_lease_condition_default();
         lease_condition_2.state = LeaseState::Active;
         lease_condition_2.token_id = "test_token_2".to_string();
-        lease_condition_2.owner_id = expected_owner_id.clone();
+        lease_condition_2.lender_id = expected_owner_id.clone();
 
         let key_2 = "test_key_2".to_string();
         contract.internal_insert_lease(&key_2, &lease_condition_2);
@@ -880,7 +887,7 @@ mod tests {
         let mut builder = VMContextBuilder::new();
         testing_env!(builder
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition_1.owner_id.clone())
+            .predecessor_account_id(lease_condition_1.lender_id.clone())
             .block_timestamp(lease_condition_1.expiration + 1)
             .build());
 
@@ -901,10 +908,10 @@ mod tests {
         assert!(contract.lease_map.is_empty());
         assert!(!contract
             .lease_ids_by_borrower
-            .contains_key(&lease_condition.borrower));
+            .contains_key(&lease_condition.borrower_id));
         assert!(!contract
             .lease_ids_by_lender
-            .contains_key(&lease_condition.owner_id));
+            .contains_key(&lease_condition.lender_id));
         assert!(!contract
             .lease_id_by_contract_addr_and_token_id
             .contains_key(&(
@@ -917,10 +924,10 @@ mod tests {
         assert!(contract.lease_map.len() == 1);
         assert!(contract
             .lease_ids_by_borrower
-            .contains_key(&lease_condition.borrower));
+            .contains_key(&lease_condition.borrower_id));
         assert!(contract
             .lease_ids_by_lender
-            .contains_key(&lease_condition.owner_id));
+            .contains_key(&lease_condition.lender_id));
         assert!(contract
             .lease_id_by_contract_addr_and_token_id
             .contains_key(&(
@@ -944,10 +951,10 @@ mod tests {
         assert!(contract.lease_map.len() == 1);
         assert!(contract
             .lease_ids_by_borrower
-            .contains_key(&lease_condition.borrower));
+            .contains_key(&lease_condition.borrower_id));
         assert!(contract
             .lease_ids_by_lender
-            .contains_key(&lease_condition.owner_id));
+            .contains_key(&lease_condition.lender_id));
         assert!(contract
             .lease_id_by_contract_addr_and_token_id
             .contains_key(&(
@@ -960,10 +967,10 @@ mod tests {
         assert!(contract.lease_map.is_empty());
         assert!(!contract
             .lease_ids_by_borrower
-            .contains_key(&lease_condition.borrower));
+            .contains_key(&lease_condition.borrower_id));
         assert!(!contract
             .lease_ids_by_lender
-            .contains_key(&lease_condition.owner_id));
+            .contains_key(&lease_condition.lender_id));
         assert!(!contract
             .lease_id_by_contract_addr_and_token_id
             .contains_key(&(
@@ -981,7 +988,7 @@ mod tests {
         let mut lease_condition_1 = create_lease_condition_default();
         lease_condition_1.state = LeaseState::Active;
         lease_condition_1.token_id = "test_token_1".to_string();
-        lease_condition_1.owner_id = owner_1.clone();
+        lease_condition_1.lender_id = owner_1.clone();
 
         let key_1 = "test_key_1".to_string();
         contract.internal_insert_lease(&key_1, &lease_condition_1);
@@ -989,7 +996,7 @@ mod tests {
         let mut lease_condition_2 = create_lease_condition_default();
         lease_condition_2.state = LeaseState::Active;
         lease_condition_2.token_id = "test_token_2".to_string();
-        lease_condition_2.owner_id = owner_2.clone();
+        lease_condition_2.lender_id = owner_2.clone();
 
         let key_2 = "test_key_2".to_string();
         contract.internal_insert_lease(&key_2, &lease_condition_2);
@@ -1014,7 +1021,7 @@ mod tests {
         let mut lease_condition_1 = create_lease_condition_default();
         lease_condition_1.state = LeaseState::Active;
         lease_condition_1.token_id = "test_token_1".to_string();
-        lease_condition_1.borrower = borrower_1.clone();
+        lease_condition_1.borrower_id = borrower_1.clone();
 
         let key_1 = "test_key_1".to_string();
         contract.internal_insert_lease(&key_1, &lease_condition_1);
@@ -1022,7 +1029,7 @@ mod tests {
         let mut lease_condition_2 = create_lease_condition_default();
         lease_condition_2.state = LeaseState::Active;
         lease_condition_2.token_id = "test_token_2".to_string();
-        lease_condition_2.borrower = borrower_2.clone();
+        lease_condition_2.borrower_id = borrower_2.clone();
 
         let key_2 = "test_key_2".to_string();
         contract.internal_insert_lease(&key_2, &lease_condition_2);
@@ -1065,8 +1072,8 @@ mod tests {
     fn create_lease_condition(
         contract_addr: AccountId,
         token_id: TokenId,
-        owner_id: AccountId,
-        borrower: AccountId,
+        lender_id: AccountId,
+        borrower_id: AccountId,
         approval_id: u64,
         expiration: u64,
         price: u128,
@@ -1076,8 +1083,8 @@ mod tests {
         LeaseCondition {
             contract_addr,
             token_id,
-            owner_id,
-            borrower,
+            lender_id,
+            borrower_id,
             approval_id,
             expiration,
             price,
