@@ -345,9 +345,8 @@ async fn test_lending_nft_transferred() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-    println!("      ✅ Lease accepted by Bob");
-    println!("      ✅ Lease activation accepted between Alice and Bob");
-
+    assert_eq!(leases[0].1.state, LeaseState::Pending);
+    println!("      Lease cannot be accepted by Bob");
     Ok(())
 }
 
