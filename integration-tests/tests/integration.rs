@@ -9,7 +9,6 @@ const ONE_BLOCK_IN_NANO: u64 = 2000000000;
 struct Context {
     lender: Account,
     borrower: Account,
-    borrower_1: Account,
     contract: Contract,
     nft_contract: Contract,
     worker: Worker<Sandbox>,
@@ -35,12 +34,6 @@ async fn init() -> anyhow::Result<Context> {
         .into_result()?;
     let bob = account
         .create_subaccount("bob")
-        .initial_balance(parse_near!("30 N"))
-        .transact()
-        .await?
-        .into_result()?;
-    let charles = account
-        .create_subaccount("charles")
         .initial_balance(parse_near!("30 N"))
         .transact()
         .await?
@@ -71,7 +64,6 @@ async fn init() -> anyhow::Result<Context> {
     Ok(Context {
         lender: alice,
         borrower: bob,
-        borrower_1: charles,
         contract,
         nft_contract,
         worker,
@@ -207,13 +199,23 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
 }
 
 // Alice creates a lease to Bob. 
-// Charlse should not be able to accept this lent
+// Bob can accept the lease multiple times
+// but Charlse should not be able to accept this lent
 #[tokio::test]
-async fn test_lending_already_lent() -> anyhow::Result<()> {
+async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     let context = init().await?;
     let lender = context.lender;
     let borrower = context.borrower;
-    let borrower_failed = context.borrower_1;
+
+    let worker = workspaces::sandbox().await?;
+    let account = worker.dev_create_account().await?;
+    let borrower_failed = account
+        .create_subaccount("charles")
+        .initial_balance(parse_near!("30 N"))
+        .transact()
+        .await?
+        .into_result()?;
+
     let contract = context.contract;
     let nft_contract = context.nft_contract;
     let worker = context.worker;
@@ -238,9 +240,9 @@ async fn test_lending_already_lent() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-    println!("      ✅ Lease created and lent to Bob");
+    println!("      ✅ Lease created and pending on Bob's acceptence");
 
-    println!("Confirming the created lease ...");
+    // Confirming the created lease ...
     let leases: Vec<(String, LeaseCondition)> = contract
         .call("leases_by_owner")
         .args_json(json!({"account_id": lender.id()}))
@@ -260,7 +262,19 @@ async fn test_lending_already_lent() -> anyhow::Result<()> {
         .await?
         .into_result()?;
     println!("      ✅ Lease accepted by Bob");
-    println!("      ✅ Lease activation accepted between Alice and Bob");
+
+    // Bob tries to accept the lease again.
+    borrower
+    .call(contract.id(), "lending_accept")
+    .args_json(json!({
+        "lease_id": lease_id,
+    }))
+    .deposit(1)
+    .max_gas()
+    .transact()
+    .await?
+    .into_result()?;
+    println!("      ✅ Lease accepted by Bob");
 
     println!("Charlse tries to accept the same lease ...");
     let result = borrower_failed
@@ -279,13 +293,21 @@ async fn test_lending_already_lent() -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO: lending_accept - NFT has been transferred to other account
 #[tokio::test]
-async fn test_lending_nft_transferred() -> anyhow::Result<()> {
+async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
     let context = init().await?;
     let lender = context.lender;
     let borrower = context.borrower;
-    let new_owner = context.borrower_1;
+
+    let worker = workspaces::sandbox().await?;
+    let account = worker.dev_create_account().await?;
+    let new_owner = account
+        .create_subaccount("charles")
+        .initial_balance(parse_near!("30 N"))
+        .transact()
+        .await?
+        .into_result()?;
+
     let contract = context.contract;
     let nft_contract = context.nft_contract;
     let worker = context.worker;
@@ -310,7 +332,7 @@ async fn test_lending_nft_transferred() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-    println!("      ✅ Lease created and lent to Bob");
+    println!("      ✅ Lease created and pending on Bob's acceptence");
 
     // lender Alice transfers the NFT to another user Charlse
     lender
@@ -326,7 +348,7 @@ async fn test_lending_nft_transferred() -> anyhow::Result<()> {
         .await?
         .into_result()?;
 
-    println!("Confirming the created lease ...");
+    // Confirming the created lease ...
     let leases: Vec<(String, LeaseCondition)> = contract
         .call("leases_by_owner")
         .args_json(json!({"account_id": lender.id()}))
