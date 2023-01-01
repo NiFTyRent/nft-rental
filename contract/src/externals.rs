@@ -30,4 +30,6 @@ pub trait Nft {
         balance: U128,
         max_len_payout: Option<u32>,
     );
+
+    fn nft_token(&self, token_id: TokenId) -> Option<Token>;
 }
