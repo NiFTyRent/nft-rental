@@ -264,6 +264,8 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     println!("      ✅ Lease accepted by Bob");
 
     // Bob tries to accept the lease again.
+    // This action should fail
+    // TODO(haichen): make lending_accept fail explicitly
     borrower
     .call(contract.id(), "lending_accept")
     .args_json(json!({
@@ -274,7 +276,6 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     .transact()
     .await?
     .into_result()?;
-    println!("      ✅ Lease accepted by Bob");
 
     println!("Charlse tries to accept the same lease ...");
     let result = borrower_failed
