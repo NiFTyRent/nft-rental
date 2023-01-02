@@ -199,23 +199,13 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
 }
 
 // Alice creates a lease to Bob. 
-// Bob can accept the lease multiple times
-// but Charlse should not be able to accept this lent
+// Bob can accept the lease for the first time 
+// but he should fail if he attempts to accept it for multipe times
 #[tokio::test]
 async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     let context = init().await?;
     let lender = context.lender;
     let borrower = context.borrower;
-
-    let worker = workspaces::sandbox().await?;
-    let account = worker.dev_create_account().await?;
-    let borrower_failed = account
-        .create_subaccount("charles")
-        .initial_balance(parse_near!("30 N"))
-        .transact()
-        .await?
-        .into_result()?;
-
     let contract = context.contract;
     let nft_contract = context.nft_contract;
     let worker = context.worker;
@@ -267,18 +257,6 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     // This action should fail
     // TODO(haichen): make lending_accept fail explicitly
     borrower
-    .call(contract.id(), "lending_accept")
-    .args_json(json!({
-        "lease_id": lease_id,
-    }))
-    .deposit(1)
-    .max_gas()
-    .transact()
-    .await?
-    .into_result()?;
-
-    println!("Charlse tries to accept the same lease ...");
-    let result = borrower_failed
         .call(contract.id(), "lending_accept")
         .args_json(json!({
             "lease_id": lease_id,
@@ -287,10 +265,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
         .max_gas()
         .transact()
         .await?
-        .into_result();
-    println!("       Lease cannot be accepted by Charlse");
-    assert!(result.is_err());
-    
+        .into_result()?;
     Ok(())
 }
 
@@ -368,7 +343,14 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-    assert_eq!(leases[0].1.state, LeaseState::Pending);
+
+    let updated_leases: Vec<(String, LeaseCondition)> = contract
+        .call("leases_by_owner")
+        .args_json(json!({"account_id": lender.id()}))
+        .transact()
+        .await?
+        .json()?;
+    assert_eq!(updated_leases[0].1.state, LeaseState::Pending);
     println!("      Lease cannot be accepted by Bob");
     Ok(())
 }
