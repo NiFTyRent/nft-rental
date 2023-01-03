@@ -159,9 +159,19 @@ impl Contract {
         // TODO: avoid re-fetch lease condition
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
 
-        let optional_payout: Option<Payout> = promise_result_as_success().and_then(|value| {
-            // TODO(libo): validate the payout
-            serde_json::from_slice::<Payout>(&value).ok()
+        let optional_payout: Option<Payout> = promise_result_as_success().map(|value| {
+            let payout = serde_json::from_slice::<Payout>(&value).unwrap();
+            assert_eq!(
+                payout
+                    .payout
+                    .values()
+                    .map(|v| v.0)
+                    .into_iter()
+                    .sum::<u128>(),
+                lease_condition.price,
+                "The sum of payout does not match the lease price"
+            );
+            payout
         });
 
         let new_lease_condition = LeaseCondition {
@@ -585,7 +595,40 @@ mod tests {
         contract.lease_map.insert(&key, &lease_condition);
 
         let payout = Payout {
-            payout: HashMap::from([(accounts(2).into(), U128::from(1))]),
+            payout: HashMap::from([(accounts(2).into(), U128::from(1)), (accounts(3).into(), U128::from(4))]),
+        };
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition.borrower_id.clone())
+                .attached_deposit(lease_condition.price)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(
+                serde_json::to_vec(&payout).unwrap()
+            )],
+        );
+
+        contract.activate_lease(key.clone());
+
+        let lease_condition_result = contract.lease_map.get(&key).unwrap();
+        assert_eq!(lease_condition_result.payout, Some(payout));
+        assert_eq!(lease_condition_result.state, LeaseState::Active);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: `(left == right)`\n  left: `3`,\n right: `5`: The sum of payout does not match the lease price")]
+    fn test_activate_lease_failure_invalid_payout() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let payout = Payout {
+            payout: HashMap::from([(accounts(2).into(), U128::from(1)), (accounts(3).into(), U128::from(2))]),
         };
 
         testing_env!(
