@@ -136,6 +136,7 @@ impl Contract {
             "Deposit is less than the agreed rent!"
         );
 
+        // TODO(libo): handles the case when payout is not implemented by the NFT contract.
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)

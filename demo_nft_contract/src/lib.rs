@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
@@ -5,6 +7,8 @@ use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
+use near_sdk::json_types::U128;
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
 };
@@ -37,6 +41,14 @@ enum StorageKey {
     TokenMetadata,
     Enumeration,
     Approval,
+}
+
+pub type PayoutHashMap = HashMap<AccountId, U128>;
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(crate = "near_sdk::serde")]
+pub struct Payout {
+    pub payout: PayoutHashMap,
 }
 
 #[near_bindgen]
@@ -100,6 +112,28 @@ impl Contract {
     ) -> Token {
         self.tokens
             .mint(token_id, receiver_id, Some(token_metadata))
+    }
+
+    #[payable]
+    pub fn nft_transfer_payout(
+        &mut self,
+        receiver_id: AccountId,
+        token_id: String,
+        approval_id: u64,
+        balance: near_sdk::json_types::U128,
+        max_len_payout: u32,
+    ) -> Payout {
+        let treasury_split = balance.0 / 20;
+        let owner_split = balance.0 - treasury_split;
+        let owner = self.tokens.owner_by_id.get(&token_id).unwrap();
+        let payout = Payout {
+            payout: HashMap::from([
+                (env::current_account_id(), U128::from(treasury_split)),
+                (owner, U128::from(owner_split)),
+            ]),
+        };
+        self.nft_transfer(receiver_id, token_id, Some(approval_id), None);
+        payout
     }
 }
 
