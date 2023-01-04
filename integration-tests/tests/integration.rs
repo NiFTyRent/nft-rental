@@ -333,6 +333,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .await?
         .json()?;
     assert_eq!(token.owner_id.to_string(), new_owner.id().to_string());
+    println!("       ✅ The token is still owned by Charlse");
 
     // Confirming the created lease ...
     let leases: Vec<(String, LeaseCondition)> = contract
@@ -360,8 +361,8 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .transact()
         .await?
         .json()?;
-    // assert_eq!(updated_leases[0].1.state, LeaseState::Pending);
-    println!("      Lease cannot be accepted by Bob");
+    assert_eq!(updated_leases[0].1.state, LeaseState::Pending);
+    println!("       ✅ Lease cannot be accepted by Bob");
     let token:Token = nft_contract
         .view("nft_token")
         .args_json(json!({
@@ -369,8 +370,8 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    println!("token: {:?}", token);
     assert_eq!(token.owner_id.to_string(), new_owner.id().to_string());
+    println!("       ✅ The token is still owned by Charlse");
     Ok(())
 }
 
