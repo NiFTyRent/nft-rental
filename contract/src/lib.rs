@@ -22,6 +22,9 @@ pub const GAS_FOR_NFT_TRANSFER: Gas = Gas(20_000_000_000_000);
 pub const BASE_GAS: Gas = Gas(5 * TGAS);
 pub const GAS_FOR_ROYALTIES: Gas = Gas(BASE_GAS.0 * 10u64);
 pub const GAS_FOR_RESOLVE_CLAIM_BACK: Gas = Gas(BASE_GAS.0 * 10u64);
+// the tolerance of lease price minus the sum of payout
+// Set it to 1 to avoid linter error
+pub const PAYOUT_DIFF_TORLANCE_YACTO: u128 = 1;
 
 pub type LeaseId = String;
 pub type PayoutHashMap = HashMap<AccountId, U128>;
@@ -159,9 +162,24 @@ impl Contract {
         // TODO: avoid re-fetch lease condition
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
 
-        let optional_payout: Option<Payout> = promise_result_as_success().and_then(|value| {
-            // TODO(libo): validate the payout
-            serde_json::from_slice::<Payout>(&value).ok()
+        let optional_payout: Option<Payout> = promise_result_as_success().map(|value| {
+            let payout = serde_json::from_slice::<Payout>(&value).unwrap();
+            let payout_diff: u128 = lease_condition
+                .price
+                .checked_sub(
+                    payout
+                        .payout
+                        .values()
+                        .map(|v| v.0)
+                        .into_iter()
+                        .sum::<u128>(),
+                )
+                .unwrap();
+            assert!(
+                payout_diff <= PAYOUT_DIFF_TORLANCE_YACTO,
+                "The difference between the lease price and the sum of payout is too large"
+            );
+            payout
         });
 
         let new_lease_condition = LeaseCondition {
@@ -585,7 +603,50 @@ mod tests {
         contract.lease_map.insert(&key, &lease_condition);
 
         let payout = Payout {
-            payout: HashMap::from([(accounts(2).into(), U128::from(1))]),
+            payout: HashMap::from([
+                (accounts(2).into(), U128::from(1)),
+                (accounts(3).into(), U128::from(4)),
+            ]),
+        };
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition.borrower_id.clone())
+                .attached_deposit(lease_condition.price)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(
+                serde_json::to_vec(&payout).unwrap()
+            )],
+        );
+
+        contract.activate_lease(key.clone());
+
+        let lease_condition_result = contract.lease_map.get(&key).unwrap();
+        assert_eq!(lease_condition_result.payout, Some(payout));
+        assert_eq!(lease_condition_result.state, LeaseState::Active);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "The difference between the lease price and the sum of payout is too large"
+    )]
+    fn test_activate_lease_failure_invalid_payout() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        // This is redundent but we set it explicitly to make it clear
+        lease_condition.price = 5;
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        let payout = Payout {
+            payout: HashMap::from([
+                (accounts(2).into(), U128::from(1)),
+                (accounts(3).into(), U128::from(2)),
+            ]),
         };
 
         testing_env!(
