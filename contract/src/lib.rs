@@ -138,6 +138,10 @@ impl Contract {
             env::attached_deposit() >= lease_condition.price,
             "Deposit is less than the agreed rent!"
         );
+        assert_eq!(
+            lease_condition.state, LeaseState::Pending,
+            "This lease is not pending on acceptance!"
+        );
 
         // TODO(libo): handles the case when payout is not implemented by the NFT contract.
         ext_nft::ext(lease_condition.contract_addr.clone())
@@ -565,6 +569,24 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(wrong_borrower.clone())
+            .build());
+
+        contract.lending_accept(key);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: `(left == right)`\n  left: `Active`,\n right: `Pending`: This lease is not pending on acceptance!")]
+    fn test_lending_accept_fail_wrong_state_() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.borrower_id.clone())
+            .attached_deposit(lease_condition.price)
             .build());
 
         contract.lending_accept(key);
