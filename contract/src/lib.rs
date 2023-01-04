@@ -632,7 +632,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "assertion failed: `(left == right)`\n  left: `3`,\n right: `5`: The sum of payout does not match the lease price"
+        expected = "The difference between the lease price and the sum of payout is too large"
     )]
     fn test_activate_lease_failure_invalid_payout() {
         let mut contract = Contract::new(accounts(1).into());
