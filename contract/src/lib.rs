@@ -6,7 +6,10 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{bs58, ext_contract, promise_result_as_success, serde_json, CryptoHash};
+use near_sdk::{
+    bs58, ext_contract, is_promise_success, promise_result_as_success, require, serde_json,
+    CryptoHash,
+};
 use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
@@ -136,6 +139,7 @@ impl Contract {
             "Deposit is less than the agreed rent!"
         );
 
+        // TODO(libo): handles the case when payout is not implemented by the NFT contract.
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
@@ -157,6 +161,10 @@ impl Contract {
 
     #[private]
     pub fn activate_lease(&mut self, lease_id: LeaseId) {
+        require!(
+            is_promise_success(),
+            "NFT transfer failed, abort lease activation."
+        );
         log!("Activating lease ({})", &lease_id);
 
         // TODO: avoid re-fetch lease condition
@@ -668,6 +676,33 @@ mod tests {
         let lease_condition_result = contract.lease_map.get(&key).unwrap();
         assert_eq!(lease_condition_result.payout, Some(payout));
         assert_eq!(lease_condition_result.state, LeaseState::Active);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_activate_lease_promise_panic() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition.borrower_id.clone())
+                .attached_deposit(lease_condition.price)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Failed],
+        );
+
+        contract.activate_lease(key.clone());
+
+        let lease_condition_result = contract.lease_map.get(&key).unwrap();
+        assert_eq!(lease_condition_result.payout, None);
+        assert_eq!(lease_condition_result.state, LeaseState::Pending);
     }
 
     #[test]
