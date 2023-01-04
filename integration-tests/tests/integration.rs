@@ -256,7 +256,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     // Bob tries to accept the lease again.
     // This action should fail
     // TODO(haichen): make lending_accept fail explicitly
-    borrower
+    let double_accept_result = borrower
         .call(contract.id(), "lending_accept")
         .args_json(json!({
             "lease_id": lease_id,
@@ -265,7 +265,9 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
         .max_gas()
         .transact()
         .await?
-        .into_result()?;
+        .into_result();
+    assert!(double_accept_result.is_err());
+    println!("      ✅ Lease cannot be accepted by Bob again.");
     Ok(())
 }
 
