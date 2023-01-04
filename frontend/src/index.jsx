@@ -2,8 +2,9 @@ import "regenerator-runtime/runtime";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import App from "./App";
 import Home from "./Home";
+import App from "./App";
+import AppHome from "./AppHome";
 import NewLendingPage from "./NewLendingPage";
 import AcceptBorrowingPage from "./AcceptBorrowingPage";
 import BorrowingsPage from "./BorrowingsPage";
@@ -24,8 +25,9 @@ window.nearInitPromise = initContract()
       <ApolloProvider client={mintbaseClient}>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<App />}>
-              <Route index element={<Home />} />
+            <Route exact path="/" element={<Home />} />
+            <Route path="/app" element={<App />}>
+              <Route index element={<AppHome />} />
               <Route path="lendings" element={<LendingsPage />} />
               <Route path="lendings/new" element={<NewLendingPage />} />
               <Route path="borrowings" element={<BorrowingsPage />} />

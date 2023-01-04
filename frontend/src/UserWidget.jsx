@@ -11,7 +11,7 @@ export default function UserWidget() {
     <>
       <Menu as="div" className="relative ml-3">
         <div>
-          <Menu.Button className="flex max-w-xs p-2 items-center rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          <Menu.Button className="btn">
             {window.accountId}
           </Menu.Button>
         </div>
