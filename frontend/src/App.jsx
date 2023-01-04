@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import { classNames } from "./Utils";
+import logoUrl from "/assets/logo.svg";
 
 const navigation = [
   { name: "Home", href: "/app", icon: HomeIcon, current: false },
@@ -98,7 +99,7 @@ export default function App() {
                   </Transition.Child>
                   <div className="flex flex-shrink-0 items-center px-4">
                     <div className="h-8 w-auto p-8 mb-8">
-                      <img className="" src="/assets/logo.svg" />
+                      <img className="" src={logoUrl} />
                     </div>
                   </div>
                   <div className="mt-5 h-0 flex-1 overflow-y-auto">
@@ -138,7 +139,7 @@ export default function App() {
           <div className="flex flex-grow flex-col overflow-y-auto bg-zinc-700 pt-5">
             <div className="flex flex-shrink-0 items-center px-4">
               <div className="h-8 w-auto p-4 mb-8">
-                <img className="" src="/assets/logo.svg" />
+                <img className="" src={logoUrl} />
               </div>
             </div>
             <div className="mt-5 flex flex-1 flex-col">

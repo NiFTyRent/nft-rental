@@ -1,6 +1,9 @@
 import React from "react";
 import TwitterIcon from "./TwitterIcon";
 import GithubIcon from "./GithubIcon";
+import logoUrl from "/assets/logo.svg";
+import bgUrl from "/assets/background.webp";
+
 
 export default function Home() {
   return (
@@ -12,9 +15,7 @@ export default function Home() {
           <a href="https://twitter.com/NiFTyRent" target="_blank">Twitter</a>
         </div>
         <div className="mx-auto max-w-7xl px-8 mt-24">
-          <img
-            className="mx-auto h-32"
-            src="/assets/logo.svg" />
+          <img className="mx-auto h-32" src={logoUrl} />
         </div>
         <div className="text-center mt-12 text-2xl">
           Collateral-free, Utility NFT Rental
@@ -26,7 +27,7 @@ export default function Home() {
         </div>
       </div>
       <div className="h-screen max-w-[1920px] mt-12 mx-auto" style={{
-        backgroundImage: "url(/assets/background.webp)",
+        backgroundImage: `url(${bgUrl})`,
         backgroundRepeat: "no-repeat",
         backgroundSize: "cover",
         backgroundPosition: "50% 10%",
