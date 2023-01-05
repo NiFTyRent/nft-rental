@@ -37,7 +37,7 @@ export default function Home() {
       <div className="flex flex-col max-w-2xl mx-auto mt-24 space-y-8 px-8">
         <div className="flex flex-row space-x-2">
           <div className="flex-1 text-xl">COLLATERAL-FREE</div>
-          <div className="flex-1">Frictionless rentals without full custody for the renter. Simple and secure, as it should be!</div>
+          <div className="flex-1">Frictionless rentals. Simple and secure, as it should be!</div>
         </div>
         <div className="flex flex-row space-x-2">
           <div className="flex-1 text-xl">PLUG & PLAY</div>
