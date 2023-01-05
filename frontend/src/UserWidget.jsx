@@ -1,11 +1,10 @@
 import React from "react";
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { Menu, Transition } from "@headlessui/react";
 import { classNames } from "./Utils";
 import { signInWithNearWallet, signOutNearWallet } from "./near-api";
 
 export default function UserWidget() {
-  let [showSignOut, setShowSignOut] = React.useState(false);
 
   return window.walletConnection.isSignedIn() ? (
     <>
@@ -45,7 +44,7 @@ export default function UserWidget() {
   ) : (
     <button
       onClick={signInWithNearWallet}
-      className="inline-block rounded-md border border-transparent bg-indigo-500 py-2 px-4 text-base font-medium text-white hover:bg-opacity-75"
+      className="primary-btn"
     >
       Sign in
     </button>
