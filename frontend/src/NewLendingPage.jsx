@@ -59,93 +59,86 @@ export default function NewLendingPage() {
             New Lease
           </h1>
         </div>
+
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
           <div className="space-y-8 divide-y divide-gray-200">
             <div className="flex flex-col space-y-8 divide-y divide-gray-200 sm:space-y-5">
+
               <div className="space-y-6 sm:space-y-5">
-                <div>
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    NFT Info
-                  </h3>
-                </div>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">
+                  NFT Info
+                </h3>
 
-                <div>
-                  <div className="flex flex-row space-x-8 justify-between">
-                    <div className="flex-auto space-y-6 sm:space-y-5">
-                      <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                        <label
-                          htmlFor="contract_addr"
-                          className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2"
-                        >
-                          Contract
-                        </label>
-                        <div className="mt-1 sm:col-span-2 sm:mt-0">
-                          <AutoInput
-                            className="block w-full min-w-0 flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                            selected={selectedContract}
-                            setSelected={setSelectedContract}
-                            options={data.nft_contracts.map(({ id, name }) => {
-                              return { id, name };
-                            })}
-                          />
-                          <p className="mt-2 text-sm text-gray-500">
-                            Choose the contract of your NFT.
-                          </p>
-                        </div>
-                      </div>
+                <div className="sm:flex sm:flex-row justify-between">
+                  <div className="w-2/3 space-y-6 sm:space-y-5">
 
-                      <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                        <label
-                          htmlFor="token_id"
-                          className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2"
-                        >
-                          Token
-                        </label>
-                        <div className="mt-1 sm:col-span-2 sm:mt-0">
-                          <AutoInput
-                            className="block w-full min-w-0 flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                            selected={selectedToken}
-                            setSelected={setSelectedToken}
-                            options={tokens.map(({ token_id, metadata }) => {
-                              return {
-                                id: token_id,
-                                name: metadata.title || token_id,
-                                media: metadata.media,
-                              };
-                            })}
-                          />
-                          <p className="mt-2 text-sm text-gray-500">
-                            Choose the token you want to lend
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex-none">
-                      <label className="block text-sm font-medium text-gray-700 pb-4">
-                        NFT Image
+                    <div className="sm:flex sm:flex-row">
+                      <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+                        Contract
                       </label>
-                      <div className="mt-1 sm:col-span-2 sm:mt-0">
-                        <div className="flex items-center">
-                          <span className="h-36 w-36 overflow-hidden  bg-gray-100">
-                            <img src={selectedToken?.media} />
-                          </span>
-                        </div>
+                      <div className="mt-1 sm:w-1/2 sm:mt-0">
+                        <AutoInput
+                          className="block w-full min-w-0 flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          selected={selectedContract}
+                          setSelected={setSelectedContract}
+                          options={data.nft_contracts.map(({ id, name }) => {
+                            return { id, name };
+                          })}
+                        />
+                        <p className="mt-2 text-sm text-gray-500">
+                          Choose the contract of your NFT.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="sm:flex sm:flex-row">
+                      <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+                        Token
+                      </label>
+                      <div className="mt-1 sm:w-1/2 sm:mt-0">
+                        <AutoInput
+                          className="block w-full min-w-0 flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          selected={selectedToken}
+                          setSelected={setSelectedToken}
+                          options={tokens.map(({ token_id, metadata }) => {
+                            return {
+                              id: token_id,
+                              name: metadata.title || token_id,
+                              media: metadata.media,
+                            };
+                          })}
+                        />
+                        <p className="mt-2 text-sm text-gray-500">
+                          Choose the token you want to lend
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  <div>
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      Lease Info
-                    </h3>
-                  </div>
-
-                  <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                    <label className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
-                      Borrower
+                  <div className="sm:w-1/3 sm:px-8">
+                    <label className="block text-sm font-medium text-gray-700 pb-4">
+                      NFT Image
                     </label>
                     <div className="mt-1 sm:col-span-2 sm:mt-0">
+                      <div className="flex items-center">
+                        <span className="h-36 w-36 overflow-hidden  bg-gray-100">
+                          <img src={selectedToken?.media} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6 sm:space-y-5">
+                  <h3 className="text-lg font-medium leading-6 text-gray-900">
+                    Lease Info
+                  </h3>
+
+                  <div className="sm:flex sm:flex-row">
+                    <label htmlFor="contract_addr" className="block sm:w-1/3 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+                      Borrower
+                    </label>
+                    <div className="mt-1 sm:w-2/3 sm:mt-0">
                       <input
                         type="text"
                         className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -158,12 +151,12 @@ export default function NewLendingPage() {
                     </div>
                   </div>
 
-                  <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                    <label className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
+                  <div className="sm:flex sm:flex-row">
+                    <label htmlFor="contract_addr" className="block sm:w-1/3 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
                       Rent Duration
                     </label>
-                    <div className="mt-1 sm:col-span-2 sm:mt-0">
-                      <div className="flex flex-row space-x-2">
+                    <div className="mt-1 sm:w-2/3 sm:mt-0">
+                      <div className="flex flex-row space-x-2 max-w-lg">
                         <div>
                           <div className="text-sm">Days</div>
                           <input
@@ -183,7 +176,7 @@ export default function NewLendingPage() {
                           />
                         </div>
                         <div>
-                          <div className="text-sm">Minutse</div>
+                          <div className="text-sm">Minutes</div>
                           <input
                             type="number"
                             className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -198,11 +191,11 @@ export default function NewLendingPage() {
                     </div>
                   </div>
 
-                  <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                    <label className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
+                  <div className="sm:flex sm:flex-row">
+                    <label htmlFor="contract_addr" className="block sm:w-1/3 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
                       Rent
                     </label>
-                    <div className="mt-1 sm:col-span-2 sm:mt-0">
+                    <div className="mt-1 sm:w-2/3 sm:mt-0">
                       <input
                         type="number"
                         className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"

@@ -1,6 +1,7 @@
 import React from "react";
 import TwitterIcon from "./TwitterIcon";
 import GithubIcon from "./GithubIcon";
+import MediumIcon from "./MediumIcon";
 import logoUrl from "/assets/logo.svg";
 import bgUrl from "/assets/background.webp";
 
@@ -10,7 +11,7 @@ export default function Home() {
     <div className="bg-[#060606] text-zinc-100">
       <div className="max-w-[1440px] mx-auto">
         <div className="py-2 px-12 h-18  text-lg flex flex-row space-x-8">
-          <a href="https://docs.niftyrent.com" target="_blank">Docs</a>
+          <a href="https://docs.niftyrent.xyz" target="_blank">Docs</a>
           <a href="https://medium.com/niftyrent" target="_blank">Blog</a>
           <a href="https://twitter.com/NiFTyRent" target="_blank">Twitter</a>
         </div>
@@ -40,7 +41,7 @@ export default function Home() {
         </div>
         <div className="flex flex-row space-x-2">
           <div className="flex-1 text-xl">PLUG & PLAY</div>
-          <div className="flex-1">A seamless integration experience for developers enabled by the reNFT SDK </div>
+          <div className="flex-1">A seamless integration experience for developers enabled by the SDK </div>
         </div>
         <div className="flex flex-row space-x-2">
           <div className="flex-1 text-xl">WHITELABEL</div>
@@ -71,6 +72,9 @@ export default function Home() {
           </a>
           <a href="https://github.com/NiFTyRent" target="_blank">
             <GithubIcon className="h-6 fill-zinc-100" />
+          </a>
+          <a href="https://medium.com/niftyrent" target="_blank">
+            <MediumIcon className="h-6 fill-zinc-100" />
           </a>
         </div>
         <div className="text-sm mt-4">2023 NiftyRent</div>
