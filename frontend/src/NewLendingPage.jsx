@@ -1,24 +1,70 @@
 import React from "react";
 import AutoInput from "./AutoInput";
 import { useQuery, gql } from "@apollo/client";
-import { initContract, nftTokensForOwner, newLease } from "./NftContract";
+import { initContract, newLease } from "./NftContract";
 
-const GET_CONTRACTS = gql`
-  query GetContracts {
-    nft_contracts {
-      id
-      name
-      is_mintbase
-      base_uri
+
+
+function ContractAutoInput({ className, query, selected, setSelected }) {
+  const GET_CONTRACTS = gql`
+    query GetContracts {
+      nft_contracts {
+        id
+        name
+        is_mintbase
+        base_uri
+      }
     }
-  }
-`;
+  `;
+
+  const { loading, error, data } = useQuery(GET_CONTRACTS, { name: query });
+  if (loading) return <AutoInput className={className} loading={true} />;
+  if (error) return <p>Error</p>;
+
+  return <AutoInput
+    className={className}
+    selected={selected}
+    setSelected={setSelected}
+    options={data.nft_contracts.map(({ id, name }) =>
+      ({ id, name: `${name} (${id})` })
+    )}
+  />;
+}
+
+function TokenAutoInput({ className, contractId, selected, setSelected }) {
+  const GET_TOKENS = gql`
+    query GetTokens($contract_id: String!) {
+      mb_views_nft_metadata(where: {nft_contract_id: {_eq: $contract_id}}) {
+        id
+        media
+        title
+      }
+    }
+  `;
+
+  if (!contractId) return <AutoInput className={className} disabled={true} />
+
+  const { loading, error, data } = useQuery(GET_TOKENS, { variables: { contract_id: contractId } });
+  if (loading) return <AutoInput className={className} loading={true} />;
+  if (error) return <p>Error</p>;
+
+  return <AutoInput
+    className={className}
+    selected={selected}
+    setSelected={setSelected}
+    options={data.mb_views_nft_metadata.map(({ id, title, media }) =>
+    ({
+      id,
+      name: title || id,
+      media: media,
+    })
+    )}
+  />;
+}
 
 export default function NewLendingPage() {
-  const { loading, error, data } = useQuery(GET_CONTRACTS);
   const [selectedContract, setSelectedContract] = React.useState("");
   const [selectedToken, setSelectedToken] = React.useState("");
-  const [tokens, setTokens] = React.useState([]);
   const [borrower, setBorrower] = React.useState("");
   const [durationMinute, setDurationMinute] = React.useState(0);
   const [durationHour, setDurationHour] = React.useState(0);
@@ -35,21 +81,6 @@ export default function NewLendingPage() {
 
     newLease(contract, selectedToken.id, borrower, expiration, rent);
   };
-
-  React.useEffect(() => {
-    async function fetchTokens() {
-      let contract = await initContract(selectedContract.id);
-
-      nftTokensForOwner(contract, window.accountId).then((tokens) =>
-        setTokens((_) => tokens)
-      );
-    }
-    if (selectedContract == "") return;
-    fetchTokens();
-  }, [selectedContract]);
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error :(</p>;
 
   return (
     <>
@@ -77,13 +108,10 @@ export default function NewLendingPage() {
                         Contract
                       </label>
                       <div className="mt-1 sm:w-1/2 sm:mt-0">
-                        <AutoInput
+                        <ContractAutoInput
                           className="input max-w-lg"
                           selected={selectedContract}
                           setSelected={setSelectedContract}
-                          options={data.nft_contracts.map(({ id, name }) => {
-                            return { id, name };
-                          })}
                         />
                         <p className="mt-2 text-sm text-gray-500">
                           Choose the contract of your NFT.
@@ -96,17 +124,11 @@ export default function NewLendingPage() {
                         Token
                       </label>
                       <div className="mt-1 sm:w-1/2 sm:mt-0">
-                        <AutoInput
+                        <TokenAutoInput
                           className="input max-w-lg"
+                          contractId={selectedContract.id}
                           selected={selectedToken}
                           setSelected={setSelectedToken}
-                          options={tokens.map(({ token_id, metadata }) => {
-                            return {
-                              id: token_id,
-                              name: metadata.title || token_id,
-                              media: metadata.media,
-                            };
-                          })}
                         />
                         <p className="mt-2 text-sm text-gray-500">
                           Choose the token you want to lend
