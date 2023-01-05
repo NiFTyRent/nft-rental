@@ -6,25 +6,26 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function AutoInput({ selected, setSelected, options }) {
+export default function AutoInput({ selected, setSelected, options, disabled, loading }) {
   const [query, setQuery] = useState("");
 
+  options = options || []
   const filteredOptions =
     query === ""
       ? options.slice(0, 10)
       : options
-          .filter((option) => {
-            return option.name.toLowerCase().includes(query.toLowerCase());
-          })
-          .slice(0, 10);
+        .filter((option) => {
+          return option.name.toLowerCase().includes(query.toLowerCase());
+        })
+        .slice(0, 10);
 
   return (
-    <Combobox as="div" value={selected} onChange={setSelected}>
+    <Combobox as="div" value={selected} onChange={setSelected} disabled={disabled}>
       <div className="relative mt-1">
         <Combobox.Input
           className="w-full rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
           onChange={(event) => setQuery(event.target.value)}
-          displayValue={(option) => option?.name}
+          displayValue={(option) => loading ? "Loading ..." : option?.name}
         />
         <Combobox.Button className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 focus:outline-none">
           <ChevronUpDownIcon
