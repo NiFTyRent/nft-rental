@@ -160,7 +160,7 @@ impl Contract {
                     .with_attached_deposit(0)
                     .with_static_gas(GAS_FOR_ROYALTIES)
                     .activate_lease(lease_id),
-            );
+            ).as_return();
     }
 
     #[private]

@@ -251,6 +251,14 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
+    
+    let leases_updated: Vec<(String, LeaseCondition)> = contract
+        .call("leases_by_owner")
+        .args_json(json!({"account_id": lender.id()}))
+        .transact()
+        .await?
+        .json()?;
+    assert_eq!(leases_updated[0].1.state, LeaseState::Active);
     println!("      ✅ Lease accepted by Bob");
 
     // Bob tries to accept the lease again.
@@ -335,7 +343,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .await?
         .json()?;
     assert_eq!(token.owner_id.to_string(), new_owner.id().to_string());
-    println!("       ✅ The token is still owned by Charlse");
+    println!("       ✅ Lease token has been transferred from lender Alice to Charles");
 
     // Confirming the created lease ...
     let leases: Vec<(String, LeaseCondition)> = contract
@@ -346,7 +354,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .json()?;
 
     let lease_id = &leases[0].0;
-    borrower
+    let result = borrower
         .call(contract.id(), "lending_accept")
         .args_json(json!({
             "lease_id": lease_id,
@@ -355,7 +363,9 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .max_gas()
         .transact()
         .await?
-        .into_result()?;
+        .into_result();
+    assert!(result.is_err());
+    println!("       ✅ Lease cannot be accepted by Bob. The transaction will panic.");
 
     let updated_leases: Vec<(String, LeaseCondition)> = contract
         .call("leases_by_owner")
@@ -364,7 +374,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .await?
         .json()?;
     assert_eq!(updated_leases[0].1.state, LeaseState::Pending);
-    println!("       ✅ Lease cannot be accepted by Bob");
+    println!("       ✅ Lease cannot be accepted by Bob, the state of the lease is still pending");
     let token:Token = nft_contract
         .view("nft_token")
         .args_json(json!({
