@@ -78,7 +78,7 @@ export default function NewLendingPage() {
                       </label>
                       <div className="mt-1 sm:w-1/2 sm:mt-0">
                         <AutoInput
-                          className="block w-full min-w-0 flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          className="input max-w-lg"
                           selected={selectedContract}
                           setSelected={setSelectedContract}
                           options={data.nft_contracts.map(({ id, name }) => {
@@ -97,7 +97,7 @@ export default function NewLendingPage() {
                       </label>
                       <div className="mt-1 sm:w-1/2 sm:mt-0">
                         <AutoInput
-                          className="block w-full min-w-0 flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          className="input max-w-lg"
                           selected={selectedToken}
                           setSelected={setSelectedToken}
                           options={tokens.map(({ token_id, metadata }) => {
@@ -141,7 +141,7 @@ export default function NewLendingPage() {
                     <div className="mt-1 sm:w-2/3 sm:mt-0">
                       <input
                         type="text"
-                        className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="input max-w-lg"
                         value={borrower}
                         onChange={(e) => setBorrower(e.target.value)}
                       />
@@ -161,7 +161,7 @@ export default function NewLendingPage() {
                           <div className="text-sm">Days</div>
                           <input
                             type="number"
-                            className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            className={"input" + (durationDay >= 0 ? "" : " input-error")}
                             value={durationDay}
                             onChange={(e) => setDurationDay(e.target.value)}
                           />
@@ -170,7 +170,7 @@ export default function NewLendingPage() {
                           <div className="text-sm">Hours</div>
                           <input
                             type="number"
-                            className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            className={"input" + (durationHour >= 0 ? "" : " input-error")}
                             value={durationHour}
                             onChange={(e) => setDurationHour(e.target.value)}
                           />
@@ -179,7 +179,7 @@ export default function NewLendingPage() {
                           <div className="text-sm">Minutes</div>
                           <input
                             type="number"
-                            className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            className={"input" + (durationMinute >= 0 ? "" : " input-error")}
                             value={durationMinute}
                             onChange={(e) => setDurationMinute(e.target.value)}
                           />
@@ -198,7 +198,7 @@ export default function NewLendingPage() {
                     <div className="mt-1 sm:w-2/3 sm:mt-0">
                       <input
                         type="number"
-                        className="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className={"input max-w-lg" + (rent >= 0 ? "" : " input-error")}
                         value={rent}
                         onChange={(e) => setRent(e.target.value)}
                       />
@@ -212,17 +212,11 @@ export default function NewLendingPage() {
             </div>
 
             <div className="pt-5">
-              <div className="flex justify-end">
-                <a
-                  className="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  href="/"
-                >
+              <div className="flex justify-end space-x-4">
+                <a className="btn" href="/" >
                   Cancel
                 </a>
-                <button
-                  className="ml-3 inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  onClick={(_) => onSubmit()}
-                >
+                <button className="primary-btn" onClick={(_) => onSubmit()} >
                   Submit
                 </button>
               </div>
