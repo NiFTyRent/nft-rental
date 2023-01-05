@@ -24,10 +24,7 @@ export default function LendingsPage() {
           <h1 className="text-xl font-semibold text-gray-900">My Lendings</h1>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <a
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-            href="/lendings/new"
-          >
+          <a className="primary-btn" href="/lendings/new" >
             Create New Lease
           </a>
         </div>
@@ -86,7 +83,7 @@ export default function LendingsPage() {
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                         {lending.expiration < Date.now() &&
-                        lending.state == "Active" ? (
+                          lending.state == "Active" ? (
                           <button
                             className="text-indigo-600 hover:text-indigo-900"
                             onClick={(_) => claim(key)}
