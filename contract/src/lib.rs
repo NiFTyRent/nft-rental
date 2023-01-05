@@ -84,6 +84,12 @@ pub struct LeaseCondition {
     state: LeaseState,        // Current lease state
 }
 
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct ContractV1 {
+    owner: AccountId,
+    lease_map: UnorderedMap<LeaseId, LeaseCondition>,
+}
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
@@ -120,6 +126,27 @@ impl Contract {
         }
     }
 
+    /// Note: This migration function will clear all existing leases.
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let prev: ContractV1 = env::state_read().expect("ERR_NOT_INITIALIZED");
+        assert_eq!(
+            env::predecessor_account_id(),
+            prev.owner,
+            "Only the owner can invoke the migration"
+        );
+
+        Self {
+            owner: prev.owner,
+            lease_map: UnorderedMap::new(StorageKey::LendingsKey),
+            lease_ids_by_lender: LookupMap::new(StorageKey::LeaseIdsByLender),
+            lease_ids_by_borrower: LookupMap::new(StorageKey::LeaseIdsByBorrower),
+            lease_id_by_contract_addr_and_token_id: LookupMap::new(
+                StorageKey::LeaseIdByContractAddrAndTokenId,
+            ),
+        }
+    }
+
     #[payable]
     pub fn lending_accept(&mut self, lease_id: LeaseId) {
         // Borrower can accept a pending lending. When this happened, the lease contract does the following:
@@ -139,7 +166,8 @@ impl Contract {
             "Deposit is less than the agreed rent!"
         );
         assert_eq!(
-            lease_condition.state, LeaseState::Pending,
+            lease_condition.state,
+            LeaseState::Pending,
             "This lease is not pending on acceptance!"
         );
 
@@ -575,7 +603,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: `(left == right)`\n  left: `Active`,\n right: `Pending`: This lease is not pending on acceptance!")]
+    #[should_panic(
+        expected = "assertion failed: `(left == right)`\n  left: `Active`,\n right: `Pending`: This lease is not pending on acceptance!"
+    )]
     fn test_lending_accept_fail_wrong_state_() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
