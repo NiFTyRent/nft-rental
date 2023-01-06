@@ -24,7 +24,7 @@ export default function LendingsPage() {
           <h1 className="text-xl font-semibold text-gray-900">My Lendings</h1>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <a className="primary-btn" href="/lendings/new" >
+          <a className="primary-btn" href="/app/lendings/new" >
             Create New Lease
           </a>
         </div>

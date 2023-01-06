@@ -34,10 +34,15 @@ function ContractAutoInput({ className, query, selected, setSelected }) {
 function TokenAutoInput({ className, contractId, selected, setSelected }) {
   const GET_TOKENS = gql`
     query GetTokens($contract_id: String!) {
-      mb_views_nft_metadata(where: {nft_contract_id: {_eq: $contract_id}}) {
+      nft_metadata(where: {nft_contract: {id: {_eq: $contract_id}}}) {
         id
         media
         title
+      }
+      nft_tokens(where: {nft_contract: {id: {_eq: $contract_id}}}) {
+        metadata_id
+        owner
+        token_id
       }
     }
   `;
@@ -48,13 +53,19 @@ function TokenAutoInput({ className, contractId, selected, setSelected }) {
   if (loading) return <AutoInput className={className} loading={true} />;
   if (error) return <p>Error</p>;
 
+  let tokens = new Map();
+  for (let token of data.nft_tokens) {
+    tokens.set(token.metadata_id, { id: token.token_id, owner: token.owner })
+  }
+
+  // TODO(libo): hide the token not owned by the user.
   return <AutoInput
     className={className}
     selected={selected}
     setSelected={setSelected}
-    options={data.mb_views_nft_metadata.map(({ id, title, media }) =>
+    options={data.nft_metadata.map(({ id, title, media }) =>
     ({
-      id,
+      id: tokens.get(id).id,
       name: title || id,
       media: media,
     })
@@ -235,7 +246,7 @@ export default function NewLendingPage() {
 
             <div className="pt-5">
               <div className="flex justify-end space-x-4">
-                <a className="btn" href="/" >
+                <a className="btn" href="/app" >
                   Cancel
                 </a>
                 <button className="primary-btn" onClick={(_) => onSubmit()} >

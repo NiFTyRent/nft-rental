@@ -65,6 +65,7 @@ export async function acceptLease(leaseId, rent) {
     args: {
       lease_id: leaseId,
     },
+    gas: "300000000000000",
     amount: (BigInt(rent) + BigInt(1e18)).toString(),
   });
   return response;
@@ -75,6 +76,7 @@ export async function claimBack(leaseId) {
     args: {
       lease_id: leaseId,
     },
+    gas: "300000000000000",
     amount: 1,
   });
   return response;
