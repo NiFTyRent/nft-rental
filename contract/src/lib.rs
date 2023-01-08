@@ -25,6 +25,7 @@ pub const GAS_FOR_NFT_TRANSFER: Gas = Gas(20_000_000_000_000);
 pub const BASE_GAS: Gas = Gas(5 * TGAS);
 pub const GAS_FOR_ROYALTIES: Gas = Gas(BASE_GAS.0 * 10u64);
 pub const GAS_FOR_RESOLVE_CLAIM_BACK: Gas = Gas(BASE_GAS.0 * 10u64);
+pub const GAS_FOR_CREATE_LEASE: Gas = Gas(BASE_GAS.0 * 10u64);
 // the tolerance of lease price minus the sum of payout
 // Set it to 1 to avoid linter error
 pub const PAYOUT_DIFF_TORLANCE_YACTO: u128 = 1;
@@ -375,6 +376,46 @@ impl Contract {
         );
     }
 
+    #[private]
+    pub fn create_lease_with_payout(
+        &mut self,
+        contract_id: AccountId,
+        token_id: TokenId,
+        owner_id: AccountId,
+        borrower_id: AccountId,
+        expiration: u64,
+        price: u128,
+        approval_id: u64,
+    ) {
+        require!(
+            is_promise_success(),
+            "Unabled to fetch payout info for NFT contract."
+        );
+
+        let payout: Option<Payout> = promise_result_as_success()
+            .map(|value| serde_json::from_slice::<Payout>(&value).unwrap());
+
+        // build lease condition from the parsed json
+        let lease_condition: LeaseCondition = LeaseCondition {
+            lender_id: owner_id.clone(),
+            approval_id,
+            contract_addr: contract_id,
+            token_id: token_id,
+            borrower_id: borrower_id,
+            expiration: expiration,
+            price: price,
+            payout: payout,
+            state: LeaseState::Pending,
+        };
+
+        let seed = near_sdk::env::random_seed();
+        let lease_id = bs58::encode(seed)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
+
+        self.internal_insert_lease(&lease_id, &lease_condition);
+    }
+
     // helper method to remove records of a lease
     fn internal_remove_lease(&mut self, lease_id: &LeaseId) {
         // check if a lease condition exist
@@ -504,25 +545,26 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 
         assert_eq!(token_id, lease_json.token_id);
 
-        // build lease condition from the parsed json
-        let lease_condition: LeaseCondition = LeaseCondition {
-            lender_id: owner_id.clone(),
-            approval_id,
-            contract_addr: lease_json.contract_addr,
-            token_id: lease_json.token_id,
-            borrower_id: lease_json.borrower_id,
-            expiration: lease_json.expiration,
-            price: lease_json.price.0,
-            payout: None,
-            state: LeaseState::Pending,
-        };
-
-        let seed = near_sdk::env::random_seed();
-        let lease_id = bs58::encode(seed)
-            .with_alphabet(bs58::Alphabet::BITCOIN)
-            .into_string();
-
-        self.internal_insert_lease(&lease_id, &lease_condition);
+        ext_nft::ext(lease_json.contract_addr.clone())
+            .nft_payout(
+                lease_json.token_id.clone(),    // token_id
+                U128::from(lease_json.price.0), // price
+                50u32,                          // max_len_payout
+            ).as_return();
+            // .then(
+            //     ext_self::ext(env::current_account_id())
+            //         .with_attached_deposit(0)
+            //         .with_static_gas(GAS_FOR_ROYALTIES)
+            //         .create_lease_with_payout(
+            //             lease_json.contract_addr,
+            //             lease_json.token_id,
+            //             owner_id,
+            //             lease_json.borrower_id,
+            //             lease_json.expiration,
+            //             lease_json.price.0,
+            //             approval_id,
+            //         ),
+            // ).as_return();
     }
 }
 
