@@ -549,7 +549,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             .nft_payout(
                 lease_json.token_id.clone(),    // token_id
                 U128::from(lease_json.price.0), // price
-                50u32,                          // max_len_payout
+                None,                          // max_len_payout
             ).as_return();
             // .then(
             //     ext_self::ext(env::current_account_id())
