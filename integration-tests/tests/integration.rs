@@ -252,6 +252,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
             }).to_string()
         }))
         .deposit(parse_near!("1 N"))
+        .max_gas()
         .transact()
         .await?
         .into_result()?;

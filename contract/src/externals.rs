@@ -5,6 +5,16 @@ use crate::*;
 trait ExtSelf {
     fn activate_lease(&mut self, lease_id: LeaseId) -> Promise;
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
+    fn create_lease_with_payout(
+        &mut self,
+        contract_id: AccountId,
+        token_id: TokenId,
+        owner_id: AccountId,
+        borrower_id: AccountId,
+        expiration: u64,
+        price: u128,
+        approval_id: u64,
+    ) -> Promise;
 }
 
 /// NFT interface, for cross-contract calls
@@ -30,4 +40,6 @@ pub trait Nft {
         balance: U128,
         max_len_payout: Option<u32>,
     );
+
+    fn nft_payout(self, token_id: String, balance: U128, max_len_payout: u32) -> Payout;
 }
