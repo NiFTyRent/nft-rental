@@ -41,5 +41,5 @@ pub trait Nft {
         max_len_payout: Option<u32>,
     );
 
-    fn nft_payout(self, token_id: String, balance: U128, max_len_payout: u32) -> Payout;
+    fn nft_payout(self, token_id: String, balance: U128, max_len_payout: Option<u32>) -> Payout;
 }
