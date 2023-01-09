@@ -114,6 +114,18 @@ impl Contract {
             .mint(token_id, receiver_id, Some(token_metadata))
     }
 
+    pub fn nft_payout(&self, token_id: TokenId, balance: U128, max_len_payout: Option<u32>) -> Payout {
+        let treasury_split = balance.0 / 20;
+        let owner_split = balance.0 - treasury_split;
+        let owner = self.tokens.owner_by_id.get(&token_id).unwrap();
+        Payout {
+            payout: HashMap::from([
+                (env::current_account_id(), U128::from(treasury_split)),
+                (owner, U128::from(owner_split)),
+            ]),
+        }
+    }
+
     #[payable]
     pub fn nft_transfer_payout(
         &mut self,
@@ -123,17 +135,8 @@ impl Contract {
         balance: near_sdk::json_types::U128,
         max_len_payout: u32,
     ) -> Payout {
-        let treasury_split = balance.0 / 20;
-        let owner_split = balance.0 - treasury_split;
-        let owner = self.tokens.owner_by_id.get(&token_id).unwrap();
-        let payout = Payout {
-            payout: HashMap::from([
-                (env::current_account_id(), U128::from(treasury_split)),
-                (owner, U128::from(owner_split)),
-            ]),
-        };
-        self.nft_transfer(receiver_id, token_id, Some(approval_id), None);
-        payout
+        self.nft_transfer(receiver_id, token_id.clone(), Some(approval_id), None);
+        self.nft_payout(token_id, balance, Some(max_len_payout))
     }
 }
 

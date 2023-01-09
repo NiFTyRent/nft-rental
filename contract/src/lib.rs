@@ -546,25 +546,27 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         assert_eq!(token_id, lease_json.token_id);
 
         ext_nft::ext(lease_json.contract_addr.clone())
+            .with_attached_deposit(0)
+            .with_static_gas(GAS_FOR_ROYALTIES)
             .nft_payout(
                 lease_json.token_id.clone(),    // token_id
                 U128::from(lease_json.price.0), // price
                 None,                          // max_len_payout
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_attached_deposit(0)
+                    .with_static_gas(GAS_FOR_ROYALTIES)
+                    .create_lease_with_payout(
+                        lease_json.contract_addr,
+                        lease_json.token_id,
+                        owner_id,
+                        lease_json.borrower_id,
+                        lease_json.expiration,
+                        lease_json.price.0,
+                        approval_id,
+                    ),
             ).as_return();
-            // .then(
-            //     ext_self::ext(env::current_account_id())
-            //         .with_attached_deposit(0)
-            //         .with_static_gas(GAS_FOR_ROYALTIES)
-            //         .create_lease_with_payout(
-            //             lease_json.contract_addr,
-            //             lease_json.token_id,
-            //             owner_id,
-            //             lease_json.borrower_id,
-            //             lease_json.expiration,
-            //             lease_json.price.0,
-            //             approval_id,
-            //         ),
-            // ).as_return();
     }
 }
 
