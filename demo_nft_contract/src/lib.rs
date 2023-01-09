@@ -114,7 +114,7 @@ impl Contract {
             .mint(token_id, receiver_id, Some(token_metadata))
     }
 
-    pub fn nft_payout(&self, token_id: TokenId, balance: U128, _max_len_payout: Option<u32>) -> Payout {
+    pub fn nft_payout(&self, token_id: TokenId, balance: U128, _max_len_payout: u32) -> Payout {
         let treasury_split = balance.0 / 20;
         let owner_split = balance.0 - treasury_split;
         let owner = self.tokens.owner_by_id.get(&token_id).unwrap();
@@ -136,7 +136,7 @@ impl Contract {
         max_len_payout: u32,
     ) -> Payout {
         self.nft_transfer(receiver_id, token_id.clone(), Some(approval_id), None);
-        self.nft_payout(token_id, balance, Some(max_len_payout))
+        self.nft_payout(token_id, balance, max_len_payout)
     }
 }
 
