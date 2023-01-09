@@ -1,12 +1,98 @@
 import React from "react";
+import { useQuery, gql } from "@apollo/client";
 import { myBorrowings, acceptLease } from "./near-api";
-import { initContract, getToken } from "./NftContract";
 import { useParams } from "react-router-dom";
+
+function NftInfo({ contractId, tokenId }) {
+  const GET_TOKEN = gql`
+    query GetTokens($contract_id: String!, $token_id: String!) {
+      mb_views_nft_tokens(where: {nft_contract_id: {_eq: $contract_id}, token_id: {_eq: $token_id}}, limit: 1) {
+        owner
+        media
+        title
+        token_id
+        description
+        minter
+        nft_contract_icon
+        nft_contract_name
+      }
+    }
+  `;
+
+  const { loading, error, data } = useQuery(GET_TOKEN, { variables: { contract_id: contractId, token_id: tokenId } });
+  if (loading) return <p>Loading ...</p>
+  if (error) return <p>Error</p>;
+
+  let nft = data.mb_views_nft_tokens[0];
+  if (!nft) return <p>Error: NFT info not found!</p>
+
+  return <div className="sm:flex sm:flex-row justify-between">
+    <div className="w-2/3 space-y-6 sm:space-y-4">
+
+      <div className="sm:flex sm:flex-row">
+        <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+          Contract Name
+        </label>
+        <div className="mt-1 sm:w-1/2 sm:mt-0">
+          {nft.nft_contract_name}
+        </div>
+      </div>
+
+      <div className="sm:flex sm:flex-row">
+        <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+          Contract Id
+        </label>
+        <div className="mt-1 sm:w-1/2 sm:mt-0">
+          {contractId}
+        </div>
+      </div>
+
+      <div className="sm:flex sm:flex-row">
+        <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+          Token Name
+        </label>
+        <div className="mt-1 sm:w-1/2 sm:mt-0">
+          {nft.title}
+        </div>
+      </div>
+
+      <div className="sm:flex sm:flex-row">
+        <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+          Token Id
+        </label>
+        <div className="mt-1 sm:w-1/2 sm:mt-0">
+          {tokenId}
+        </div>
+      </div>
+
+      <div className="sm:flex sm:flex-row">
+        <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+          Current Owner
+        </label>
+        <div className="mt-1 sm:w-1/2 sm:mt-0">
+          {nft.owner}
+        </div>
+      </div>
+    </div>
+
+    <div className="sm:w-1/3 sm:px-8">
+      <label className="block text-sm font-medium text-gray-700 pb-4">
+        NFT Image
+      </label>
+      <div className="mt-1 sm:col-span-2 sm:mt-0">
+        <div className="flex items-center">
+          <span className="h-36 w-36 overflow-hidden  bg-gray-100">
+            <img src={nft.media} />
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
 
 export default function AcceptBorrowingPage() {
   let { leaseId } = useParams();
   const [borrowing, setBorrowing] = React.useState(null);
-  const [media, setMedia] = React.useState("");
 
   React.useEffect(() => {
     async function fetchBorrowings() {
@@ -16,17 +102,9 @@ export default function AcceptBorrowingPage() {
       });
 
       setBorrowing((_) => borrowing);
-      if (borrowing) {
-        let contract = await initContract(borrowing[1].contract_addr);
-
-        let token = await getToken(contract, borrowing[1].token_id);
-        if (token) {
-          setMedia(token?.metadata?.media);
-        }
-      }
     }
     fetchBorrowings();
-  }, []);
+  }, [leaseId]);
 
   let onSubmit = () => {
     console.log(acceptLease(leaseId, borrowing[1].price));
@@ -42,94 +120,47 @@ export default function AcceptBorrowingPage() {
         </div>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
           <div className="space-y-8 divide-y divide-gray-200">
-            <div className="flex flex-col space-y-8 divide-y divide-gray-200 sm:space-y-5">
-              <div className="space-y-6 sm:space-y-5">
-                <div>
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    NFT Info
-                  </h3>
-                </div>
+            <div className="flex flex-col space-y-8 divide-y divide-gray-200">
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium leading-6 text-gray-900">
+                  NFT Info
+                </h3>
 
-                <div>
-                  <div className="flex flex-row space-x-8 justify-between">
-                    <div className="flex-auto space-y-6 sm:space-y-5">
-                      <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                        <label
-                          htmlFor="contract_addr"
-                          className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2"
-                        >
-                          Contract
-                        </label>
-                        <div className="mt-1 sm:col-span-2 sm:mt-0">
-                          {borrowing[1].contract_addr}
-                        </div>
-                      </div>
+                <NftInfo contractId={borrowing[1].contract_addr} tokenId={borrowing[1].token_id} />
 
-                      <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                        <label
-                          htmlFor="token_id"
-                          className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2"
-                        >
-                          Token
-                        </label>
-                        <div className="mt-1 sm:col-span-2 sm:mt-0">
-                          {borrowing[1].token_id}
-                        </div>
-                      </div>
-                    </div>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">
+                  Lease Info
+                </h3>
 
-                    <div className="flex-none">
-                      <label className="block text-sm font-medium text-gray-700 pb-4">
-                        NFT Image
-                      </label>
-                      <div className="mt-1 sm:col-span-2 sm:mt-0">
-                        <div className="flex items-center">
-                          <span className="h-36 w-36 overflow-hidden  bg-gray-100">
-                            <img src={media} />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      Lease Info
-                    </h3>
-                  </div>
-
-                  <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                    <label className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
+                <div className="space-y-6 sm:space-y-4">
+                  <div className="sm:flex sm:flex-row">
+                    <label htmlFor="contract_addr" className="block sm:w-1/3 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
                       Borrower
                     </label>
-                    <div className="mt-1 sm:col-span-2 sm:mt-0">
+                    <div className="mt-1 sm:w-2/3 sm:mt-0">
                       {borrowing[1].borrower_id}
                     </div>
                   </div>
 
-                  <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                    <label className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
+                  <div className="sm:flex sm:flex-row">
+                    <label htmlFor="contract_addr" className="block sm:w-1/3 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
                       Expiration Time
                     </label>
-                    <div className="mt-1 sm:col-span-2 sm:mt-0">
-                      <div className="flex flex-row space-x-2">
-                        <div>
-                          {new Date(
-                            borrowing[1].expiration * 1000
-                          ).toLocaleString()}
-                        </div>
-                      </div>
+                    <div className="mt-1 sm:w-2/3 sm:mt-0">
+                      {new Date(
+                        borrowing[1].expiration * 1000
+                      ).toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
-                    <label className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
+                  <div className="sm:flex sm:flex-row">
+                    <label htmlFor="contract_addr" className="block sm:w-1/3 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
                       Rent
                     </label>
-                    <div className="mt-1 sm:col-span-2 sm:mt-0">
-                      {window.nearApi.utils.format.formatNearAmount(
+                    <div className="mt-1 sm:w-2/3 sm:mt-0">
+                      {parseFloat(window.nearApi.utils.format.formatNearAmount(
                         BigInt(borrowing[1].price).toString()
-                      )}
+                      ))} Ⓝ
                     </div>
                   </div>
                 </div>
@@ -158,7 +189,7 @@ export default function AcceptBorrowingPage() {
             </div>
           </div>
         </div>
-      </div>
+      </div >
     </>
   ) : (
     "Loading"

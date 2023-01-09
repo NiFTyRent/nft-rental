@@ -96,15 +96,15 @@ export default function NewLendingPage() {
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
           <div className="space-y-8 divide-y divide-gray-200">
-            <div className="flex flex-col space-y-8 divide-y divide-gray-200 sm:space-y-5">
+            <div className="flex flex-col space-y-8 divide-y divide-gray-200">
 
-              <div className="space-y-6 sm:space-y-5">
+              <div className="space-y-6 sm:space-y-4">
                 <h3 className="text-lg font-medium leading-6 text-gray-900">
                   NFT Info
                 </h3>
 
                 <div className="sm:flex sm:flex-row justify-between">
-                  <div className="w-2/3 space-y-6 sm:space-y-5">
+                  <div className="w-2/3 space-y-6 sm:space-y-4">
 
                     <div className="sm:flex sm:flex-row">
                       <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
@@ -154,11 +154,11 @@ export default function NewLendingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-6 sm:space-y-5">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    Lease Info
-                  </h3>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">
+                  Lease Info
+                </h3>
 
+                <div className="space-y-6 sm:space-y-4">
                   <div className="sm:flex sm:flex-row">
                     <label htmlFor="contract_addr" className="block sm:w-1/3 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
                       Borrower
