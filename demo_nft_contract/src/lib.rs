@@ -135,8 +135,9 @@ impl Contract {
         balance: near_sdk::json_types::U128,
         max_len_payout: u32,
     ) -> Payout {
+        let payout = self.nft_payout(token_id.clone(), balance, max_len_payout);
         self.nft_transfer(receiver_id, token_id.clone(), Some(approval_id), None);
-        self.nft_payout(token_id, balance, max_len_payout)
+        payout
     }
 }
 
