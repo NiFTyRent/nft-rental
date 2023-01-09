@@ -34,14 +34,10 @@ function ContractAutoInput({ className, query, selected, setSelected }) {
 function TokenAutoInput({ className, contractId, selected, setSelected }) {
   const GET_TOKENS = gql`
     query GetTokens($contract_id: String!) {
-      nft_metadata(where: {nft_contract: {id: {_eq: $contract_id}}}) {
-        id
+      mb_views_nft_tokens(where: {nft_contract_id: {_eq: $contract_id}}) {
+        owner
         media
         title
-      }
-      nft_tokens(where: {nft_contract: {id: {_eq: $contract_id}}}) {
-        metadata_id
-        owner
         token_id
       }
     }
@@ -53,22 +49,16 @@ function TokenAutoInput({ className, contractId, selected, setSelected }) {
   if (loading) return <AutoInput className={className} loading={true} />;
   if (error) return <p>Error</p>;
 
-  let metadata_by_id = new Map();
-  for (let m of data.nft_metadata) {
-    metadata_by_id.set(m.id, m)
-  }
-
   // TODO(libo): hide the token not owned by the user.
   return <AutoInput
     className={className}
     selected={selected}
     setSelected={setSelected}
-    options={data.nft_tokens.map(({ token_id, metadata_id }) => {
-      let metadata = metadata_by_id.get(metadata_id);
+    options={data.mb_views_nft_tokens.map(({ token_id, title, media, }) => {
       return {
         id: token_id,
-        name: metadata?.title || id,
-        media: metadata?.media,
+        name: title || id,
+        media: media,
       }
     }
     )}
