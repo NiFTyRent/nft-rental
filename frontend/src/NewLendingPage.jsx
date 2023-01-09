@@ -53,9 +53,9 @@ function TokenAutoInput({ className, contractId, selected, setSelected }) {
   if (loading) return <AutoInput className={className} loading={true} />;
   if (error) return <p>Error</p>;
 
-  let tokens = new Map();
-  for (let token of data.nft_tokens) {
-    tokens.set(token.metadata_id, { id: token.token_id, owner: token.owner })
+  let metadata_by_id = new Map();
+  for (let m of data.nft_metadata) {
+    metadata_by_id.set(m.id, m)
   }
 
   // TODO(libo): hide the token not owned by the user.
@@ -63,12 +63,14 @@ function TokenAutoInput({ className, contractId, selected, setSelected }) {
     className={className}
     selected={selected}
     setSelected={setSelected}
-    options={data.nft_metadata.map(({ id, title, media }) =>
-    ({
-      id: tokens.get(id).id,
-      name: title || id,
-      media: media,
-    })
+    options={data.nft_tokens.map(({ token_id, metadata_id }) => {
+      let metadata = metadata_by_id.get(metadata_id);
+      return {
+        id: token_id,
+        name: metadata?.title || id,
+        media: metadata?.media,
+      }
+    }
     )}
   />;
 }
