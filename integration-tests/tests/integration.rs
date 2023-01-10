@@ -199,8 +199,6 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
     let nft_contract_balance_after_claim_back = nft_contract.view_account().await?.balance;
     // This is based on the demo NFT royalty logic: the NFT contract always keep 5% for itself.
     // So the lender get the rest 95% of the rent.
-    println!("lender_balance_after_claim_back {:?}", lender_balance_after_claim_back);
-    println!("nft_contract_balance_after_claim_back {:?}", nft_contract_balance_after_claim_back);
     assert_aprox_eq(
         lender_balance_after_claim_back - lender_balance_before_claim_back,
         price / 20 * 19,
