@@ -201,9 +201,8 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
     // So the lender get the rest 95% of the rent.
     println!("lender_balance_after_claim_back {:?}", lender_balance_after_claim_back);
     println!("nft_contract_balance_after_claim_back {:?}", nft_contract_balance_after_claim_back);
-    let tmp:u128 = lender_balance_after_claim_back - lender_balance_before_claim_back;
     assert_aprox_eq(
-        tmp,
+        lender_balance_after_claim_back - lender_balance_before_claim_back,
         price / 20 * 19,
     );
 

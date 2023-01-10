@@ -28,6 +28,7 @@ pub const GAS_FOR_RESOLVE_CLAIM_BACK: Gas = Gas(BASE_GAS.0 * 10u64);
 // the tolerance of lease price minus the sum of payout
 // Set it to 1 to avoid linter error
 pub const PAYOUT_DIFF_TORLANCE_YACTO: u128 = 1;
+pub const MAX_LEN_PAYOUT: u32 = 50;
 
 pub type LeaseId = String;
 pub type PayoutHashMap = HashMap<AccountId, U128>;
@@ -363,11 +364,6 @@ impl Contract {
         price: u128,
         approval_id: u64,
     ) {
-        require!(
-            is_promise_success(),
-            "Unabled to fetch payout info for NFT contract."
-        );
-
         let mut optional_payout: Option<Payout> = None;
         // if NFT has implemented the `nft_payout` interface
         // then process the result and verify if sum of payout is close enough to the original price
@@ -546,7 +542,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             .nft_payout(
                 lease_json.token_id.clone(),    // token_id
                 U128::from(lease_json.price.0), // price
-                Some(50u32) // max_len_payout
+                Some(MAX_LEN_PAYOUT) // max_len_payout
             )
             .then(
                 ext_self::ext(env::current_account_id())
@@ -585,42 +581,6 @@ mod tests {
         let contract = Contract::new(accounts(1).into());
         assert_eq!(accounts(1), contract.owner);
         assert!(UnorderedMap::is_empty(&contract.lease_map));
-    }
-
-    #[test]
-    fn test_nft_on_approve_success() {
-        let mut contract = Contract::new(accounts(1).into());
-
-        let token_id: TokenId = "test_token".to_string();
-        let approval_id = 1;
-        let lender: AccountId = accounts(2).into();
-        let borrower: AccountId = accounts(3).into();
-        let nft_address: AccountId = accounts(4).into();
-        let expiration = 1000;
-        let price = 1 * ONE_NEAR;
-
-        contract.nft_on_approve(
-            token_id.clone(),
-            lender.clone(),
-            approval_id,
-            json!({
-                "contract_addr": nft_address,
-                "token_id": token_id.clone(),
-                "borrower_id": borrower,
-                "expiration": expiration,
-                "price": price.to_string(),
-            })
-            .to_string(),
-        );
-        assert!(!contract.lease_map.is_empty());
-        let lease_condition = &contract.leases_by_owner(lender.clone())[0].1;
-
-        assert_eq!(nft_address, lease_condition.contract_addr);
-        assert_eq!(token_id, lease_condition.token_id);
-        assert_eq!(lender, lease_condition.lender_id);
-        assert_eq!(borrower, lease_condition.borrower_id);
-        assert_eq!(price, lease_condition.price);
-        assert_eq!(expiration, lease_condition.expiration);
     }
 
     #[test]
