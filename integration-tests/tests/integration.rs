@@ -126,6 +126,7 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
             }).to_string()
         }))
         .deposit(parse_near!("1 N"))
+        .max_gas()
         .transact()
         .await?
         .into_result()?;
@@ -252,6 +253,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
             }).to_string()
         }))
         .deposit(parse_near!("1 N"))
+        .max_gas()
         .transact()
         .await?
         .into_result()?;
@@ -340,6 +342,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
             }).to_string()
         }))
         .deposit(parse_near!("1 N"))
+        .max_gas()
         .transact()
         .await?
         .into_result()?;
@@ -406,3 +409,4 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
 // TODO: claim_back - NFT transfer check
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
 // TODO: nft_on_approve - check lease createion happened correctly & all indices have been updated accordingly
+// TODO: add a dummy NFT contract without payout being implemented to test the related scenarios

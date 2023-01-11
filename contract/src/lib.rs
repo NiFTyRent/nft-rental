@@ -28,6 +28,7 @@ pub const GAS_FOR_RESOLVE_CLAIM_BACK: Gas = Gas(BASE_GAS.0 * 10u64);
 // the tolerance of lease price minus the sum of payout
 // Set it to 1 to avoid linter error
 pub const PAYOUT_DIFF_TORLANCE_YACTO: u128 = 1;
+pub const MAX_LEN_PAYOUT: u32 = 50;
 
 pub type LeaseId = String;
 pub type PayoutHashMap = HashMap<AccountId, U128>;
@@ -38,7 +39,7 @@ pub type PayoutHashMap = HashMap<AccountId, U128>;
 /// payout data. Any mapping of length 10 or less MUST be accepted by
 /// financial contracts, so 10 is a safe upper limit.
 /// See more: https://nomicon.io/Standards/Tokens/NonFungibleToken/Payout#reference-implementation
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Payout {
     pub payout: PayoutHashMap,
@@ -175,13 +176,11 @@ impl Contract {
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
-            .nft_transfer_payout(
+            .nft_transfer(
                 env::current_account_id(),                 // receiver_id
                 lease_condition.token_id.clone(),          // token_id
                 Some(lease_condition.approval_id.clone()), // approval_id
                 None,                                      // memo
-                U128::from(lease_condition.price),         // price
-                Some(50u32),                               // max length payout
             )
             .then(
                 ext_self::ext(env::current_account_id())
@@ -202,29 +201,8 @@ impl Contract {
         // TODO: avoid re-fetch lease condition
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
 
-        let optional_payout: Option<Payout> = promise_result_as_success().map(|value| {
-            let payout = serde_json::from_slice::<Payout>(&value).unwrap();
-            let payout_diff: u128 = lease_condition
-                .price
-                .checked_sub(
-                    payout
-                        .payout
-                        .values()
-                        .map(|v| v.0)
-                        .into_iter()
-                        .sum::<u128>(),
-                )
-                .unwrap();
-            assert!(
-                payout_diff <= PAYOUT_DIFF_TORLANCE_YACTO,
-                "The difference between the lease price and the sum of payout is too large"
-            );
-            payout
-        });
-
         let new_lease_condition = LeaseCondition {
             state: LeaseState::Active,
-            payout: optional_payout,
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
@@ -375,6 +353,62 @@ impl Contract {
         );
     }
 
+    #[private]
+    pub fn create_lease_with_payout(
+        &mut self,
+        contract_id: AccountId,
+        token_id: TokenId,
+        owner_id: AccountId,
+        borrower_id: AccountId,
+        expiration: u64,
+        price: u128,
+        approval_id: u64,
+    ) {
+        let mut optional_payout: Option<Payout> = None;
+        // if NFT has implemented the `nft_payout` interface
+        // then process the result and verify if sum of payout is close enough to the original price
+        if is_promise_success() {
+            optional_payout = promise_result_as_success().map(|value| {
+                let payout = serde_json::from_slice::<Payout>(&value).unwrap();
+                let payout_diff: u128 = price
+                    .checked_sub(
+                        payout
+                            .payout
+                            .values()
+                            .map(|v| v.0)
+                            .into_iter()
+                            .sum::<u128>(),
+                    )
+                    .unwrap();
+                assert!(
+                    payout_diff <= PAYOUT_DIFF_TORLANCE_YACTO,
+                    "The difference between the lease price and the sum of payout is too large"
+                );
+                payout
+            });
+        }
+
+        // build lease condition from the parsed json
+        let lease_condition: LeaseCondition = LeaseCondition {
+            lender_id: owner_id.clone(),
+            approval_id,
+            contract_addr: contract_id,
+            token_id: token_id,
+            borrower_id: borrower_id,
+            expiration: expiration,
+            price: price,
+            payout: optional_payout,
+            state: LeaseState::Pending,
+        };
+
+        let seed = near_sdk::env::random_seed();
+        let lease_id = bs58::encode(seed)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
+
+        self.internal_insert_lease(&lease_id, &lease_condition);
+    }
+
     // helper method to remove records of a lease
     fn internal_remove_lease(&mut self, lease_id: &LeaseId) {
         // check if a lease condition exist
@@ -504,25 +538,26 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 
         assert_eq!(token_id, lease_json.token_id);
 
-        // build lease condition from the parsed json
-        let lease_condition: LeaseCondition = LeaseCondition {
-            lender_id: owner_id.clone(),
-            approval_id,
-            contract_addr: lease_json.contract_addr,
-            token_id: lease_json.token_id,
-            borrower_id: lease_json.borrower_id,
-            expiration: lease_json.expiration,
-            price: lease_json.price.0,
-            payout: None,
-            state: LeaseState::Pending,
-        };
-
-        let seed = near_sdk::env::random_seed();
-        let lease_id = bs58::encode(seed)
-            .with_alphabet(bs58::Alphabet::BITCOIN)
-            .into_string();
-
-        self.internal_insert_lease(&lease_id, &lease_condition);
+        ext_nft::ext(lease_json.contract_addr.clone())
+            .nft_payout(
+                lease_json.token_id.clone(),    // token_id
+                U128::from(lease_json.price.0), // price
+                Some(MAX_LEN_PAYOUT) // max_len_payout
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_attached_deposit(0)
+                    .with_static_gas(GAS_FOR_ROYALTIES)
+                    .create_lease_with_payout(
+                        lease_json.contract_addr,
+                        lease_json.token_id,
+                        owner_id,
+                        lease_json.borrower_id,
+                        lease_json.expiration,
+                        lease_json.price.0,
+                        approval_id,
+                    ),
+            ).as_return();
     }
 }
 
@@ -546,42 +581,6 @@ mod tests {
         let contract = Contract::new(accounts(1).into());
         assert_eq!(accounts(1), contract.owner);
         assert!(UnorderedMap::is_empty(&contract.lease_map));
-    }
-
-    #[test]
-    fn test_nft_on_approve_success() {
-        let mut contract = Contract::new(accounts(1).into());
-
-        let token_id: TokenId = "test_token".to_string();
-        let approval_id = 1;
-        let lender: AccountId = accounts(2).into();
-        let borrower: AccountId = accounts(3).into();
-        let nft_address: AccountId = accounts(4).into();
-        let expiration = 1000;
-        let price = 1 * ONE_NEAR;
-
-        contract.nft_on_approve(
-            token_id.clone(),
-            lender.clone(),
-            approval_id,
-            json!({
-                "contract_addr": nft_address,
-                "token_id": token_id.clone(),
-                "borrower_id": borrower,
-                "expiration": expiration,
-                "price": price.to_string(),
-            })
-            .to_string(),
-        );
-        assert!(!contract.lease_map.is_empty());
-        let lease_condition = &contract.leases_by_owner(lender.clone())[0].1;
-
-        assert_eq!(nft_address, lease_condition.contract_addr);
-        assert_eq!(token_id, lease_condition.token_id);
-        assert_eq!(lender, lease_condition.lender_id);
-        assert_eq!(borrower, lease_condition.borrower_id);
-        assert_eq!(price, lease_condition.price);
-        assert_eq!(expiration, lease_condition.expiration);
     }
 
     #[test]
@@ -656,12 +655,10 @@ mod tests {
     }
 
     #[test]
-    fn test_activate_lease_success() {
+    fn test_activate_lease_with_payout_success() {
         let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
+        let mut lease_condition = create_lease_condition_default();
         let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
-
         let payout = Payout {
             payout: HashMap::from([
                 (accounts(2).into(), U128::from(1)),
@@ -669,6 +666,9 @@ mod tests {
             ]),
         };
 
+        lease_condition.payout = Some(payout.clone());
+
+        contract.lease_map.insert(&key, &lease_condition);
         testing_env!(
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
@@ -679,7 +679,7 @@ mod tests {
             RuntimeFeesConfig::test(),
             HashMap::default(),
             vec![PromiseResult::Successful(
-                serde_json::to_vec(&payout).unwrap()
+                Vec::new()
             )],
         );
 
@@ -691,24 +691,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "The difference between the lease price and the sum of payout is too large"
-    )]
-    fn test_activate_lease_failure_invalid_payout() {
+    fn test_activate_lease_without_payout_success() {
         let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        // This is redundent but we set it explicitly to make it clear
-        lease_condition.price = 5;
+        let lease_condition = create_lease_condition_default();
         let key = "test_key".to_string();
+
         contract.lease_map.insert(&key, &lease_condition);
-
-        let payout = Payout {
-            payout: HashMap::from([
-                (accounts(2).into(), U128::from(1)),
-                (accounts(3).into(), U128::from(2)),
-            ]),
-        };
-
         testing_env!(
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
@@ -719,14 +707,14 @@ mod tests {
             RuntimeFeesConfig::test(),
             HashMap::default(),
             vec![PromiseResult::Successful(
-                serde_json::to_vec(&payout).unwrap()
+                Vec::new()
             )],
         );
 
         contract.activate_lease(key.clone());
 
         let lease_condition_result = contract.lease_map.get(&key).unwrap();
-        assert_eq!(lease_condition_result.payout, Some(payout));
+        assert_eq!(lease_condition_result.payout, None);
         assert_eq!(lease_condition_result.state, LeaseState::Active);
     }
 
@@ -900,6 +888,102 @@ mod tests {
 
         assert_eq!(env::account_balance(), init_balance - 20);
         assert!(contract.lease_map.is_empty());
+    }
+
+    #[test]
+    fn test_create_lease_with_payout_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        let nft_contract_id: AccountId = accounts(4).into();
+        let token_id: TokenId = "test_token".to_string();
+        let owner_id: AccountId = accounts(2).into();
+        let borrower_id: AccountId = accounts(3).into();
+        let price: u128 = 5;
+
+        let payout = Payout {
+            payout: HashMap::from([
+                (accounts(2).into(), U128::from(1)),
+                (accounts(3).into(), U128::from(4)),
+            ]),
+        };
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(borrower_id.clone())
+                .attached_deposit(price)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(
+                serde_json::to_vec(&payout).unwrap()
+            )],
+        );
+
+        contract.create_lease_with_payout(
+            nft_contract_id.clone(),
+            token_id.clone(),
+            owner_id.clone(),
+            borrower_id.clone(),
+            1000,
+            price,
+            1,
+        );
+    
+        assert!(!contract.lease_map.is_empty());
+        let lease_condition = &contract.leases_by_owner(owner_id.clone())[0].1;
+
+        assert_eq!(nft_contract_id, lease_condition.contract_addr);
+        assert_eq!(token_id, lease_condition.token_id);
+        assert_eq!(owner_id, lease_condition.lender_id);
+        assert_eq!(borrower_id, lease_condition.borrower_id);
+        assert_eq!(5, lease_condition.price);
+        assert_eq!(1000, lease_condition.expiration);
+        assert_eq!(Some(payout), lease_condition.payout);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "The difference between the lease price and the sum of payout is too large"
+    )]
+    fn test_create_lease_with_payout_failed_invalid_payout() {
+        let mut contract = Contract::new(accounts(1).into());
+        let nft_contract_id: AccountId = accounts(4).into();
+        let token_id: TokenId = "test_token".to_string();
+        let owner_id: AccountId = accounts(2).into();
+        let borrower_id: AccountId = accounts(3).into();
+        let price: u128 = 5;
+
+        let payout = Payout {
+            payout: HashMap::from([
+                (accounts(2).into(), U128::from(1)),
+                (accounts(3).into(), U128::from(2)),
+            ]),
+        };
+        
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(borrower_id.clone())
+                .attached_deposit(price)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(
+                serde_json::to_vec(&payout).unwrap()
+            )],
+        );
+
+        contract.create_lease_with_payout(
+            nft_contract_id.clone(),
+            token_id.clone(),
+            owner_id.clone(),
+            borrower_id.clone(),
+            1000,
+            price,
+            1,
+        );
     }
 
     #[test]
