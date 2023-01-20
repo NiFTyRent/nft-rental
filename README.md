@@ -1,4 +1,4 @@
-# RentVerse
+# NiftyRent
 
 # Quick Start
 
