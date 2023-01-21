@@ -45,37 +45,3 @@ export function signInWithNearWallet() {
   // the private key in localStorage.
   window.walletConnection.requestSignIn(nearConfig.contractName);
 }
-
-export async function myLendings() {
-  let tokens = await window.contract.leases_by_owner({
-    account_id: window.accountId,
-  });
-  return tokens;
-}
-
-export async function myBorrowings() {
-  let tokens = await window.contract.leases_by_borrower({
-    account_id: window.accountId,
-  });
-  return tokens;
-}
-
-export async function acceptLease(leaseId, rent) {
-  let response = await window.contract.lending_accept({
-    args: {
-      lease_id: leaseId,
-    },
-    amount: (BigInt(rent) + BigInt(1e18)).toString(),
-  });
-  return response;
-}
-
-export async function claimBack(leaseId) {
-  let response = await window.contract.claim_back({
-    args: {
-      lease_id: leaseId,
-    },
-    amount: 1,
-  });
-  return response;
-}

@@ -1,11 +1,7 @@
 import React from "react";
-import { myBorrowings, acceptLease } from "./near-api";
-import { initContract, getToken } from "./NftContract";
-import {
-  initContract as initRentalContract,
-  getBorrower,
-} from "./RentalContract";
+import { NiftyRent } from "@niftyrent/sdk"
 import { useParams } from "react-router-dom";
+
 
 export default function PetPage() {
   let { contractId, petId } = useParams();
@@ -15,22 +11,18 @@ export default function PetPage() {
   const [eyes, setEyes] = React.useState("oo");
   React.useEffect(() => {
     async function fetchTokens() {
-      let contract = await initContract(contractId);
-      let token = await getToken(contract, petId);
-      setMessage(`I'm ${token.metadata.title}`);
-      if (token) {
-        if (token.owner_id == window.accountId) {
-          setIsOwner(true);
-          return;
-        }
-        let rentalContract = await initRentalContract(token.owner_id);
-        let borrower = await getBorrower(rentalContract, contractId, petId);
-        if (borrower && borrower == window.accountId) {
-          setIsOwner(true);
-          return;
-        }
+      let niftyrent = new NiftyRent({
+        defaultContractAddr: contractId,
+        allowedRentalProxies: ["nft-rental.testnet"],
+      });
+      await niftyrent.init();
+
+      if (await niftyrent.is_current_user(petId, window.accountId)) {
+        setIsOwner(true);
       }
     }
+
+    setMessage(`Hello`);
     fetchTokens();
   }, []);
 
