@@ -74,3 +74,9 @@ impl NonFungibleTokenMetadata for Contract {
         }
     }
 }
+
+impl NonFungibleTokenMetadata for Contract {
+    fn nft_metadata(&self) -> NFTContractMetadata {
+        todo!()
+    }
+}
