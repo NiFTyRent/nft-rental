@@ -17,6 +17,8 @@ use near_sdk::{
 pub mod externals;
 pub use crate::externals::*;
 
+pub mod nft;
+
 // Copied from Paras market contract. Will need to be fine-tuned.
 // https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17
 pub const TGAS: u64 = 1_000_000_000_000;
