@@ -17,7 +17,7 @@ export default function PetPage() {
       });
       await niftyrent.init();
 
-      if (await niftyrent.is_current_user(petId, window.accountId)) {
+      if (await niftyrent.is_current_user(window.accountId, petId)) {
         setIsOwner(true);
       }
     }
