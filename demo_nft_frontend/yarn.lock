@@ -1139,10 +1139,10 @@
     "@jridgewell/resolve-uri" "^3.0.3"
     "@jridgewell/sourcemap-codec" "^1.4.10"
 
-"@niftyrent/sdk@latest":
-  version "0.0.7"
-  resolved "https://registry.yarnpkg.com/@niftyrent/sdk/-/sdk-0.0.7.tgz#15f60b3e70167d1ff1a5389641c03e1fb2141135"
-  integrity sha512-6ut50EOLH2Aogpmz/3pRMS6lHX2EwW5Hs1P8Rai1L2oGoAV84d1nMFEp/HirnRGGztqpIeSyTD+deRhAidCEzQ==
+"@niftyrent/sdk@^0.0.8":
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/@niftyrent/sdk/-/sdk-0.0.8.tgz#020639b72ad1a447c2e5310585dd60a2ff4932c0"
+  integrity sha512-wiRztZuWjDHdFYfkIuClAiLw4v6Wslh/vR74+zLNwKt3QQ7vMGZWpgmyFsqC9BXoq9ezgEJ8qHTVqYwJxeOTgw==
   dependencies:
     buffer "^6.0.3"
     near-api-js "^1.1.0"
