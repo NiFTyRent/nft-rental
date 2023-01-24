@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
-// use near_contract_standards::non_fungible_token::metadata::{
-//     TokenMetadata, NFTContractMetadata, NFT_METADATA_SPEC};
+pub use crate::nft::metadata::*;
+pub use crate::nft::mint::*;
+pub mod nft;
+
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -19,7 +21,6 @@ use near_sdk::{
 pub mod externals;
 pub use crate::externals::*;
 
-pub mod nft;
 
 // Copied from Paras market contract. Will need to be fine-tuned.
 // https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17
@@ -244,6 +245,8 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
+
+        // TODO(syu): mint IOU NFT
     }
 
     #[payable]
