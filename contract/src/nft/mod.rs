@@ -1,4 +1,4 @@
 pub mod core;
 pub mod enumeration;
 pub mod metadata;
-pub mod misc;
+pub mod mint;

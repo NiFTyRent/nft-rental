@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use near_contract_standards::non_fungible_token::metadata::{
-    TokenMetadata, NFTContractMetadata, NFT_METADATA_SPEC};
+// use near_contract_standards::non_fungible_token::metadata::{
+//     TokenMetadata, NFTContractMetadata, NFT_METADATA_SPEC};
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
