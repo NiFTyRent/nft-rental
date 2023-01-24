@@ -28,7 +28,6 @@ impl Contract {
         self.token_metadata_by_id.insert(&token_id, &metadata);
 
         //add token_id to its owner - currently, it is infered by lease_ids_by_lender
-        // todo(syu): double check if the record can cause problem before lease become active
 
         //calculate the required storage
         let required_storage_in_bytes = env::storage_usage() - initial_storage_usage;
