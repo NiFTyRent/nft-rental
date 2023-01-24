@@ -135,7 +135,7 @@ pub struct LeaseAcceptanceJson {
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new(owner_id: AccountId) -> Self {
+    pub fn new(owner_id: AccountId, metadata:NFTContractMetadata) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self {
             owner: owner_id,
@@ -151,6 +151,23 @@ impl Contract {
                 StorageKey::TokenMetadataById.try_to_vec().unwrap()
             )
         }
+    }
+
+    #[init]
+    pub fn new_default_meta(owner_id: AccountId) -> Self{
+        // call vanilla new() with default metadata
+        Self::new(
+            owner_id,
+            NFTContractMetadata { 
+                spec: NFT_METADATA_SPEC.to_string(), 
+                name: "NiFTyRent NFT Ownership Token".to_string(), 
+                symbol: "IOU".to_string(), 
+                icon: None, 
+                base_uri: None, 
+                reference: None, 
+                reference_hash: None,
+            }
+        )
     }
 
     /// Note: This migration function will clear all existing leases.
