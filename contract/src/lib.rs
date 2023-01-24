@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use near_contract_standards::non_fungible_token::metadata::{
+    TokenMetadata, NFTContractMetadata, NFT_METADATA_SPEC};
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
+use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, LazyOption};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
@@ -96,11 +98,16 @@ pub struct ContractV1 {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    owner: AccountId,
+    owner: AccountId,   // same owner for both lease contract and nft contract 
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
-    lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
+    lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>, // used as tokens_per_owner too
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
-    lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
+    lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>, // query by leasing nft contrct
+
+    // iou nft contract related fields
+    pub metadata: LazyOption<NFTContractMetadata>,
+    pub tokens_by_id: LookupMap<TokenId, Token>,
+    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -111,12 +118,15 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
+    NFTContractMetadata,
+    TokensById,
+    TokenMetadataById,
 }
 
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new(owner_id: AccountId) -> Self {
+    pub fn new(owner_id: AccountId, metadata:NFTContractMetadata) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self {
             owner: owner_id,
@@ -126,7 +136,33 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
+            // iou nft related fields
+            metadata: LazyOption::new(
+                StorageKey::NFTContractMetadata.try_to_vec().unwrap(),
+                Some(&metadata),
+            ),
+            tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
+            token_metadata_by_id: UnorderedMap::new(
+                StorageKey::TokenMetadataById.try_to_vec().unwrap()
+            )
         }
+    }
+
+    #[init]
+    pub fn new_default_meta(owner_id: AccountId) -> Self{
+        // call vanilla new() with default metadata
+        Self::new(
+            owner_id,
+            NFTContractMetadata { 
+                spec: NFT_METADATA_SPEC.to_string(), 
+                name: "NiFTyRent NFT Ownership Token".to_string(), 
+                symbol: "IOU".to_string(), 
+                icon: None, 
+                base_uri: None, 
+                reference: None, 
+                reference_hash: None,
+            }
+        )
     }
 
     /// Note: This migration function will clear all existing leases.
