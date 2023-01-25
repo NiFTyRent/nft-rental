@@ -1,5 +1,8 @@
 use crate::*;
-use near_sdk::PromiseOrValue;
+use near_sdk::{assert_one_yocto, PromiseOrValue};
+
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
+const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 pub trait NonFungibleTokenCore {
     fn nft_transfer(
@@ -10,7 +13,7 @@ pub trait NonFungibleTokenCore {
         memo: Option<String>,
     );
 
-    //transfers an NFT to a receiver and calls a function on the receiver ID's contract
+    /// Transfers an NFT to a receiver and calls a function on the receiver's contract
     /// Returns `true` if the token was transferred from the sender's account.
     fn nft_transfer_call(
         &mut self,
@@ -26,10 +29,8 @@ pub trait NonFungibleTokenCore {
 
 #[ext_contract(ext_nft_receiver)]
 trait NonFungibleTokenReceiver {
-    /*
-        Method on the receiver contract that is called via XCC when nft_transfer_call is called
-        Returns `true` if the token should be returned back to the sender.
-    */
+    /// Method on the receiver contract that is called via XCC when nft_transfer_call is called
+    /// Returns `true` if the token should be returned back to the sender.
     fn nft_on_transfer(
         &mut self,
         sender_id: AccountId,
@@ -41,10 +42,8 @@ trait NonFungibleTokenReceiver {
 
 #[ext_contract(ext_self)]
 trait NonFungibleTokenResolver {
-    /*
-        This method resolves the promise returned from the XCC to the receiver contract.
-        as part of the nft_transfer_call method
-    */
+    /// This method resolves the promise returned from the XCC to the receiver contract.
+    /// as part of the nft_transfer_call method
     fn nft_resolve_transfer(
         &mut self,
         owner_id: AccountId,
@@ -61,7 +60,10 @@ impl NonFungibleTokenCore for Contract {
         approval_id: Option<u64>, // NEP-178 Approval
         memo: Option<String>,
     ) {
-        todo!()
+        //security assurance. User needs have a full access to the wallet to be able to deposit
+        assert_one_yocto();
+        let sender_id = env::predecessor_account_id();
+        self.internal_transfer(&sender_id, &receiver_id, &token_id, memo);
     }
 
     fn nft_transfer_call(
@@ -71,7 +73,24 @@ impl NonFungibleTokenCore for Contract {
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<bool> {
-        todo!()
+        assert_one_yocto();
+        let sender_id = env::predecessor_account_id();
+        let previous_token = self.internal_transfer(&sender_id, &receiver_id, &token_id, memo);
+
+        ext_nft_receiver::ext(receiver_id.clone())
+            .with_static_gas(GAS_FOR_NFT_ON_TRANSFER)
+            .nft_on_transfer(
+                sender_id,
+                previous_token.owner_id.clone(),
+                token_id.clone(),
+                msg,
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id),
+            )
+            .into()
     }
 
     fn nft_token(&self, token_id: TokenId) -> Option<JsonToken> {
@@ -79,14 +98,14 @@ impl NonFungibleTokenCore for Contract {
     }
 }
 
-impl NonFungibleTokenReceiver for Contract {
-    fn nft_on_transfer(
+impl NonFungibleTokenResolver for Contract {
+    /// resolves XCC from nft_on_transfer
+    fn nft_resolve_transfer(
         &mut self,
-        sender_id: AccountId,
-        previous_owner_id: AccountId,
+        owner_id: AccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
-        msg: String,
-    ) -> Promise {
+    ) -> bool {
         todo!()
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 pub use crate::nft::metadata::*;
 pub use crate::nft::mint::*;
-use crate::nft::util::*;
+use crate::nft::internal::*;
 pub mod nft;
 
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};

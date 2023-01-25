@@ -1,5 +1,4 @@
 use crate::*;
-use crate::nft::util::*;
 use near_sdk::json_types::U128;
 
 
@@ -25,14 +24,7 @@ pub trait NonFungibleTokenEnumeration {
         limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;
 
-    /// Get number of tokens owned by a given account
-    ///
-    /// Arguments:
-    /// * `account_id`: a valid NEAR account
-    ///
-    /// Returns the number of non-fungible tokens owned by given `account_id` as
-    /// a string representing the value as an unsigned 128-bit integer to avoid JSON
-    /// number limit of 2^53.
+    /// Get the number of tokens owned by a given account
     fn nft_supply_for_owner(&self, account_id: AccountId) -> U128;
 
     /// Get list of all tokens owned by a given account
@@ -55,7 +47,7 @@ pub trait NonFungibleTokenEnumeration {
 impl NonFungibleTokenEnumeration for Contract {
     fn nft_total_supply(&self) -> U128 {
         //todo(syu): double check if the lease state works correctly with iou nft
-        self.total_active_leases.into()
+        self.total_active_leases().into()
     }
 
     fn nft_tokens(

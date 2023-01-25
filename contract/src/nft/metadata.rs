@@ -42,10 +42,10 @@ pub struct Token {
     pub token_id: TokenId,
     pub owner_id: AccountId,
     pub metadata: Option<TokenMetadata>, // for NEP-177 Metadata
-    pub approved_account_ids: Option<HashMap<AccountId, u64>>,  // for NEP-178 Approval Mgn
+    pub approved_account_ids: Option<HashMap<AccountId, u64>>, // for NEP-178 Approval Mgn
 }
 
-//The Json token to be returned for view calls. 
+//The Json token to be returned for view calls.
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct JsonToken {
@@ -54,7 +54,7 @@ pub struct JsonToken {
     pub metadata: TokenMetadata,
 }
 
-// 
+//
 pub trait NonFungibleTokenMetadata {
     fn nft_metadata(&self) -> NFTContractMetadata;
 }
