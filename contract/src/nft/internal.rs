@@ -14,7 +14,9 @@ use crate::*;
         token_id: &TokenId,
         memo: Option<String>
     ) -> Token {
+        // 1. update token record to new owner
+        // 2. update lease condition to reflect the lender change
         todo!()
     }
 
- }
+}
