@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 pub use crate::nft::metadata::*;
 pub use crate::nft::mint::*;
-use crate::nft::internal::*;
 pub mod nft;
 
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
@@ -129,6 +128,7 @@ enum StorageKey {
 impl Contract {
     #[init]
     pub fn new(owner_id: AccountId, metadata:NFTContractMetadata) -> Self {
+        // todo(syu): fix broken tests after interface change
         assert!(!env::state_exists(), "Already initialized");
         Self {
             owner: owner_id,
