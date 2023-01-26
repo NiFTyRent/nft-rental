@@ -62,6 +62,6 @@ pub trait NonFungibleTokenMetadata {
 #[near_bindgen]
 impl NonFungibleTokenMetadata for Contract {
     fn nft_metadata(&self) -> NFTContractMetadata {
-        self.metadata.get().unwrap()
+        self.metadata
     }
 }
