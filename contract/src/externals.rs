@@ -42,4 +42,12 @@ pub trait Nft {
     );
 
     fn nft_payout(self, token_id: String, balance: U128, max_len_payout: Option<u32>) -> Payout;
+
+    fn ft_transfer_call(
+        &mut self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+        msg: String,
+    ) -> Promise;
 }

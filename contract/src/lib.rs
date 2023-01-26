@@ -60,6 +60,7 @@ pub struct LeaseJson {
     contract_addr: AccountId,
     token_id: TokenId,
     borrower_id: AccountId,
+    ft_contract_addr: AccountId,
     expiration: u64, // TODO: duration
     price: U128,
 }
@@ -78,6 +79,8 @@ pub struct LeaseCondition {
     token_id: TokenId,        // NFT token
     lender_id: AccountId,     // Owner of the NFT
     borrower_id: AccountId,   // Borrower of the NFT
+    // TODO(hliu): change the type to AccountId after the implementation
+    ft_contract_addr: Option<AccountId>,  // the account id for the ft contract
     approval_id: u64,         // Approval from owner to lease
     expiration: u64,          // TODO: duration
     price: u128,              // Proposed lease price
@@ -109,6 +112,12 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct LeaseAcceptenceJson {
+    lease_id: String,
 }
 
 #[near_bindgen]
@@ -395,6 +404,7 @@ impl Contract {
             contract_addr: contract_id,
             token_id: token_id,
             borrower_id: borrower_id,
+            ft_contract_addr: None,
             expiration: expiration,
             price: price,
             payout: optional_payout,
