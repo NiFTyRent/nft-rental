@@ -14,7 +14,7 @@ struct Context {
 const CONTRACT_CODE: &[u8] =
     include_bytes!("../../contract/target/wasm32-unknown-unknown/release/nft_rental.wasm");
 const NFT_CODE: &[u8] =
-    include_bytes!("../../demo_nft_contract/target/wasm32-unknown-unknown/release/tamagotchi.wasm");
+    include_bytes!("../target/wasm32-unknown-unknown/release/test_nft_with_payout.wasm");
 
 async fn init() -> anyhow::Result<Context> {
     let worker = workspaces::sandbox().await?;
@@ -43,7 +43,7 @@ async fn init() -> anyhow::Result<Context> {
         .await?
         .into_result()?;
     account
-        .call(nft_contract.id(), "new_default_meta")
+        .call(nft_contract.id(), "new")
         .args_json(json!({ "owner_id": alice.id() }))
         .transact()
         .await?
@@ -54,6 +54,7 @@ async fn init() -> anyhow::Result<Context> {
         borrower: bob,
         contract,
         nft_contract,
+        worker,
     })
 }
 
