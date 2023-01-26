@@ -18,6 +18,7 @@ pub struct NFTContractMetadata {
 }
 
 // Metadata for individual NFT token
+// TODO: check if any fileds can be removed
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenMetadata {
@@ -42,7 +43,6 @@ pub struct Token {
     pub token_id: TokenId,
     pub owner_id: AccountId,
     pub metadata: Option<TokenMetadata>, // for NEP-177 Metadata
-    pub approved_account_ids: Option<HashMap<AccountId, u64>>, // for NEP-178 Approval Mgn
 }
 
 //The Json token to be returned for view calls.

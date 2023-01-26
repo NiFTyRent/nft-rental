@@ -106,7 +106,7 @@ pub struct Contract {
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>, // query by leasing nft contrct
 
     // iou nft contract related fields
-    pub metadata: LazyOption<NFTContractMetadata>,
+    pub metadata: NFTContractMetadata,
     pub tokens_by_id: LookupMap<TokenId, Token>,
     pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>,
 }
@@ -127,7 +127,7 @@ enum StorageKey {
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new(owner_id: AccountId, metadata:NFTContractMetadata) -> Self {
+    pub fn new(owner_id: AccountId) -> Self {
         // todo(syu): fix broken tests after interface change
         assert!(!env::state_exists(), "Already initialized");
         Self {
@@ -139,32 +139,20 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             // iou nft related fields
-            metadata: LazyOption::new(
-                StorageKey::NFTContractMetadata.try_to_vec().unwrap(),
-                Some(&metadata),
-            ),
-            tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
-            token_metadata_by_id: UnorderedMap::new(
-                StorageKey::TokenMetadataById.try_to_vec().unwrap()
-            )
-        }
-    }
-
-    #[init]
-    pub fn new_default_meta(owner_id: AccountId) -> Self{
-        // call vanilla new() with default metadata
-        Self::new(
-            owner_id,
-            NFTContractMetadata { 
+	        metadata: NFTContractMetadata { 
                 spec: NFT_METADATA_SPEC.to_string(), 
-                name: "NiFTyRent NFT Ownership Token".to_string(), 
+                name: "NiFTyRent Lease Ownership Token".to_string(), 
                 symbol: "IOU".to_string(), 
                 icon: None, 
                 base_uri: None, 
                 reference: None, 
                 reference_hash: None,
-            }
-        )
+            },
+            tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
+            token_metadata_by_id: UnorderedMap::new(
+                StorageKey::TokenMetadataById.try_to_vec().unwrap()
+            )
+        }
     }
 
     /// Note: This migration function will clear all existing leases.
@@ -247,7 +235,22 @@ impl Contract {
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
 
-        // TODO(syu): mint IOU NFT
+        // TODO(syu): Decide if any fields can be removed from TokenMetadata
+        let metadata = TokenMetadata{
+            title: None, 
+            description: None,
+            media: None,
+            media_hash: None,
+            copies: None,
+            issued_at: None,
+            expires_at: None,
+            starts_at: None,
+            updated_at: None,
+            extra: None,
+            reference: None,
+            reference_hash: None,
+        };
+        self.nft_mint(lease_id, metadata, new_lease_condition.borrower_id.clone())
     }
 
     #[payable]

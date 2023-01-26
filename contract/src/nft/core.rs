@@ -9,7 +9,6 @@ pub trait NonFungibleTokenCore {
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
-        approval_id: Option<u64>, // NEP-178 Approval
         memo: Option<String>,
     );
 
@@ -57,7 +56,6 @@ impl NonFungibleTokenCore for Contract {
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
-        approval_id: Option<u64>, // NEP-178 Approval
         memo: Option<String>,
     ) {
         //security assurance. User needs have a full access to the wallet to be able to deposit
