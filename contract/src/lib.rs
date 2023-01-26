@@ -173,6 +173,19 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
+            metadata: NFTContractMetadata { 
+                spec: NFT_METADATA_SPEC.to_string(), 
+                name: "NiFTyRent Lease Ownership Token".to_string(), 
+                symbol: "IOU".to_string(), 
+                icon: None, 
+                base_uri: None, 
+                reference: None, 
+                reference_hash: None,
+            },
+            tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
+            token_metadata_by_id: UnorderedMap::new(
+                StorageKey::TokenMetadataById.try_to_vec().unwrap()
+            )
         }
     }
 
@@ -279,6 +292,7 @@ impl Contract {
         );
 
         // 4. transfer nft to owner
+        // TODO: update IOU NFT related state
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
@@ -295,6 +309,7 @@ impl Contract {
                     .with_static_gas(GAS_FOR_RESOLVE_CLAIM_BACK)
                     .resolve_claim_back(lease_id),
             );
+        
     }
 
     #[private]

@@ -8,7 +8,7 @@ use near_sdk::json_types::U128;
 pub trait NonFungibleTokenEnumeration {
     /// Returns the total supply of non-fungible tokens as a string representing an
     /// unsigned 128-bit integer to avoid JSON number limit of 2^53.
-    fn nft_total_supply(&self) -> U128;
+    fn nft_total_supply(&mut self) -> U128;
 
     /// Get a list of all tokens
     ///
@@ -19,13 +19,13 @@ pub trait NonFungibleTokenEnumeration {
     ///
     /// Returns an array of Token objects, as described in Core standard
     fn nft_tokens(
-        &self,
+        &mut self,
         from_index: Option<U128>, // default: "0"
         limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;
 
     /// Get the number of tokens owned by a given account
-    fn nft_supply_for_owner(&self, account_id: AccountId) -> U128;
+    fn nft_supply_for_owner(&mut self, account_id: AccountId) -> U128;
 
     /// Get list of all tokens owned by a given account
     ///
@@ -37,7 +37,7 @@ pub trait NonFungibleTokenEnumeration {
     ///
     /// Returns a paginated list of all tokens owned by this account
     fn nft_tokens_for_owner(
-        &self,
+        &mut self,
         account_id: AccountId,
         from_index: Option<U128>, // default: "0"
         limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
@@ -45,25 +45,25 @@ pub trait NonFungibleTokenEnumeration {
 }
 
 impl NonFungibleTokenEnumeration for Contract {
-    fn nft_total_supply(&self) -> U128 {
+    fn nft_total_supply(&mut self,) -> U128 {
         //todo(syu): double check if the lease state works correctly with iou nft
         self.total_active_leases().into()
     }
 
     fn nft_tokens(
-        &self,
+        &mut self,
         from_index: Option<U128>, // default: "0"
         limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token> {
         todo!()
     }
 
-    fn nft_supply_for_owner(&self, account_id: AccountId) -> U128 {
+    fn nft_supply_for_owner(&mut self, account_id: AccountId) -> U128 {
         todo!()
     }
 
     fn nft_tokens_for_owner(
-        &self,
+        &mut self,
         account_id: AccountId,
         from_index: Option<U128>, // default: "0"
         limit: Option<u64>,       // default: unlimited (could fail due to gas limit)

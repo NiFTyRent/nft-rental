@@ -18,7 +18,7 @@ pub struct NFTContractMetadata {
 }
 
 // Metadata for individual NFT token
-// TODO: check if any fileds can be removed
+// TODO: check if any filed can be removed
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenMetadata {
@@ -62,6 +62,6 @@ pub trait NonFungibleTokenMetadata {
 #[near_bindgen]
 impl NonFungibleTokenMetadata for Contract {
     fn nft_metadata(&self) -> NFTContractMetadata {
-        self.metadata
+        todo!()
     }
 }
