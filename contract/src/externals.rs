@@ -11,6 +11,7 @@ trait ExtSelf {
         token_id: TokenId,
         owner_id: AccountId,
         borrower_id: AccountId,
+        ft_contract_addr: AccountId,
         expiration: u64,
         price: u128,
         approval_id: u64,
