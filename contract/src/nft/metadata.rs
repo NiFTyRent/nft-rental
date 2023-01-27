@@ -18,7 +18,7 @@ pub struct NFTContractMetadata {
 }
 
 // Metadata for individual NFT token
-// TODO: check if any filed can be removed
+// TODO(syu): check if any field can be removed
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenMetadata {
@@ -61,7 +61,16 @@ pub trait NonFungibleTokenMetadata {
 
 #[near_bindgen]
 impl NonFungibleTokenMetadata for Contract {
+    // contract metatdata will be hardcoded for now
     fn nft_metadata(&self) -> NFTContractMetadata {
-        todo!()
+        NFTContractMetadata { 
+            spec: NFT_METADATA_SPEC.to_string(), 
+            name: "NiFTyRent Lease Ownership Token".to_string(), 
+            symbol: "LEASE".to_string(), 
+            icon: None, 
+            base_uri: None, 
+            reference: None, 
+            reference_hash: None,
+        }
     }
 }

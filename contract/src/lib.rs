@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 pub use crate::nft::metadata::*;
-pub use crate::nft::mint::*;
+pub use crate::nft::internal::*;
 pub mod nft;
 
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
@@ -106,7 +106,6 @@ pub struct Contract {
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>, // query by leasing nft contrct
 
     // iou nft contract related fields
-    pub metadata: NFTContractMetadata,
     pub tokens_by_id: LookupMap<TokenId, Token>,
     pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>,
 }
@@ -119,7 +118,6 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
-    NFTContractMetadata,
     TokensById,
     TokenMetadataById,
 }
@@ -139,15 +137,6 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             // iou nft related fields
-	        metadata: NFTContractMetadata { 
-                spec: NFT_METADATA_SPEC.to_string(), 
-                name: "NiFTyRent Lease Ownership Token".to_string(), 
-                symbol: "IOU".to_string(), 
-                icon: None, 
-                base_uri: None, 
-                reference: None, 
-                reference_hash: None,
-            },
             tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
             token_metadata_by_id: UnorderedMap::new(
                 StorageKey::TokenMetadataById.try_to_vec().unwrap()
@@ -173,15 +162,6 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            metadata: NFTContractMetadata { 
-                spec: NFT_METADATA_SPEC.to_string(), 
-                name: "NiFTyRent Lease Ownership Token".to_string(), 
-                symbol: "IOU".to_string(), 
-                icon: None, 
-                base_uri: None, 
-                reference: None, 
-                reference_hash: None,
-            },
             tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
             token_metadata_by_id: UnorderedMap::new(
                 StorageKey::TokenMetadataById.try_to_vec().unwrap()
