@@ -116,7 +116,7 @@ enum StorageKey {
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct LeaseAcceptenceJson {
+pub struct LeaseAcceptanceJson {
     lease_id: String,
 }
 
