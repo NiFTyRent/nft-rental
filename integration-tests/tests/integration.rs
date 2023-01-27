@@ -121,6 +121,7 @@ async fn test_claim_back_success() -> anyhow::Result<()> {
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
+                          "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -248,6 +249,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
+                          "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": "1"
             }).to_string()
@@ -337,6 +339,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
+                          "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": "1"
             }).to_string()
