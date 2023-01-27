@@ -1327,6 +1327,7 @@ mod tests {
             token_id,
             lender_id,
             borrower_id,
+            ft_contract_addr:None,
             approval_id,
             expiration,
             price,
