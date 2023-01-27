@@ -7,7 +7,7 @@ pub mod nft;
 use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, LazyOption};
+use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
@@ -243,7 +243,7 @@ impl Contract {
             reference: None,
             reference_hash: None,
         };
-        self.nft_mint(lease_id, metadata, new_lease_condition.borrower_id.clone())
+        // self.nft_mint(lease_id, metadata, new_lease_condition.borrower_id.clone());
     }
 
     #[payable]

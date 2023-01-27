@@ -46,8 +46,7 @@ pub trait NonFungibleTokenEnumeration {
 
 impl NonFungibleTokenEnumeration for Contract {
     fn nft_total_supply(&mut self,) -> U128 {
-        //todo(syu): double check if the lease state works correctly with iou nft
-        self.total_active_leases().into()
+        todo!()
     }
 
     fn nft_tokens(
