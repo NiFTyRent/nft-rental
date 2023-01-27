@@ -58,7 +58,10 @@ impl NonFungibleTokenCore for Contract {
         token_id: TokenId,
         memo: Option<String>,
     ) {
-        todo!()
+        //security assurance. User needs have a full access to the wallet to be able to deposit
+        assert_one_yocto();
+        let sender_id = env::predecessor_account_id();
+        self.internal_transfer(&sender_id, &receiver_id, &token_id, memo);
     }
 
     fn nft_transfer_call(
@@ -68,7 +71,24 @@ impl NonFungibleTokenCore for Contract {
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<bool> {
-        todo!()
+        assert_one_yocto();
+        let sender_id = env::predecessor_account_id();
+        let previous_token = self.internal_transfer(&sender_id, &receiver_id, &token_id, memo);
+
+        ext_nft_receiver::ext(receiver_id.clone())
+            .with_static_gas(GAS_FOR_NFT_ON_TRANSFER)
+            .nft_on_transfer(
+                sender_id,
+                previous_token.owner_id.clone(),
+                token_id.clone(),
+                msg,
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id),
+            )
+            .into()
     }
 
     fn nft_token(&self, token_id: TokenId) -> Option<JsonToken> {
