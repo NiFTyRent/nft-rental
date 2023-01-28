@@ -48,10 +48,10 @@ trait NonFungibleTokenResolver {
 
 impl NonFungibleTokenCore for Contract {
     fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, memo: Option<String>) {
-        //security assurance. User needs have a full access to the wallet to be able to deposit
+        //security assurance, on full access
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        self.internal_transfer(&sender_id, &receiver_id, &token_id, memo);
+        self.internal_transfer(sender_id.clone(), receiver_id.clone(), token_id.clone(), memo);
     }
 
     fn nft_transfer_call(
@@ -81,7 +81,7 @@ impl NonFungibleTokenCore for Contract {
             .into()
     }
 
-    // Returns the token infor with a given token_id
+    // Returns the token info with a given token_id
     fn nft_token(&self, token_id: TokenId) -> Option<Token> {
         if let Some(_token_metadata) = self.token_metadata_by_id.get(&token_id) {
             //Get the metadata for that token

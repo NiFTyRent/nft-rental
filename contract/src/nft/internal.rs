@@ -4,22 +4,71 @@ use crate::*;
 
 // #[near_bindgen]
 impl Contract {
-    /// returns the total number of active leases
-    /// useful for nft_total_supply() in IOU nft
-    pub(crate) fn total_active_leases(&mut self) -> u128 {
-        todo!()
-    }
 
     pub(crate) fn internal_transfer(
         &mut self,
-        sender_id: &AccountId,
-        receiver_id: &AccountId,
-        token_id: &TokenId,
+        sender_id: AccountId,
+        receiver_id: AccountId,
+        token_id: TokenId,
         memo: Option<String>,
     ) -> Token {
-        // 1. update IOU token owner to new owner
-        // 2. update lease condition to reflect the lender change
-        todo!()
+
+        // 1. get lease condistion to infer token info
+        let mut lease_condition = self.lease_map
+            .get(&token_id)
+            .expect("No matching lease for the given LEASE token id!");
+
+        let owner_id = lease_condition.lender_id.clone();
+        assert_eq!(&owner_id, &sender_id, "Only Lease token owner can transfer!");
+        assert_ne!(&owner_id, &receiver_id, "Token owner can not be the receiver!");
+
+        // 2. remove token_id from the old owner's record
+        let mut token_ids_set = self.token_ids_per_owner
+            .get(&sender_id)
+            .expect("Token is not owner by the sender!");
+        
+        token_ids_set.remove(&token_id);
+
+        if token_ids_set.is_empty(){
+            self.token_ids_per_owner.remove(&sender_id);
+        } else {
+            self.token_ids_per_owner.insert(&sender_id, &token_ids_set);
+        }
+
+        // 3. add token_id to the new owner's record
+        let mut token_ids_set = self.token_ids_per_owner
+            .get(&receiver_id)
+            .unwrap_or_else(||{
+                // if the receiver doesn't have any tokens, create a new record
+                UnorderedSet::new(
+                    StorageKey::TokenIdsPerOwnerInner { 
+                        account_id_hash: hash_account_id(&receiver_id),
+                    }
+                )
+            });
+        
+        token_ids_set.insert(&token_id);
+        self.token_ids_per_owner.insert(&receiver_id, &token_ids_set);
+
+
+        // 4. update lease.lender to new owner, to reflect lender and token owner change
+        let new_lease_condition = LeaseCondition {
+            lender_id: receiver_id.clone(),
+            ..lease_condition
+        };
+        self.lease_map.insert(&token_id, &new_lease_condition);
+
+
+        // 5. if there was memo, log it
+        if let Some(memo) = memo{
+            env::log_str(&format!("Memo: {}", memo).to_string());
+        }
+
+        Token { 
+            token_id: token_id.clone(), 
+            owner_id: receiver_id.clone(), 
+            metadata: None 
+        }
     }
 
     /// Mint a new IOU token. It will be called once lease become active to mint a new IOU token.
