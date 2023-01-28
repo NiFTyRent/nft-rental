@@ -23,7 +23,7 @@ pub trait NonFungibleTokenCore {
     ) -> PromiseOrValue<bool>;
 
     //get information about the NFT token passed in
-    fn nft_token(&self, token_id: TokenId) -> Option<JsonToken>;
+    fn nft_token(&self, token_id: TokenId) -> Option<Token>;
 }
 
 #[ext_contract(ext_nft_receiver)]
@@ -91,8 +91,21 @@ impl NonFungibleTokenCore for Contract {
             .into()
     }
 
-    fn nft_token(&self, token_id: TokenId) -> Option<JsonToken> {
-        todo!()
+    // Returns the token infor with a given token_id
+    fn nft_token(&self, token_id: TokenId) -> Option<Token> {
+        if let Some(token) = self.token_metadata_by_id.get(&token_id) {
+            //we'll get the metadata for that token
+            let token_metadata = self.token_metadata_by_id.get(&token_id);
+            let lease_condition = self.lease_map.get(&token_id).unwrap();
+            //we return the JsonToken (wrapped by Some since we return an option)
+            Some(Token {
+                token_id,
+                owner_id: lease_condition.lender_id,
+                metadata: token_metadata,
+            })
+        } else { //if there wasn't a token ID in the tokens_by_id collection, we return None
+            None
+        }
     }
 }
 
