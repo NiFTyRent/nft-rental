@@ -93,11 +93,13 @@ impl NonFungibleTokenCore for Contract {
 
     // Returns the token infor with a given token_id
     fn nft_token(&self, token_id: TokenId) -> Option<Token> {
-        if let Some(token) = self.token_metadata_by_id.get(&token_id) {
-            //we'll get the metadata for that token
+        if let Some(_token_metadata) = self.token_metadata_by_id.get(&token_id) {
+            //Get the metadata for that token
             let token_metadata = self.token_metadata_by_id.get(&token_id);
+            //Get the lease condistion to assember token info
             let lease_condition = self.lease_map.get(&token_id).unwrap();
-            //we return the JsonToken (wrapped by Some since we return an option)
+            
+            //Return the Token object (wrapped by Some since we return an option)
             Some(Token {
                 token_id,
                 owner_id: lease_condition.lender_id,
