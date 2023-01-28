@@ -60,6 +60,7 @@ pub struct LeaseJson {
     contract_addr: AccountId,
     token_id: TokenId,
     borrower_id: AccountId,
+    ft_contract_addr: AccountId,
     expiration: u64, // TODO: duration
     price: U128,
 }
@@ -78,6 +79,7 @@ pub struct LeaseCondition {
     token_id: TokenId,        // NFT token
     lender_id: AccountId,     // Owner of the NFT
     borrower_id: AccountId,   // Borrower of the NFT
+    ft_contract_addr: AccountId,  // the account id for the ft contract
     approval_id: u64,         // Approval from owner to lease
     expiration: u64,          // TODO: duration
     price: u128,              // Proposed lease price
@@ -109,6 +111,12 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct LeaseAcceptanceJson {
+    lease_id: String,
 }
 
 #[near_bindgen]
@@ -360,6 +368,7 @@ impl Contract {
         token_id: TokenId,
         owner_id: AccountId,
         borrower_id: AccountId,
+        ft_contract_addr: AccountId,
         expiration: u64,
         price: u128,
         approval_id: u64,
@@ -395,6 +404,7 @@ impl Contract {
             contract_addr: contract_id,
             token_id: token_id,
             borrower_id: borrower_id,
+            ft_contract_addr: ft_contract_addr,
             expiration: expiration,
             price: price,
             payout: optional_payout,
@@ -553,6 +563,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                         lease_json.token_id,
                         owner_id,
                         lease_json.borrower_id,
+                        lease_json.ft_contract_addr,
                         lease_json.expiration,
                         lease_json.price.0,
                         approval_id,
@@ -897,6 +908,7 @@ mod tests {
         let token_id: TokenId = "test_token".to_string();
         let owner_id: AccountId = accounts(2).into();
         let borrower_id: AccountId = accounts(3).into();
+        let ft_contract_addr: AccountId = accounts(4).into();
         let price: u128 = 5;
 
         let payout = Payout {
@@ -925,6 +937,7 @@ mod tests {
             token_id.clone(),
             owner_id.clone(),
             borrower_id.clone(),
+            ft_contract_addr,
             1000,
             price,
             1,
@@ -952,6 +965,7 @@ mod tests {
         let token_id: TokenId = "test_token".to_string();
         let owner_id: AccountId = accounts(2).into();
         let borrower_id: AccountId = accounts(3).into();
+        let ft_contract_addr: AccountId = accounts(4).into();
         let price: u128 = 5;
 
         let payout = Payout {
@@ -980,6 +994,7 @@ mod tests {
             token_id.clone(),
             owner_id.clone(),
             borrower_id.clone(),
+            ft_contract_addr,
             1000,
             price,
             1,
@@ -1284,6 +1299,7 @@ mod tests {
         let lender: AccountId = accounts(2).into();
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
+        let ft_contract_addr: AccountId = accounts(5).into();
         let expiration = 1000;
         let price = 5;
 
@@ -1292,6 +1308,7 @@ mod tests {
             token_id.clone(),
             lender.clone(),
             borrower.clone(),
+            ft_contract_addr.clone(),
             approval_id,
             expiration.clone(),
             price,
@@ -1306,6 +1323,7 @@ mod tests {
         token_id: TokenId,
         lender_id: AccountId,
         borrower_id: AccountId,
+        ft_contract_addr: AccountId,
         approval_id: u64,
         expiration: u64,
         price: u128,
@@ -1317,6 +1335,7 @@ mod tests {
             token_id,
             lender_id,
             borrower_id,
+            ft_contract_addr,
             approval_id,
             expiration,
             price,
