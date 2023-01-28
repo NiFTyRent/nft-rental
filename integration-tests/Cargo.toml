@@ -1,3 +1,7 @@
+[workspace]
+members = ["stubs/*"]
+default-members = ["stubs/*", "."]
+
 [package]
 name = "integration-tests"
 version = "1.0.0"

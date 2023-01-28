@@ -2651,6 +2651,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_nft_with_payout"
+version = "1.0.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "uint",
+]
+
+[[package]]
+name = "test_nft_without_payout"
+version = "1.0.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "uint",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
