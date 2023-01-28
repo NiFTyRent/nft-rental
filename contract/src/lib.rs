@@ -106,8 +106,8 @@ pub struct Contract {
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>, // query by leasing nft contrct
 
     // iou nft contract related fields
-    pub tokens_by_id: LookupMap<TokenId, Token>,
-    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>,
+    pub token_ids_per_owner: LookupMap<AccountId, UnorderedSet<TokenId>>, // tokens ids from each owner
+    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>, // can also be used to query all existing token ids
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -118,7 +118,8 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
-    TokensById,
+    TokenIdsPerOwner,
+    TokenIdsPerOwnerInner { account_id_hash: CryptoHash },
     TokenMetadataById,
 }
 
@@ -126,7 +127,6 @@ enum StorageKey {
 impl Contract {
     #[init]
     pub fn new(owner_id: AccountId) -> Self {
-        // todo(syu): fix broken tests after interface change
         assert!(!env::state_exists(), "Already initialized");
         Self {
             owner: owner_id,
@@ -137,7 +137,7 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             // iou nft related fields
-            tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
+            token_ids_per_owner: LookupMap::new(StorageKey::TokenIdsPerOwner.try_to_vec().unwrap()),
             token_metadata_by_id: UnorderedMap::new(
                 StorageKey::TokenMetadataById.try_to_vec().unwrap()
             )
@@ -162,7 +162,7 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            tokens_by_id: LookupMap::new(StorageKey::TokensById.try_to_vec().unwrap()),
+            token_ids_per_owner: LookupMap::new(StorageKey::TokenIdsPerOwner.try_to_vec().unwrap()),
             token_metadata_by_id: UnorderedMap::new(
                 StorageKey::TokenMetadataById.try_to_vec().unwrap()
             )
@@ -243,7 +243,7 @@ impl Contract {
             reference: None,
             reference_hash: None,
         };
-        self.nft_mint(lease_id, metadata, new_lease_condition.borrower_id.clone())
+        self.nft_mint(lease_id, metadata, new_lease_condition.lender_id.clone())
     }
 
     #[payable]
