@@ -107,7 +107,7 @@ pub struct Contract {
 
     // iou nft contract related fields
     pub token_ids_per_owner: LookupMap<AccountId, UnorderedSet<TokenId>>, // tokens ids from each owner
-    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>, // can also be used to query all existing token ids
+    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>, // This will also be used to query all existing token ids
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]

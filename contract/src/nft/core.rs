@@ -5,12 +5,7 @@ const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 pub trait NonFungibleTokenCore {
-    fn nft_transfer(
-        &mut self,
-        receiver_id: AccountId,
-        token_id: TokenId,
-        memo: Option<String>,
-    );
+    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, memo: Option<String>);
 
     /// Transfers an NFT to a receiver and calls a function on the receiver's contract
     /// Returns `true` if the token was transferred from the sender's account.
@@ -52,12 +47,7 @@ trait NonFungibleTokenResolver {
 }
 
 impl NonFungibleTokenCore for Contract {
-    fn nft_transfer(
-        &mut self,
-        receiver_id: AccountId,
-        token_id: TokenId,
-        memo: Option<String>,
-    ) {
+    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, memo: Option<String>) {
         //security assurance. User needs have a full access to the wallet to be able to deposit
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
@@ -98,14 +88,15 @@ impl NonFungibleTokenCore for Contract {
             let token_metadata = self.token_metadata_by_id.get(&token_id);
             //Get the lease condistion to assember token info
             let lease_condition = self.lease_map.get(&token_id).unwrap();
-            
+
             //Return the Token object (wrapped by Some since we return an option)
             Some(Token {
                 token_id,
                 owner_id: lease_condition.lender_id,
                 metadata: token_metadata,
             })
-        } else { //if there wasn't a token ID in the tokens_by_id collection, we return None
+        } else {
+            //if there wasn't a token ID in the tokens_by_id collection, we return None
             None
         }
     }

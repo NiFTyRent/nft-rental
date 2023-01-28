@@ -63,13 +63,13 @@ pub trait NonFungibleTokenMetadata {
 impl NonFungibleTokenMetadata for Contract {
     // contract metatdata will be hardcoded for now
     fn nft_metadata(&self) -> NFTContractMetadata {
-        NFTContractMetadata { 
-            spec: NFT_METADATA_SPEC.to_string(), 
-            name: "NiFTyRent Lease Ownership Token".to_string(), 
-            symbol: "LEASE".to_string(), 
-            icon: None, 
-            base_uri: None, 
-            reference: None, 
+        NFTContractMetadata {
+            spec: NFT_METADATA_SPEC.to_string(),
+            name: "NiFTyRent Lease Ownership Token".to_string(),
+            symbol: "LEASE".to_string(),
+            icon: None,
+            base_uri: None,
+            reference: None,
             reference_hash: None,
         }
     }

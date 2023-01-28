@@ -91,10 +91,11 @@ impl NonFungibleTokenEnumeration for Contract {
     ) -> Vec<Token> {
         let token_ids_per_owner_set = self.token_ids_per_owner.get(&account_id);
 
+        // if there is some set of token ids, set tokens_ids to the query result
         let token_ids = if let Some(token_ids_per_owner_set) = token_ids_per_owner_set {
             token_ids_per_owner_set
         } else {
-            //if there is to tokens, return an empty vector.
+            //if there is no tokens for the user, return an empty vector.
             return vec![];
         };
 
