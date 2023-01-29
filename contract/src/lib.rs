@@ -272,7 +272,6 @@ impl Contract {
         );
 
         // 4. transfer nft to owner
-        // TODO: update IOU NFT related state
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(5 * TGAS))
             .with_attached_deposit(1)
@@ -451,6 +450,7 @@ impl Contract {
 
     // helper method to remove records of a lease
     fn internal_remove_lease(&mut self, lease_id: &LeaseId) {
+        // TODO(syu): Look into if we should udpate expires_at for LEASE NFT tokenmetadata
         // check if a lease condition exist
         let lease_condition = self
             .lease_map

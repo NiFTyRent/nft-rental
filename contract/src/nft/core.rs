@@ -121,12 +121,12 @@ impl NonFungibleTokenResolver for Contract {
         receiver_id: AccountId,
         token_id: TokenId,
     ) -> bool {
-        // Check whether the token should be returned to sender
+        // Check whether the token should be returned to previous owner
         let should_revert = match env::promise_result(0) {
             PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
-                if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
-                    yes_or_no
+                if let Ok(true_or_false) = near_sdk::serde_json::from_slice::<bool>(&value) {
+                    true_or_false
                 } else {
                     true
                 }
@@ -134,15 +134,14 @@ impl NonFungibleTokenResolver for Contract {
             PromiseResult::Failed => true,
         };
 
-        // when the call succeeded, return early
+        // If the XCC indicated no revert, return early
         if !should_revert {
             return true;
         }
 
-        // Otherwise, try to revert this transfer and return token to the previous owner
-
-        // Check that the reiver didn't transfer it away or burned it
+        // Otherwise, try to revert this transfer and return the token to the previous owner
         if let Some(lease_condition) = self.lease_map.get(&token_id) {
+            // Check that the receiver didn't transfer the token away or burned it
             if lease_condition.lender_id != receiver_id {
                 // The token is no longer owned by the recewiver. Can't return it
                 return true;
@@ -152,7 +151,7 @@ impl NonFungibleTokenResolver for Contract {
             return true;
         }
 
-        // now, we can safely revert the transfer
+        // At this stage, we can safely revert the transfer
         log!(
             "Return LEASE Token {} from @{} to @{}",
             token_id,
