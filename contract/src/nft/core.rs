@@ -113,38 +113,54 @@ impl NonFungibleTokenCore for Contract {
 }
 
 impl NonFungibleTokenResolver for Contract {
-    /// resolves XCC from receiver's nft_on_transfer
+    /// resolves XCC result from receiver's nft_on_transfer
     /// returns true if the token was successfully transferred to the receiver_id
     fn nft_resolve_transfer(
         &mut self,
-        owner_id: AccountId,
+        previouse_owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
     ) -> bool {
-        // process result from nft_on_transfer and decides if we need to return token back to sender
-        if let PromiseResult::Successful(value) = env::promise_result(0) {
-            if let Ok(return_token) = near_sdk::serde_json::from_slice::<bool>(&value) {
-                if !return_token {
-                    // nft_on_tranfer returned false. No need to revert transfer. Simply return true
-                    return true;
+        // Check whether the token should be returned to sender
+        let should_revert = match env::promise_result(0) {
+            PromiseResult::NotReady => env::abort(),
+            PromiseResult::Successful(value) => {
+                if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
+                    yes_or_no
+                } else {
+                    true
                 }
             }
+            PromiseResult::Failed => true,
+        };
+
+        // when the call succeeded, return early
+        if !should_revert {
+            return true;
         }
 
-        let token_metadata = if let Some(token_metadata) = self.token_metadata_by_id.get(&token_id){
-            let lease = self.lease_map.get(&token_id).unwrap();
-            if lease.lender_id != receiver_id{
-                // token is no longer owned by the receiver
+        // Otherwise, try to revert this transfer and return token to the previous owner
+
+        // Check that the reiver didn't transfer it away or burned it
+        if let Some(lease_condition) = self.lease_map.get(&token_id) {
+            if lease_condition.lender_id != receiver_id {
+                // The token is no longer owned by the recewiver. Can't return it
                 return true;
             }
         } else {
-            // if not record of the token_id, just return true
+            // no token_id record. The token doesn't exist any more, or got burned
             return true;
-        };
+        }
 
-        // We need to revert this token transfer and return it to the original owner
+        // now, we can safely revert the transfer
+        log!(
+            "Return LEASE Token {} from @{} to @{}",
+            token_id,
+            receiver_id,
+            previouse_owner_id
+        );
         self.internal_remove_token_from_owner(&receiver_id, &token_id);
-        self.internal_add_token_to_owner(&owner_id, &token_id);
+        self.internal_add_token_to_owner(&previouse_owner_id, &token_id);
         // update lease lender to reflect the tranfer revert
         let lease_condition = self
             .lease_map
@@ -152,7 +168,7 @@ impl NonFungibleTokenResolver for Contract {
             .expect("No matching lease for the given LEASE token id!");
 
         let new_lease_condition = LeaseCondition {
-            lender_id: owner_id.clone(),
+            lender_id: previouse_owner_id.clone(),
             ..lease_condition
         };
         self.lease_map.insert(&token_id, &new_lease_condition);
