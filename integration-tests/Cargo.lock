@@ -2651,6 +2651,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_ft"
+version = "1.0.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "uint",
+]
+
+[[package]]
 name = "test_nft_with_payout"
 version = "1.0.0"
 dependencies = [
