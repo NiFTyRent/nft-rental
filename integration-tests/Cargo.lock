@@ -1121,6 +1121,7 @@ dependencies = [
  "near-contract-standards",
  "near-sdk",
  "near-units",
+ "nft_rental",
  "pkg-config",
  "serde_json",
  "tokio",
@@ -1718,6 +1719,15 @@ dependencies = [
  "sha2 0.10.3",
  "sha3",
  "zeropool-bn",
+]
+
+[[package]]
+name = "nft_rental"
+version = "1.0.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "uint",
 ]
 
 [[package]]

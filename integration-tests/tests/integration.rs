@@ -1,9 +1,7 @@
 use near_contract_standards::non_fungible_token::Token;
-use near_sdk::{
-    serde::{Deserialize, Serialize},
-    ONE_NEAR,
-};
+use near_sdk::ONE_NEAR;
 use near_units::parse_near;
+use nft_rental::{LeaseCondition, LeaseState};
 use serde_json::json;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
 
@@ -28,8 +26,7 @@ const NFT_PAYOUT_CODE: &[u8] =
     include_bytes!("../target/wasm32-unknown-unknown/release/test_nft_with_payout.wasm");
 const NFT_NO_PAYOUT_CODE: &[u8] =
     include_bytes!("../target/wasm32-unknown-unknown/release/test_nft_without_payout.wasm");
-const FT_CODE: &[u8] =
-    include_bytes!("../target/wasm32-unknown-unknown/release/test_ft.wasm");
+const FT_CODE: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/test_ft.wasm");
 
 async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     let worker = workspaces::sandbox().await?;
@@ -84,28 +81,6 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     })
 }
 
-// TODO(libo): we can import them from the contract under testing.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(crate = "near_sdk::serde")]
-enum LeaseState {
-    Pending,
-    Active,
-    Expired,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(crate = "near_sdk::serde")]
-struct LeaseCondition {
-    contract_addr: String,
-    token_id: String,
-    lender_id: String,
-    borrower_id: String,
-    approval_id: u64,
-    expiration: u64,
-    price: u128,
-    state: LeaseState,
-}
-
 #[tokio::test]
 async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
@@ -152,10 +127,10 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
 
     let lease = &leases[0].1;
 
-    assert_eq!(lease.contract_addr, nft_contract.id().to_string());
+    assert_to_string_eq!(lease.contract_addr, nft_contract.id());
     assert_eq!(lease.token_id, "test".to_string());
-    assert_eq!(lease.lender_id, lender.id().to_string());
-    assert_eq!(lease.borrower_id, borrower.id().to_string());
+    assert_to_string_eq!(lease.lender_id, lender.id().to_string());
+    assert_to_string_eq!(lease.borrower_id, borrower.id().to_string());
     assert_eq!(lease.expiration, expiration_ts_nano);
     assert_eq!(lease.price, price);
     assert_eq!(lease.state, LeaseState::Pending);
