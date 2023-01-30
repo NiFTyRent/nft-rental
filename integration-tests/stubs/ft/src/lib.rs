@@ -1,209 +1,71 @@
+/*
+This contract was copied from https://github.com/near-examples/FT/blob/master/ft/src/lib.rs
+*/
+use near_contract_standards::fungible_token::metadata::{
+    FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_SPEC,
+};
+use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap};
-use near_sdk::{env, ext_contract, AccountId, Balance, near_bindgen, PanicOnDefault, PromiseResult, Promise, StorageUsage};
+use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
-use near_sdk::serde::Serialize;
-
-pub trait FungibleToken {
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
-
-    fn ft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        msg: String,
-        memo: Option<String>,
-    ) -> Promise;
-
-    /// Returns the total supply of the token in a decimal string representation.
-    fn ft_total_supply(&self) -> U128;
-
-    /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn ft_balance_of(&self, account_id: AccountId) -> U128;
-}
-
-#[ext_contract(ext_fungible_token_receiver)]
-trait FungibleTokenReceiver {
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Promise;
-}
-
-#[ext_contract(ext_self)]
-trait FungibleTokenResolverExt {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
-}
-
-trait FungibleTokenResolver {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
-}
-
-#[derive(Serialize, BorshDeserialize, BorshSerialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct FungibleTokenMetadata {
-    pub version: String,
-    pub name: String,
-    pub symbol: String,
-    pub reference: String,
-    pub reference_hash: [u8; 32],
-    pub decimals: u8,
-}
-
-pub trait FungibleTokenMetadataProvider {
-    fn ft_metadata(&self) -> FungibleTokenMetadata;
-}
-
-#[near_bindgen]
-impl FungibleTokenMetadataProvider for Contract {
-    fn ft_metadata(&self) -> FungibleTokenMetadata {
-        self.ft_metadata.clone()
-    }
-}
+use near_sdk::{env, log, ext_contract, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    contract_addr: AccountId,
-
-    /// AccountID -> Account balance.
-    pub accounts: LookupMap<AccountId, Balance>,
-
-    /// Total supply of the all token.
-    pub total_supply: Balance,
-
-    /// The storage size in bytes for one account.
-    pub account_storage_usage: StorageUsage,
-
-    pub ft_metadata: FungibleTokenMetadata
+    token: FungibleToken,
+    metadata: LazyOption<FungibleTokenMetadata>,
 }
+
+const DATA_IMAGE_SVG_NEAR_ICON: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 288 288'%3E%3Cg id='l' data-name='l'%3E%3Cpath d='M187.58,79.81l-30.1,44.69a3.2,3.2,0,0,0,4.75,4.2L191.86,103a1.2,1.2,0,0,1,2,.91v80.46a1.2,1.2,0,0,1-2.12.77L102.18,77.93A15.35,15.35,0,0,0,90.47,72.5H87.34A15.34,15.34,0,0,0,72,87.84V201.16A15.34,15.34,0,0,0,87.34,216.5h0a15.35,15.35,0,0,0,13.08-7.31l30.1-44.69a3.2,3.2,0,0,0-4.75-4.2L96.14,186a1.2,1.2,0,0,1-2-.91V104.61a1.2,1.2,0,0,1,2.12-.77l89.55,107.23a15.35,15.35,0,0,0,11.71,5.43h3.13A15.34,15.34,0,0,0,216,201.16V87.84A15.34,15.34,0,0,0,200.66,72.5h0A15.35,15.35,0,0,0,187.58,79.81Z'/%3E%3C/g%3E%3C/svg%3E";
 
 #[near_bindgen]
 impl Contract {
-    #[payable]
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
-        let sender_id = env::predecessor_account_id();
-        assert_eq!(
-            env::attached_deposit(),
-            1,
-            "Requires attached deposit of exactly 1 yoctoNEAR"
-        );
-        let amount = amount.into();
-        self.internal_transfer(sender_id, receiver_id, amount, memo);
+    /// Initializes the contract with the given total supply owned by the given `owner_id` with
+    /// the given fungible token metadata.
+    #[init]
+    pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
+        assert!(!env::state_exists(), "Already initialized");
+        let metadata = FungibleTokenMetadata {
+            spec: FT_METADATA_SPEC.to_string(),
+            name: "Example NEAR fungible token".to_string(),
+            symbol: "EXAMPLE".to_string(),
+            icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
+            reference: None,
+            reference_hash: None,
+            decimals: 24,
+        };
+        let mut this = Self {
+            token: FungibleToken::new(b"a".to_vec()),
+            metadata: LazyOption::new(b"m".to_vec(), Some(&metadata)),
+        };
+        this.token.internal_register_account(&owner_id);
+        this.token.internal_deposit(&owner_id, total_supply.into());
+        near_contract_standards::fungible_token::events::FtMint {
+            owner_id: &owner_id,
+            amount: &total_supply,
+            memo: Some("Initial tokens supply is minted"),
+        }
+        .emit();
+        this
     }
 
-    #[payable]
-    fn ft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        msg: String,
-        memo: Option<String>,
-    ) -> Promise {
-        assert_eq!(
-            env::attached_deposit(),
-            1,
-            "Requires attached deposit of exactly 1 yoctoNEAR"
-        );
-        let sender_id = env::predecessor_account_id();
-        let amount = amount.into();
-        self.internal_transfer(sender_id.clone(), receiver_id.clone(), amount, memo);
-        // Initiating receiver's call and the callback
-        return ext_fungible_token_receiver::ext(self.contract_addr.clone())
-        .ft_on_transfer(
-            sender_id.clone(),
-            amount.into(),
-            msg,
-        )
-        .then(ext_self::ext(receiver_id.clone()).ft_resolve_transfer(
-            sender_id,
-            receiver_id.into(),
-            amount.into(),
-        )).as_return();
+    fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
+        log!("Closed @{} with {}", account_id, balance);
     }
 
-    fn ft_total_supply(&self) -> U128 {
-        U128::from(self.total_supply)
-    }
-
-    fn ft_balance_of(&self, account_id: AccountId) -> U128 {
-        self.accounts.get(&account_id).unwrap_or(0).into()
-    }
-
-    fn internal_deposit(&mut self, account_id: AccountId, amount: Balance) {
-        let balance = self
-            .accounts
-            .get(&account_id)
-            .unwrap();
-        let new_balance = balance.checked_add(amount).unwrap();
-        self.accounts.insert(&account_id, &new_balance);
-    }
-
-    fn internal_withdraw(&mut self, account_id: AccountId, amount: Balance) {
-        let balance = self
-            .accounts
-            .get(&account_id)
-            .unwrap();
-        let new_balance = balance.checked_sub(amount).unwrap(); 
-        self.accounts.insert(&account_id, &new_balance);
-    }
-
-    fn internal_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: Balance,
-        memo: Option<String>,
-    ) {
-        self.internal_withdraw(sender_id.clone(), amount);
-        self.internal_deposit(receiver_id.clone(), amount);
+    fn on_tokens_burned(&mut self, account_id: AccountId, amount: Balance) {
+        log!("Account @{} burned {}", account_id, amount);
     }
 }
 
+near_contract_standards::impl_fungible_token_core!(Contract, token, on_tokens_burned);
+near_contract_standards::impl_fungible_token_storage!(Contract, token, on_account_closed);
+
+
 #[near_bindgen]
-impl FungibleTokenResolver for Contract {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128 {
-        let amount: Balance = amount.into();
-
-        // Get the unused amount from the `ft_on_transfer` call result.
-        let unused_amount = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
-            PromiseResult::Successful(value) => {
-                if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
-                    std::cmp::min(amount, unused_amount.0)
-                } else {
-                    amount
-                }
-            }
-            PromiseResult::Failed => amount,
-        };
-
-        if unused_amount > 0 {
-            let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(0);
-            if receiver_balance > 0 {
-                let refund_amount = std::cmp::min(receiver_balance, unused_amount);
-                self.accounts
-                    .insert(&receiver_id, &(receiver_balance - refund_amount));
-
-                if let Some(sender_balance) = self.accounts.get(&sender_id) {
-                    self.accounts
-                        .insert(&sender_id, &(sender_balance + refund_amount));
-                    return (amount - refund_amount).into();
-                } 
-            }
-        }
-        amount.into() // TODO: i think this should be something else, how many were returned
+impl FungibleTokenMetadataProvider for Contract {
+    fn ft_metadata(&self) -> FungibleTokenMetadata {
+        self.metadata.get().unwrap()
     }
 }
