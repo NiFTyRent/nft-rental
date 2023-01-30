@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use near_contract_standards::non_fungible_token::{hash_account_id, TokenId};
+use near_contract_standards::non_fungible_token::TokenId;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
@@ -15,6 +15,7 @@ use near_sdk::{
 };
 
 pub mod externals;
+mod utils;
 pub use crate::externals::*;
 
 // Copied from Paras market contract. Will need to be fine-tuned.
@@ -45,9 +46,9 @@ pub struct Payout {
     pub payout: PayoutHashMap,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, PartialEq, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
-enum LeaseState {
+pub enum LeaseState {
     Pending,
     Active,
     // TODO(libo): Expired is not ever been used. Clean it up.
@@ -72,19 +73,19 @@ pub struct NftOnTransferJson {
 }
 
 /// Struct for keeping track of the lease conditions
-#[derive(BorshDeserialize, BorshSerialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseCondition {
-    contract_addr: AccountId, // NFT contract
-    token_id: TokenId,        // NFT token
-    lender_id: AccountId,     // Owner of the NFT
-    borrower_id: AccountId,   // Borrower of the NFT
-    ft_contract_addr: AccountId,  // the account id for the ft contract
-    approval_id: u64,         // Approval from owner to lease
-    expiration: u64,          // TODO: duration
-    price: u128,              // Proposed lease price
-    payout: Option<Payout>,   // Payout info (e.g. for Royalty split)
-    state: LeaseState,        // Current lease state
+    pub contract_addr: AccountId,    // NFT contract
+    pub token_id: TokenId,           // NFT token
+    pub lender_id: AccountId,        // Owner of the NFT
+    pub borrower_id: AccountId,      // Borrower of the NFT
+    pub ft_contract_addr: AccountId, // the account id for the ft contract
+    pub approval_id: u64,            // Approval from owner to lease
+    pub expiration: u64,             // TODO: duration
+    pub price: u128,                 // Proposed lease price
+    pub payout: Option<Payout>,      // Payout info (e.g. for Royalty split)
+    pub state: LeaseState,           // Current lease state
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -195,7 +196,8 @@ impl Contract {
                     .with_attached_deposit(0)
                     .with_static_gas(GAS_FOR_ROYALTIES)
                     .activate_lease(lease_id),
-            ).as_return();
+            )
+            .as_return();
     }
 
     #[private]
@@ -477,7 +479,7 @@ impl Contract {
                 UnorderedSet::new(
                     StorageKey::LeasesIdsByLenderInner {
                         // get a new unique prefix for the collection by hashing owner
-                        account_id_hash: hash_account_id(&lease_condition.lender_id),
+                        account_id_hash: utils::hash_account_id(&lease_condition.lender_id),
                     }
                     .try_to_vec()
                     .unwrap(),
@@ -495,7 +497,7 @@ impl Contract {
                 UnorderedSet::new(
                     StorageKey::LeaseIdsByBorrowerInner {
                         // get a new unique prefix for the collection by hashing owner
-                        account_id_hash: hash_account_id(&lease_condition.borrower_id),
+                        account_id_hash: utils::hash_account_id(&lease_condition.borrower_id),
                     }
                     .try_to_vec()
                     .unwrap(),
@@ -552,7 +554,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             .nft_payout(
                 lease_json.token_id.clone(),    // token_id
                 U128::from(lease_json.price.0), // price
-                Some(MAX_LEN_PAYOUT) // max_len_payout
+                Some(MAX_LEN_PAYOUT),           // max_len_payout
             )
             .then(
                 ext_self::ext(env::current_account_id())
@@ -568,7 +570,8 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                         lease_json.price.0,
                         approval_id,
                     ),
-            ).as_return();
+            )
+            .as_return();
     }
 }
 
@@ -689,9 +692,7 @@ mod tests {
             VMConfig::test(),
             RuntimeFeesConfig::test(),
             HashMap::default(),
-            vec![PromiseResult::Successful(
-                Vec::new()
-            )],
+            vec![PromiseResult::Successful(Vec::new())],
         );
 
         contract.activate_lease(key.clone());
@@ -717,9 +718,7 @@ mod tests {
             VMConfig::test(),
             RuntimeFeesConfig::test(),
             HashMap::default(),
-            vec![PromiseResult::Successful(
-                Vec::new()
-            )],
+            vec![PromiseResult::Successful(Vec::new())],
         );
 
         contract.activate_lease(key.clone());
@@ -942,7 +941,7 @@ mod tests {
             price,
             1,
         );
-    
+
         assert!(!contract.lease_map.is_empty());
         let lease_condition = &contract.leases_by_owner(owner_id.clone())[0].1;
 
@@ -974,7 +973,7 @@ mod tests {
                 (accounts(3).into(), U128::from(2)),
             ]),
         };
-        
+
         testing_env!(
             VMContextBuilder::new()
                 .current_account_id(accounts(0))

@@ -1,5 +1,5 @@
-use near_sdk::serde::{Deserialize, Serialize};
 use near_units::parse_near;
+use nft_rental::{LeaseCondition, LeaseState};
 use serde_json::json;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
 
@@ -56,28 +56,6 @@ async fn init() -> anyhow::Result<Context> {
         nft_contract,
         worker,
     })
-}
-
-// TODO(libo): we can import them from the contract under testing.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(crate = "near_sdk::serde")]
-enum LeaseState {
-    Pending,
-    Active,
-    Expired,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(crate = "near_sdk::serde")]
-struct LeaseCondition {
-    contract_addr: String, // NFT contract
-    token_id: String,      // NFT token
-    owner_id: String,      // Owner of the NFT
-    borrower: String,      // Borrower of the NFT
-    approval_id: u64,      // Approval from owner to lease
-    expiration: u64,       // TODO: duration
-    amount_near: u128,     // proposed lease cost
-    state: LeaseState,     // current lease state
 }
 
 async fn prepare_lease(context: &Context, token_id: String) -> anyhow::Result<()> {
