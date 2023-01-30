@@ -18,6 +18,7 @@ struct Context {
     borrower: Account,
     contract: Contract,
     nft_contract: Contract,
+    ft_contract: Contract,
     worker: Worker<Sandbox>,
 }
 
@@ -27,11 +28,14 @@ const NFT_PAYOUT_CODE: &[u8] =
     include_bytes!("../target/wasm32-unknown-unknown/release/test_nft_with_payout.wasm");
 const NFT_NO_PAYOUT_CODE: &[u8] =
     include_bytes!("../target/wasm32-unknown-unknown/release/test_nft_without_payout.wasm");
+const FT_CODE: &[u8] =
+    include_bytes!("../target/wasm32-unknown-unknown/release/test_ft.wasm");
 
 async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     let worker = workspaces::sandbox().await?;
     let contract = worker.dev_deploy(CONTRACT_CODE).await?;
     let nft_contract = worker.dev_deploy(nft_code).await?;
+    let ft_contract = worker.dev_deploy(FT_CODE).await?;
 
     // create accounts
     let account = worker.dev_create_account().await?;
@@ -75,6 +79,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         borrower: bob,
         contract,
         nft_contract,
+        ft_contract,
         worker,
     })
 }
@@ -123,6 +128,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
+                          "ft_contract_addr": context.ft_contract.id(),
                           "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
@@ -249,6 +255,7 @@ async fn test_claim_back_without_payout_success() -> anyhow::Result<()> {
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
+                          "ft_contract_addr": context.ft_contract.id(),
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -344,6 +351,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
+                          "ft_contract_addr": context.ft_contract.id(),
                           "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": "1"
@@ -434,6 +442,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
             "msg": json!({"contract_addr": nft_contract.id(),
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
+                          "ft_contract_addr": context.ft_contract.id(),
                           "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": "1"
