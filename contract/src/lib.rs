@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::format;
-
 pub mod nft;
 pub use crate::nft::internal::*;
 pub use crate::nft::metadata::*;
@@ -102,15 +100,15 @@ pub struct ContractV1 {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    owner: AccountId,   // same owner for both lease contract and nft contract 
+    owner: AccountId, // same owner for both lease contract and nft contract
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
     lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
 
     // iou nft contract related fields
-    pub active_lease_ids_per_owner: LookupMap<AccountId, UnorderedSet<LeaseId>>, // Active Lease has matching LEASE tokens
-    pub active_lease_ids: UnorderedSet<LeaseId>, // This will also be used to query all existing token ids
+    active_lease_ids_per_owner: LookupMap<AccountId, UnorderedSet<LeaseId>>, // Active Lease has matching LEASE tokens
+    active_lease_ids: UnorderedSet<LeaseId>, // This will also be used to query all existing token ids
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -146,8 +144,10 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             // iou nft related fields
-            active_lease_ids_per_owner: LookupMap::new(StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap()),
-            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds)
+            active_lease_ids_per_owner: LookupMap::new(
+                StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap(),
+            ),
+            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }
     }
 
@@ -169,8 +169,10 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            active_lease_ids_per_owner: LookupMap::new(StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap()),
-            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds)
+            active_lease_ids_per_owner: LookupMap::new(
+                StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap(),
+            ),
+            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }
     }
 
@@ -447,6 +449,27 @@ impl Contract {
         // remove from index by_contract_addr_and_token_id
         self.lease_id_by_contract_addr_and_token_id
             .remove(&(lease_condition.contract_addr, lease_condition.token_id));
+
+        // Clean up NFT related fields
+        // remove active leases set
+        self.active_lease_ids.remove(&lease_id);
+
+        // remove active_lease_ids_per_owner
+        let mut active_lease_id_set = self
+            .active_lease_ids_per_owner
+            .get(&lease_condition.lender_id);
+
+        if let Some(active_lease_id_set) = active_lease_id_set.as_mut() {
+            active_lease_id_set.remove(&lease_id);
+
+            if active_lease_id_set.is_empty() {
+                self.active_lease_ids_per_owner
+                    .remove(&lease_condition.lender_id);
+            } else {
+                self.active_lease_ids_per_owner
+                    .insert(&lease_condition.lender_id, &active_lease_id_set);
+            }
+        }
     }
 
     // helper method to insert a new lease and update all indices
