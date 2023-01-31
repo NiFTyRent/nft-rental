@@ -175,9 +175,3 @@ impl NonFungibleTokenResolver for Contract {
         return false;
     }
 }
-
-impl Contract {
-    pub fn nft_tokens() {
-        todo!();
-    }
-}
