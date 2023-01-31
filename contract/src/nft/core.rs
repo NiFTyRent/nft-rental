@@ -96,7 +96,7 @@ impl NonFungibleTokenCore for Contract {
         if let Some(_token_metadata) = self.token_metadata_by_id.get(&token_id) {
             //Get the metadata for that token
             let token_metadata = self.token_metadata_by_id.get(&token_id);
-            //Get the lease condistion to assember token info
+            //Get the lease condistion to assemble token info
             let lease_condition = self.lease_map.get(&token_id).unwrap();
 
             //Return the Token object (wrapped by Some since we return an option)
