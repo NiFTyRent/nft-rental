@@ -58,16 +58,16 @@ impl Contract {
         token_id: &TokenId,
     ) {
         let mut token_ids_set = self
-            .token_ids_per_owner
+            .active_lease_ids_per_owner
             .get(account_id)
             .expect("Token is not owned by the sender!");
 
         token_ids_set.remove(token_id);
 
         if token_ids_set.is_empty() {
-            self.token_ids_per_owner.remove(account_id);
+            self.active_lease_ids_per_owner.remove(account_id);
         } else {
-            self.token_ids_per_owner.insert(account_id, &token_ids_set);
+            self.active_lease_ids_per_owner.insert(account_id, &token_ids_set);
         }
     }
 
@@ -77,12 +77,12 @@ impl Contract {
         token_id: &TokenId,
     ) {
         let mut token_ids_set = self
-            .token_ids_per_owner
+            .active_lease_ids_per_owner
             .get(&account_id)
             .unwrap_or_else(|| {
                 // if the receiver doesn't have any tokens, create a new record
                 UnorderedSet::new(
-                    StorageKey::TokenIdsPerOwnerInner {
+                    StorageKey::ActiveLeaseIdsPerOwnerInner {
                         account_id_hash: utils::hash_account_id(&account_id),
                     }
                     .try_to_vec()
@@ -91,7 +91,7 @@ impl Contract {
             });
 
         token_ids_set.insert(token_id);
-        self.token_ids_per_owner.insert(account_id, &token_ids_set);
+        self.active_lease_ids_per_owner.insert(account_id, &token_ids_set);
     }
 
     /// Mint a new IOU token. It will be called once lease become active to mint a new IOU token.
@@ -105,11 +105,11 @@ impl Contract {
     ) {
         // update the record for token_ids_per_owner
         let mut token_ids_set = self
-            .token_ids_per_owner
+            .active_lease_ids_per_owner
             .get(&receiver_id)
             .unwrap_or_else(|| {
                 UnorderedSet::new(
-                    StorageKey::TokenIdsPerOwnerInner {
+                    StorageKey::ActiveLeaseIdsPerOwnerInner {
                         // get a new unique prefix for the collection by hashing owner
                         account_id_hash: utils::hash_account_id(&receiver_id),
                     }
@@ -122,7 +122,7 @@ impl Contract {
         self.token_metadata_by_id.insert(&token_id, &metadata);
 
         token_ids_set.insert(&token_id);
-        self.token_ids_per_owner
+        self.active_lease_ids_per_owner
             .insert(&receiver_id, &token_ids_set);
     }
 }

@@ -108,7 +108,7 @@ pub struct Contract {
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
 
     // iou nft contract related fields
-    pub token_ids_per_owner: LookupMap<AccountId, UnorderedSet<TokenId>>, // tokens ids from each owner
+    pub active_lease_ids_per_owner: LookupMap<AccountId, UnorderedSet<LeaseId>>, // Active Lease has matching LEASE tokens
     pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>, // This will also be used to query all existing token ids
 }
 
@@ -120,8 +120,8 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
-    TokenIdsPerOwner,
-    TokenIdsPerOwnerInner { account_id_hash: CryptoHash },
+    ActiveLeaseIdsPerOwner,
+    ActiveLeaseIdsPerOwnerInner { account_id_hash: CryptoHash },
     TokenMetadataById,
 }
 
@@ -145,7 +145,7 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             // iou nft related fields
-            token_ids_per_owner: LookupMap::new(StorageKey::TokenIdsPerOwner.try_to_vec().unwrap()),
+            active_lease_ids_per_owner: LookupMap::new(StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap()),
             token_metadata_by_id: UnorderedMap::new(
                 StorageKey::TokenMetadataById.try_to_vec().unwrap()
             )
@@ -170,7 +170,7 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            token_ids_per_owner: LookupMap::new(StorageKey::TokenIdsPerOwner.try_to_vec().unwrap()),
+            active_lease_ids_per_owner: LookupMap::new(StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap()),
             token_metadata_by_id: UnorderedMap::new(
                 StorageKey::TokenMetadataById.try_to_vec().unwrap()
             )

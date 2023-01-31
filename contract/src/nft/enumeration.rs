@@ -74,10 +74,10 @@ impl NonFungibleTokenEnumeration for Contract {
 
     /// Get total NFT supply for a given account
     fn nft_supply_for_owner(&mut self, account_id: AccountId) -> U128 {
-        let token_ids_set = self.token_ids_per_owner.get(&account_id);
+        let active_lease_ids_set = self.active_lease_ids_per_owner.get(&account_id);
 
-        if let Some(token_ids_set) = token_ids_set {
-            U128(token_ids_set.len() as u128)
+        if let Some(active_lease_ids) = active_lease_ids_set {
+            U128(active_lease_ids.len() as u128)
         } else {
             U128(0)
         }
@@ -89,11 +89,11 @@ impl NonFungibleTokenEnumeration for Contract {
         from_index: Option<U128>, // default: "0"
         limit: Option<u64>,       // 10
     ) -> Vec<Token> {
-        let token_ids_per_owner_set = self.token_ids_per_owner.get(&account_id);
+        let active_lease_ids_per_owner_set = self.active_lease_ids_per_owner.get(&account_id);
 
         // if there is some set of token ids, set tokens_ids to the query result
-        let token_ids = if let Some(token_ids_per_owner_set) = token_ids_per_owner_set {
-            token_ids_per_owner_set
+        let active_lease_ids = if let Some(active_lease_ids_per_owner_set) = active_lease_ids_per_owner_set {
+            active_lease_ids_per_owner_set
         } else {
             //if there is no tokens for the user, return an empty vector.
             return vec![];
@@ -107,11 +107,11 @@ impl NonFungibleTokenEnumeration for Contract {
         );
 
         //iterate through the keys vector
-        token_ids
+        active_lease_ids
             .iter()
             .skip(start_index as usize)
             .take(limit.unwrap_or(10) as usize)
-            .map(|token_id| self.nft_token(token_id.clone()).unwrap())
+            .map(|active_lease_id| self.nft_token(active_lease_id.clone()).unwrap())
             .collect()
     }
 }
