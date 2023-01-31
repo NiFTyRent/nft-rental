@@ -83,7 +83,7 @@ impl Contract {
                 // if the receiver doesn't have any tokens, create a new record
                 UnorderedSet::new(
                     StorageKey::TokenIdsPerOwnerInner {
-                        account_id_hash: hash_account_id(&account_id),
+                        account_id_hash: utils::hash_account_id(&account_id),
                     }
                     .try_to_vec()
                     .unwrap(),
@@ -111,7 +111,7 @@ impl Contract {
                 UnorderedSet::new(
                     StorageKey::TokenIdsPerOwnerInner {
                         // get a new unique prefix for the collection by hashing owner
-                        account_id_hash: hash_account_id(&receiver_id),
+                        account_id_hash: utils::hash_account_id(&receiver_id),
                     }
                     .try_to_vec()
                     .unwrap(),
