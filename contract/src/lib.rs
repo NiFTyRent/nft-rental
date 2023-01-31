@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+pub mod nft;
+pub use crate::nft::metadata::*;
+
 use near_contract_standards::non_fungible_token::TokenId;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -97,11 +100,15 @@ pub struct ContractV1 {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    owner: AccountId,
+    owner: AccountId,   // same owner for both lease contract and nft contract 
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
     lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
+
+    // iou nft contract related fields
+    pub token_ids_per_owner: LookupMap<AccountId, UnorderedSet<TokenId>>, // tokens ids from each owner
+    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>, // This will also be used to query all existing token ids
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -112,6 +119,9 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
+    TokenIdsPerOwner,
+    TokenIdsPerOwnerInner { account_id_hash: CryptoHash },
+    TokenMetadataById,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,6 +143,11 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
+            // iou nft related fields
+            token_ids_per_owner: LookupMap::new(StorageKey::TokenIdsPerOwner.try_to_vec().unwrap()),
+            token_metadata_by_id: UnorderedMap::new(
+                StorageKey::TokenMetadataById.try_to_vec().unwrap()
+            )
         }
     }
 
@@ -154,6 +169,10 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
+            token_ids_per_owner: LookupMap::new(StorageKey::TokenIdsPerOwner.try_to_vec().unwrap()),
+            token_metadata_by_id: UnorderedMap::new(
+                StorageKey::TokenMetadataById.try_to_vec().unwrap()
+            )
         }
     }
 
