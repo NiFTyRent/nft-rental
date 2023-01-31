@@ -94,16 +94,14 @@ impl Contract {
         self.active_lease_ids_per_owner.insert(account_id, &token_ids_set);
     }
 
-    /// Mint a new IOU token. It will be called once lease become active to mint a new IOU token.
+    /// Update NFT related fields. It will be called once lease become active.
     /// This function is visible only within the current contract,
-    /// No other accounts can mint the IOU token
     pub(crate) fn nft_mint(
         &mut self,
         token_id: TokenId,
-        metadata: TokenMetadata,
         receiver_id: AccountId,
     ) {
-        // update the record for token_ids_per_owner
+        // update the record for active_leases
         let mut token_ids_set = self
             .active_lease_ids_per_owner
             .get(&receiver_id)
@@ -118,11 +116,11 @@ impl Contract {
                 )
             });
 
-        // insert the token id and metadata
-        self.token_metadata_by_id.insert(&token_id, &metadata);
-
         token_ids_set.insert(&token_id);
         self.active_lease_ids_per_owner
             .insert(&receiver_id, &token_ids_set);
+
+        // Record active leases/Lease Tokens
+        self.active_lease_ids.insert(&token_id);
     }
 }

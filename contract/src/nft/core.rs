@@ -91,19 +91,41 @@ impl NonFungibleTokenCore for Contract {
             .into()
     }
 
-    // Returns the token info with a given token_id
+    // Returns the token info with a given token_id. Info are assembled on the fly
     fn nft_token(&self, token_id: TokenId) -> Option<Token> {
-        if let Some(_token_metadata) = self.token_metadata_by_id.get(&token_id) {
-            //Get the metadata for that token
-            let token_metadata = self.token_metadata_by_id.get(&token_id);
-            //Get the lease condistion to assemble token info
+        if self.active_lease_ids.contains(&token_id) {
+
+            //Get the lease condition to assemble token info and token metadata
             let lease_condition = self.lease_map.get(&token_id).unwrap();
 
-            //Return the Token object (wrapped by Some since we return an option)
+            //Generate token metadata on the fly. Hard coded for now
+            let token_metadata = TokenMetadata{
+                title: Some(format!("NiftyRent Lease Ownership Token: {}", &token_id)), 
+                description: Some(
+                    format!("
+                    This is a token representing the ownership the NFT under the NiFTyRent lease: {lease_id}\n
+                    The under-leased NFT is {leased_token_id} at {contract_id}", 
+                    lease_id=&token_id,
+                    leased_token_id=&lease_condition.token_id, 
+                    contract_id=&lease_condition.contract_addr
+                )),
+                media: None,    //todo(syu) add the media link         
+                media_hash: None,
+                copies: None,
+                issued_at: None,
+                expires_at: None,
+                starts_at: None,
+                updated_at: None,
+                extra: None,
+                reference: None,
+                reference_hash: None,
+            };
+
+            //Return the token object with assembed info
             Some(Token {
                 token_id,
                 owner_id: lease_condition.lender_id,
-                metadata: token_metadata,
+                metadata: Some(token_metadata),
             })
         } else {
             //if there wasn't any token_id in tokens_by_id, return None

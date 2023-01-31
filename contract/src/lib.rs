@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::format;
 
 pub mod nft;
 pub use crate::nft::internal::*;
@@ -109,7 +110,7 @@ pub struct Contract {
 
     // iou nft contract related fields
     pub active_lease_ids_per_owner: LookupMap<AccountId, UnorderedSet<LeaseId>>, // Active Lease has matching LEASE tokens
-    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>, // This will also be used to query all existing token ids
+    pub active_lease_ids: UnorderedSet<LeaseId>, // This will also be used to query all existing token ids
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -122,7 +123,7 @@ enum StorageKey {
     LeaseIdByContractAddrAndTokenId,
     ActiveLeaseIdsPerOwner,
     ActiveLeaseIdsPerOwnerInner { account_id_hash: CryptoHash },
-    TokenMetadataById,
+    ActiveLeaseIds,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -146,9 +147,7 @@ impl Contract {
             ),
             // iou nft related fields
             active_lease_ids_per_owner: LookupMap::new(StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap()),
-            token_metadata_by_id: UnorderedMap::new(
-                StorageKey::TokenMetadataById.try_to_vec().unwrap()
-            )
+            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds)
         }
     }
 
@@ -171,9 +170,7 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             active_lease_ids_per_owner: LookupMap::new(StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap()),
-            token_metadata_by_id: UnorderedMap::new(
-                StorageKey::TokenMetadataById.try_to_vec().unwrap()
-            )
+            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds)
         }
     }
 
@@ -193,22 +190,8 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
-        // TODO(syu): Decide if any fields can be removed from TokenMetadata
-        let metadata = TokenMetadata{
-            title: None, 
-            description: None,
-            media: None,
-            media_hash: None,
-            copies: None,
-            issued_at: None,
-            expires_at: None,
-            starts_at: None,
-            updated_at: None,
-            extra: None,
-            reference: None,
-            reference_hash: None,
-        };
-        self.nft_mint(lease_id, metadata, new_lease_condition.lender_id.clone())
+        // record NFT related fields
+        self.nft_mint(lease_id, new_lease_condition.lender_id.clone())
 
         // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
         let unused_ammount: U128 = U128::from(0);

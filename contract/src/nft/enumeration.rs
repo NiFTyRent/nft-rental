@@ -45,7 +45,7 @@ pub trait NonFungibleTokenEnumeration {
 
 impl NonFungibleTokenEnumeration for Contract {
     fn nft_total_supply(&mut self) -> U128 {
-        U128(self.token_metadata_by_id.len() as u128)
+        U128(self.active_lease_ids.len() as u128)
     }
 
     /// Query for all nft tokens on the contract. Using Pagination
@@ -57,18 +57,18 @@ impl NonFungibleTokenEnumeration for Contract {
         // Get starting index, default to 0
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();
         require!(
-            (self.token_metadata_by_id.len() as u128) >= start_index,
+            (self.active_lease_ids.len() as u128) >= start_index,
             "Out of bounds, please use a smaller from_index."
         );
 
         // sainity check on limit
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
 
-        self.token_metadata_by_id
-            .keys()
+        self.active_lease_ids
+            .iter()
             .skip(start_index as usize)
             .take(limit)
-            .map(|token_id| self.nft_token(token_id.clone()).unwrap())
+            .map(|active_lease_id| self.nft_token(active_lease_id.clone()).unwrap())
             .collect()
     }
 
@@ -102,7 +102,7 @@ impl NonFungibleTokenEnumeration for Contract {
         // Get starting index, default to 0
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();
         require!(
-            (self.token_metadata_by_id.len() as u128) >= start_index,
+            (self.active_lease_ids.len() as u128) >= start_index,
             "Out of bounds, please use a smaller from_index."
         );
 
