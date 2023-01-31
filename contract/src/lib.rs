@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 pub mod nft;
+pub use crate::nft::internal::*;
 pub use crate::nft::metadata::*;
 
 use near_contract_standards::non_fungible_token::TokenId;
@@ -192,6 +193,23 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
+        // TODO(syu): Decide if any fields can be removed from TokenMetadata
+        let metadata = TokenMetadata{
+            title: None, 
+            description: None,
+            media: None,
+            media_hash: None,
+            copies: None,
+            issued_at: None,
+            expires_at: None,
+            starts_at: None,
+            updated_at: None,
+            extra: None,
+            reference: None,
+            reference_hash: None,
+        };
+        self.nft_mint(lease_id, metadata, new_lease_condition.lender_id.clone())
+
         // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
         let unused_ammount: U128 = U128::from(0);
         return unused_ammount;

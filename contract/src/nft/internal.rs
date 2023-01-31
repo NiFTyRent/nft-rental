@@ -93,4 +93,36 @@ impl Contract {
         token_ids_set.insert(token_id);
         self.token_ids_per_owner.insert(account_id, &token_ids_set);
     }
+
+    /// Mint a new IOU token. It will be called once lease become active to mint a new IOU token.
+    /// This function is visible only within the current contract,
+    /// No other accounts can mint the IOU token
+    pub(crate) fn nft_mint(
+        &mut self,
+        token_id: TokenId,
+        metadata: TokenMetadata,
+        receiver_id: AccountId,
+    ) {
+        // update the record for token_ids_per_owner
+        let mut token_ids_set = self
+            .token_ids_per_owner
+            .get(&receiver_id)
+            .unwrap_or_else(|| {
+                UnorderedSet::new(
+                    StorageKey::TokenIdsPerOwnerInner {
+                        // get a new unique prefix for the collection by hashing owner
+                        account_id_hash: utils::hash_account_id(&receiver_id),
+                    }
+                    .try_to_vec()
+                    .unwrap(),
+                )
+            });
+
+        // insert the token id and metadata
+        self.token_metadata_by_id.insert(&token_id, &metadata);
+
+        token_ids_set.insert(&token_id);
+        self.token_ids_per_owner
+            .insert(&receiver_id, &token_ids_set);
+    }
 }
