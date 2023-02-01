@@ -4,60 +4,41 @@ import { useQuery, gql } from "@apollo/client";
 import { initContract, newLease } from "./NftContract";
 
 
-
-function ContractAutoInput({ className, query, selected, setSelected }) {
-  const GET_CONTRACTS = gql`
-    query GetContracts {
-      nft_contracts {
-        id
-        name
-        is_mintbase
-        base_uri
-      }
-    }
-  `;
-
-  const { loading, error, data } = useQuery(GET_CONTRACTS, { name: query });
-  if (loading) return <AutoInput className={className} loading={true} />;
-  if (error) return <p>Error</p>;
-
-  return <AutoInput
-    className={className}
-    selected={selected}
-    setSelected={setSelected}
-    options={data.nft_contracts.map(({ id, name }) =>
-      ({ id, name: `${name} (${id})` })
-    )}
-  />;
-}
-
-function TokenAutoInput({ className, contractId, selected, setSelected }) {
+function TokenAutoInput({ className, accountId, selected, setSelected }) {
   const GET_TOKENS = gql`
-    query GetTokens($contract_id: String!) {
-      mb_views_nft_tokens(where: {nft_contract_id: {_eq: $contract_id}}) {
+    query GetTokens($account_id: String!) {
+      mb_views_nft_tokens(
+        where: {owner: {_eq: $account_id}, burned_timestamp: {_is_null: true}},  ) {
         owner
         media
         title
         token_id
+        description
+        minter
+        nft_contract_icon
+        nft_contract_id
       }
     }
   `;
 
-  if (!contractId) return <AutoInput className={className} disabled={true} />
 
-  const { loading, error, data } = useQuery(GET_TOKENS, { variables: { contract_id: contractId } });
+  const { loading, error, data } = useQuery(GET_TOKENS, { variables: { account_id: accountId } });
   if (loading) return <AutoInput className={className} loading={true} />;
-  if (error) return <p>Error</p>;
+  if (error) {
+    console.log(error);
+    return <p>Error</p>;
+  }
 
-  // TODO(libo): hide the token not owned by the user.
   return <AutoInput
     className={className}
     selected={selected}
     setSelected={setSelected}
-    options={data.mb_views_nft_tokens.map(({ token_id, title, media, }) => {
+    options={data.mb_views_nft_tokens.map(({ token_id, title, nft_contract_id, media, }) => {
       return {
-        id: token_id,
-        name: title || id,
+        id: `${nft_contract_id} ${token_id}`,
+        name: `${title || token_id} @ ${nft_contract_id}`,
+        token_id: token_id,
+        contract_id: nft_contract_id,
         media: media,
       }
     }
@@ -66,8 +47,7 @@ function TokenAutoInput({ className, contractId, selected, setSelected }) {
 }
 
 export default function NewLendingPage() {
-  const [selectedContract, setSelectedContract] = React.useState("");
-  const [selectedToken, setSelectedToken] = React.useState("");
+  const [selectedToken, setSelectedToken] = React.useState(null);
   const [borrower, setBorrower] = React.useState("");
   const [durationMinute, setDurationMinute] = React.useState(0);
   const [durationHour, setDurationHour] = React.useState(0);
@@ -75,14 +55,14 @@ export default function NewLendingPage() {
   const [rent, setRent] = React.useState(0);
 
   let onSubmit = async () => {
-    let contract = await initContract(selectedContract.id);
+    let contract = await initContract(selectedToken.contract_id);
     let expiration =
       Math.trunc(Date.now() / 1000) +
       durationDay * 24 * 3600 +
       durationHour * 3600 +
       durationMinute * 60;
 
-    newLease(contract, selectedToken.id, borrower, expiration, rent);
+    newLease(contract, selectedToken.token_id, borrower, expiration, rent);
   };
 
   return (
@@ -108,28 +88,12 @@ export default function NewLendingPage() {
 
                     <div className="sm:flex sm:flex-row">
                       <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
-                        Contract
-                      </label>
-                      <div className="mt-1 sm:w-1/2 sm:mt-0">
-                        <ContractAutoInput
-                          className="input max-w-lg"
-                          selected={selectedContract}
-                          setSelected={setSelectedContract}
-                        />
-                        <p className="mt-2 text-sm text-gray-500">
-                          Choose the contract of your NFT.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="sm:flex sm:flex-row">
-                      <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
                         Token
                       </label>
                       <div className="mt-1 sm:w-1/2 sm:mt-0">
                         <TokenAutoInput
                           className="input max-w-lg"
-                          contractId={selectedContract.id}
+                          accountId={window.accountId}
                           selected={selectedToken}
                           setSelected={setSelectedToken}
                         />
