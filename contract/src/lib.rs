@@ -1,10 +1,6 @@
 use std::collections::HashMap;
-pub mod nft;
-pub use crate::nft::internal::*;
-pub use crate::nft::metadata::*;
 
 use near_contract_standards::non_fungible_token::TokenId;
-
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
@@ -20,6 +16,9 @@ use near_sdk::{
 pub mod externals;
 mod utils;
 pub use crate::externals::*;
+pub mod nft;
+pub use crate::nft::internal::*;
+pub use crate::nft::metadata::*;
 
 // Copied from Paras market contract. Will need to be fine-tuned.
 // https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17
@@ -100,14 +99,14 @@ pub struct ContractV1 {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    owner: AccountId, // same owner for both lease contract and nft contract
+    owner: AccountId,
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
     lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
 
     // iou nft contract related fields
-    active_lease_ids_per_owner: LookupMap<AccountId, UnorderedSet<LeaseId>>, // Active Lease has matching LEASE tokens
+    active_lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>, // Active Lease has matching LEASE tokens
     active_lease_ids: UnorderedSet<LeaseId>, // This will also be used to query all existing token ids
 }
 
@@ -143,8 +142,7 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            // iou nft related fields
-            active_lease_ids_per_owner: LookupMap::new(
+            active_lease_ids_by_lender: LookupMap::new(
                 StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap(),
             ),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
@@ -169,7 +167,7 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            active_lease_ids_per_owner: LookupMap::new(
+            active_lease_ids_by_lender: LookupMap::new(
                 StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap(),
             ),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
@@ -192,7 +190,7 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
-        // record NFT related fields
+
         self.nft_mint(lease_id, new_lease_condition.lender_id.clone())
 
         // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
@@ -451,22 +449,22 @@ impl Contract {
             .remove(&(lease_condition.contract_addr, lease_condition.token_id));
 
         // Clean up NFT related fields
-        // remove active leases set
+        // update active leases set
         self.active_lease_ids.remove(&lease_id);
 
-        // remove active_lease_ids_per_owner
+        // update active_lease_ids_per_owner
         let mut active_lease_id_set = self
-            .active_lease_ids_per_owner
+            .active_lease_ids_by_lender
             .get(&lease_condition.lender_id);
 
         if let Some(active_lease_id_set) = active_lease_id_set.as_mut() {
             active_lease_id_set.remove(&lease_id);
 
             if active_lease_id_set.is_empty() {
-                self.active_lease_ids_per_owner
+                self.active_lease_ids_by_lender
                     .remove(&lease_condition.lender_id);
             } else {
-                self.active_lease_ids_per_owner
+                self.active_lease_ids_by_lender
                     .insert(&lease_condition.lender_id, &active_lease_id_set);
             }
         }

@@ -6,9 +6,9 @@ use crate::*;
 impl Contract {
     pub(crate) fn internal_transfer(
         &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        token_id: TokenId,
+        sender_id: &AccountId,
+        receiver_id: &AccountId,
+        token_id: &TokenId,
         memo: Option<String>,
     ) -> Token {
         // 1. get lease condistion to infer token info
@@ -19,11 +19,11 @@ impl Contract {
 
         let owner_id = lease_condition.lender_id.clone();
         assert_eq!(
-            &owner_id, &sender_id,
+            &owner_id, sender_id,
             "Only Lease token owner can transfer!"
         );
         assert_ne!(
-            &owner_id, &receiver_id,
+            &owner_id, receiver_id,
             "Token owner can not be the receiver!"
         );
 
@@ -58,16 +58,16 @@ impl Contract {
         token_id: &TokenId,
     ) {
         let mut token_ids_set = self
-            .active_lease_ids_per_owner
+            .active_lease_ids_by_lender
             .get(account_id)
             .expect("Token is not owned by the sender!");
 
         token_ids_set.remove(token_id);
 
         if token_ids_set.is_empty() {
-            self.active_lease_ids_per_owner.remove(account_id);
+            self.active_lease_ids_by_lender.remove(account_id);
         } else {
-            self.active_lease_ids_per_owner.insert(account_id, &token_ids_set);
+            self.active_lease_ids_by_lender.insert(account_id, &token_ids_set);
         }
     }
 
@@ -77,7 +77,7 @@ impl Contract {
         token_id: &TokenId,
     ) {
         let mut token_ids_set = self
-            .active_lease_ids_per_owner
+            .active_lease_ids_by_lender
             .get(&account_id)
             .unwrap_or_else(|| {
                 // if the receiver doesn't have any tokens, create a new record
@@ -91,11 +91,11 @@ impl Contract {
             });
 
         token_ids_set.insert(token_id);
-        self.active_lease_ids_per_owner.insert(account_id, &token_ids_set);
+        self.active_lease_ids_by_lender.insert(account_id, &token_ids_set);
     }
 
     /// Update NFT related fields. It will be called once lease become active.
-    /// This function is visible only within the current contract,
+    /// This function is visible only within the current contract
     pub(crate) fn nft_mint(
         &mut self,
         token_id: TokenId,
@@ -103,7 +103,7 @@ impl Contract {
     ) {
         // update the record for active_leases
         let mut token_ids_set = self
-            .active_lease_ids_per_owner
+            .active_lease_ids_by_lender
             .get(&receiver_id)
             .unwrap_or_else(|| {
                 UnorderedSet::new(
@@ -117,7 +117,7 @@ impl Contract {
             });
 
         token_ids_set.insert(&token_id);
-        self.active_lease_ids_per_owner
+        self.active_lease_ids_by_lender
             .insert(&receiver_id, &token_ids_set);
 
         // Record active leases/Lease Tokens

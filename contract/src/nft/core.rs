@@ -17,7 +17,7 @@ pub trait NonFungibleTokenCore {
         msg: String,
     ) -> PromiseOrValue<bool>;
 
-    //get information about the NFT token passed in
+    /// Return the information about the NFT token passed in
     fn nft_token(&self, token_id: TokenId) -> Option<Token>;
 }
 
@@ -52,9 +52,9 @@ impl NonFungibleTokenCore for Contract {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         self.internal_transfer(
-            sender_id.clone(),
-            receiver_id.clone(),
-            token_id.clone(),
+            &sender_id,
+            &receiver_id,
+            &token_id,
             memo,
         );
     }
@@ -69,9 +69,9 @@ impl NonFungibleTokenCore for Contract {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let previous_token = self.internal_transfer(
-            sender_id.clone(),
-            receiver_id.clone(),
-            token_id.clone(),
+            &sender_id,
+            &receiver_id,
+            &token_id,
             memo,
         );
 
@@ -91,7 +91,7 @@ impl NonFungibleTokenCore for Contract {
             .into()
     }
 
-    // Returns the token info with a given token_id. Info are assembled on the fly
+    /// Returns the token info with a given token_id. Info are assembled on the fly
     fn nft_token(&self, token_id: TokenId) -> Option<Token> {
         if self.active_lease_ids.contains(&token_id) {
 
