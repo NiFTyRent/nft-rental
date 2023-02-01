@@ -12,7 +12,6 @@ import {
   SparklesIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import { classNames } from "./Utils";
 import logoUrl from "/assets/logo.svg";
 
