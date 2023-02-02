@@ -1,27 +1,13 @@
 use crate::*;
+
+pub use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
+pub use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
+pub use near_contract_standards::non_fungible_token::Token;
 use near_sdk::{assert_one_yocto, PromiseOrValue, PromiseResult};
-// use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
 
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
-
-pub trait NonFungibleTokenCore {
-    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, memo: Option<String>);
-
-    /// Transfers an NFT to a receiver and calls a function on the receiver's contract
-    /// Returns `true` if the token was transferred from the sender's account.
-    fn nft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        token_id: TokenId,
-        memo: Option<String>,
-        msg: String,
-    ) -> PromiseOrValue<bool>;
-
-    /// Return the information about the NFT token passed in
-    fn nft_token(&self, token_id: TokenId) -> Option<Token>;
-}
 
 #[ext_contract(ext_nft_receiver)]
 trait NonFungibleTokenReceiver {
@@ -49,7 +35,13 @@ trait NonFungibleTokenResolver {
 }
 
 impl NonFungibleTokenCore for Contract {
-    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, memo: Option<String>) {
+    fn nft_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        token_id: TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>
+    ){
         //security assurance, on full access
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
@@ -65,6 +57,7 @@ impl NonFungibleTokenCore for Contract {
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
+        approval_id: Option<u64>,
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<bool> {
@@ -128,6 +121,7 @@ impl NonFungibleTokenCore for Contract {
                 token_id,
                 owner_id: lease_condition.lender_id,
                 metadata: Some(token_metadata),
+                approved_account_ids: None,     //(todo) Add support for Approval
             })
         } else {
             //if there wasn't any token_id in tokens_by_id, return None

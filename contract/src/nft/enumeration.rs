@@ -1,5 +1,7 @@
 use crate::{nft::core::NonFungibleTokenCore, *};
 use near_sdk::json_types::U128;
+use near_contract_standards::non_fungible_token::Token;
+
 
 /// NEP-181 Enumeration
 /// Offers methods helpful in determining account ownership of NFTs

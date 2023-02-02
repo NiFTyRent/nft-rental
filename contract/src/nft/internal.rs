@@ -1,4 +1,5 @@
 use crate::*;
+use near_contract_standards::non_fungible_token::Token;
 
 /// This file includes NFT related features but not required in the Nomicon Standards
 
@@ -36,6 +37,7 @@ impl Contract {
             token_id: token_id.clone(),
             owner_id: receiver_id.clone(),
             metadata: None,
+            approved_account_ids: None
         }
     }
 
