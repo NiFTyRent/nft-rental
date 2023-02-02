@@ -1,16 +1,7 @@
 use crate::*;
 use near_contract_standards::non_fungible_token::metadata::{
-    NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
-}; //todo(syu): check is assert_valid() will break things in NFTContractMetadata and TokenMetadata
-
-//The Json token to be returned for view calls.
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct JsonToken {
-    pub token_id: TokenId,
-    pub owner_id: AccountId,
-    pub metadata: TokenMetadata,
-}
+    NFTContractMetadata, NonFungibleTokenMetadataProvider, NFT_METADATA_SPEC,
+};
 
 #[near_bindgen]
 impl NonFungibleTokenMetadataProvider for Contract {
