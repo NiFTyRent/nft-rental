@@ -11,27 +11,27 @@ impl Contract {
         token_id: &TokenId,
         memo: Option<String>,
     ) -> Token {
-        // 1. get lease condition to infer token info
+        // Check if the lease exist
         let lease_condition = self
             .lease_map
             .get(&token_id)
             .expect("No matching lease for the given LEASE token id!");
-
         let owner_id = lease_condition.lender_id.clone();
-        assert_eq!(&owner_id, sender_id, "Only LEASE token owner can transfer!");
+        assert_eq!(&owner_id, sender_id, "Only current lender can transfer!");
         assert_ne!(
             &owner_id, receiver_id,
-            "LEASE Token owner can not be the receiver!"
+            "Current lender can not be the receiver!"
         );
 
         // transfer lease from sender to receiver
         self.internal_update_active_lease_lender(sender_id, receiver_id, token_id);
 
-        // 5. if there was memo, log it
+        // if there was memo, log it
         if let Some(memo) = memo {
             env::log_str(&format!("Memo: {}", memo).to_string());
         }
 
+        // return the new token info, when internal transfer succeeded
         Token {
             token_id: token_id.clone(),
             owner_id: receiver_id.clone(),
@@ -39,20 +39,28 @@ impl Contract {
         }
     }
 
-    ///
+    /// This function updates only the lender info in an active lease
+    /// All affecting indices will be updated
     pub(crate) fn internal_update_active_lease_lender(
         &mut self,
         old_lender: &AccountId,
         new_lender: &AccountId,
         lease_id: &LeaseId,
     ) {
-        // 1. ensure that old_lender owns the lesase
+        // 1. Check if the active lease exist
+        assert_eq!(
+            self.active_lease_ids.contains(lease_id),
+            true,
+            "Only active lease can update lender!"
+        );
+
+        // 2. Ensure the given active lease belongs to the old owner
         let mut active_lease_ids_set = self
             .active_lease_ids_by_lender
             .get(old_lender)
-            .expect("Lease is not owned by the old lender!");
+            .expect("Active Lease is not owned by the old lender!");
 
-        // 2. remove the active lease from the old lender
+        // 3. remove the active lease from the old lender
         // update index for active lease ids
         active_lease_ids_set.remove(lease_id);
         if active_lease_ids_set.is_empty() {
@@ -70,7 +78,7 @@ impl Contract {
             self.lease_ids_by_lender.insert(old_lender, &lease_ids_set);
         }
 
-        // 3. add the active lease to the new lender
+        // 4. add the active lease to the new lender
         // update the index for active lease ids
         let mut active_lease_ids_set = self
             .active_lease_ids_by_lender
@@ -102,7 +110,7 @@ impl Contract {
         lease_ids_set.insert(lease_id);
         self.lease_ids_by_lender.insert(new_lender, &lease_ids_set);
 
-        // 4. update lease.lender to new owner, to reflect lender and token owner change
+        // 5. update lease map index
         let mut lease_condition = self.lease_map.get(lease_id).unwrap();
         lease_condition.lender_id = new_lender.clone();
     }
