@@ -1,5 +1,7 @@
 use crate::*;
 use near_sdk::{assert_one_yocto, PromiseOrValue, PromiseResult};
+// use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
+
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
@@ -165,7 +167,7 @@ impl NonFungibleTokenResolver for Contract {
         if let Some(lease_condition) = self.lease_map.get(&token_id) {
             // Check that the receiver didn't transfer the token away or burned it
             if lease_condition.lender_id != receiver_id {
-                // The token is no longer owned by the recewiver. Can't return it
+                // The token is no longer owned by the receiver. Can't return it
                 return true;
             }
         } else {
@@ -180,8 +182,8 @@ impl NonFungibleTokenResolver for Contract {
             receiver_id,
             previouse_owner_id
         );
-        self.internal_remove_token_from_owner(&receiver_id, &token_id);
-        self.internal_add_token_to_owner(&previouse_owner_id, &token_id);
+        self.internal_update_active_lease_lender(&receiver_id, &previouse_owner_id, &token_id);
+
         // update lease lender to reflect the tranfer revert
         let lease_condition = self
             .lease_map

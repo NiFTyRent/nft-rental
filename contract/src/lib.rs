@@ -118,8 +118,8 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
-    ActiveLeaseIdsPerOwner,
-    ActiveLeaseIdsPerOwnerInner { account_id_hash: CryptoHash },
+    ActiveLeaseIdsByOwner,
+    ActiveLeaseIdsByOwnerInner { account_id_hash: CryptoHash },
     ActiveLeaseIds,
 }
 
@@ -143,7 +143,7 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             active_lease_ids_by_lender: LookupMap::new(
-                StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap(),
+                StorageKey::ActiveLeaseIdsByOwner.try_to_vec().unwrap(),
             ),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }
@@ -168,7 +168,7 @@ impl Contract {
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
             active_lease_ids_by_lender: LookupMap::new(
-                StorageKey::ActiveLeaseIdsPerOwner.try_to_vec().unwrap(),
+                StorageKey::ActiveLeaseIdsByOwner.try_to_vec().unwrap(),
             ),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }

@@ -11,34 +11,21 @@ impl Contract {
         token_id: &TokenId,
         memo: Option<String>,
     ) -> Token {
-        // 1. get lease condistion to infer token info
+        // 1. get lease condition to infer token info
         let lease_condition = self
             .lease_map
             .get(&token_id)
             .expect("No matching lease for the given LEASE token id!");
 
         let owner_id = lease_condition.lender_id.clone();
-        assert_eq!(
-            &owner_id, sender_id,
-            "Only Lease token owner can transfer!"
-        );
+        assert_eq!(&owner_id, sender_id, "Only LEASE token owner can transfer!");
         assert_ne!(
             &owner_id, receiver_id,
-            "Token owner can not be the receiver!"
+            "LEASE Token owner can not be the receiver!"
         );
 
-        // 2. remove token_id from the old owner's record
-        self.internal_remove_token_from_owner(&sender_id, &token_id);
-
-        // 3. add token_id to the new owner's record
-        self.internal_add_token_to_owner(&receiver_id, &token_id);
-
-        // 4. update lease.lender to new owner, to reflect lender and token owner change
-        let new_lease_condition = LeaseCondition {
-            lender_id: receiver_id.clone(),
-            ..lease_condition
-        };
-        self.lease_map.insert(&token_id, &new_lease_condition);
+        // transfer lease from sender to receiver
+        self.internal_update_active_lease_lender(sender_id, receiver_id, token_id);
 
         // 5. if there was memo, log it
         if let Some(memo) = memo {
@@ -52,62 +39,84 @@ impl Contract {
         }
     }
 
-    pub(crate) fn internal_remove_token_from_owner(
+    ///
+    pub(crate) fn internal_update_active_lease_lender(
         &mut self,
-        account_id: &AccountId,
-        token_id: &TokenId,
+        old_lender: &AccountId,
+        new_lender: &AccountId,
+        lease_id: &LeaseId,
     ) {
-        let mut token_ids_set = self
+        // 1. ensure that old_lender owns the lesase
+        let mut active_lease_ids_set = self
             .active_lease_ids_by_lender
-            .get(account_id)
-            .expect("Token is not owned by the sender!");
+            .get(old_lender)
+            .expect("Lease is not owned by the old lender!");
 
-        token_ids_set.remove(token_id);
-
-        if token_ids_set.is_empty() {
-            self.active_lease_ids_by_lender.remove(account_id);
+        // 2. remove the active lease from the old lender
+        // update index for active lease ids
+        active_lease_ids_set.remove(lease_id);
+        if active_lease_ids_set.is_empty() {
+            self.active_lease_ids_by_lender.remove(old_lender);
         } else {
-            self.active_lease_ids_by_lender.insert(account_id, &token_ids_set);
+            self.active_lease_ids_by_lender
+                .insert(old_lender, &active_lease_ids_set);
         }
-    }
+        // update index for lease ids
+        let mut lease_ids_set = self.lease_ids_by_lender.get(old_lender).unwrap();
+        lease_ids_set.remove(lease_id);
+        if lease_ids_set.is_empty() {
+            self.lease_ids_by_lender.remove(old_lender);
+        } else {
+            self.lease_ids_by_lender.insert(old_lender, &lease_ids_set);
+        }
 
-    pub(crate) fn internal_add_token_to_owner(
-        &mut self,
-        account_id: &AccountId,
-        token_id: &TokenId,
-    ) {
-        let mut token_ids_set = self
+        // 3. add the active lease to the new lender
+        // update the index for active lease ids
+        let mut active_lease_ids_set = self
             .active_lease_ids_by_lender
-            .get(&account_id)
+            .get(new_lender)
             .unwrap_or_else(|| {
-                // if the receiver doesn't have any tokens, create a new record
+                // if the receiver doesn't have any active lease, create a new record
                 UnorderedSet::new(
-                    StorageKey::ActiveLeaseIdsPerOwnerInner {
-                        account_id_hash: utils::hash_account_id(&account_id),
+                    StorageKey::ActiveLeaseIdsByOwnerInner {
+                        account_id_hash: utils::hash_account_id(new_lender),
                     }
                     .try_to_vec()
                     .unwrap(),
                 )
             });
+        active_lease_ids_set.insert(lease_id);
+        self.active_lease_ids_by_lender
+            .insert(new_lender, &active_lease_ids_set);
+        // udpate the index for lease ids
+        let mut lease_ids_set = self.lease_ids_by_lender.get(new_lender).unwrap_or_else(|| {
+            // if the receiver doesn;t have any lease, create a new record
+            UnorderedSet::new(
+                StorageKey::LeasesIdsByLenderInner {
+                    account_id_hash: utils::hash_account_id(new_lender),
+                }
+                .try_to_vec()
+                .unwrap(),
+            )
+        });
+        lease_ids_set.insert(lease_id);
+        self.lease_ids_by_lender.insert(new_lender, &lease_ids_set);
 
-        token_ids_set.insert(token_id);
-        self.active_lease_ids_by_lender.insert(account_id, &token_ids_set);
+        // 4. update lease.lender to new owner, to reflect lender and token owner change
+        let mut lease_condition = self.lease_map.get(lease_id).unwrap();
+        lease_condition.lender_id = new_lender.clone();
     }
 
     /// Update NFT related fields. It will be called once lease become active.
     /// This function is visible only within the current contract
-    pub(crate) fn nft_mint(
-        &mut self,
-        token_id: TokenId,
-        receiver_id: AccountId,
-    ) {
+    pub(crate) fn nft_mint(&mut self, token_id: TokenId, receiver_id: AccountId) {
         // update the record for active_leases
         let mut token_ids_set = self
             .active_lease_ids_by_lender
             .get(&receiver_id)
             .unwrap_or_else(|| {
                 UnorderedSet::new(
-                    StorageKey::ActiveLeaseIdsPerOwnerInner {
+                    StorageKey::ActiveLeaseIdsByOwnerInner {
                         // get a new unique prefix for the collection by hashing owner
                         account_id_hash: utils::hash_account_id(&receiver_id),
                     }
