@@ -1,6 +1,7 @@
 use crate::{nft::core::NonFungibleTokenCore, *};
-use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
-use near_contract_standards::non_fungible_token::Token;
+use near_contract_standards::non_fungible_token::{
+    enumeration::NonFungibleTokenEnumeration, 
+    Token};
 use near_sdk::json_types::U128;
 
 impl NonFungibleTokenEnumeration for Contract {

@@ -13,12 +13,10 @@ use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue
 };
 
-pub mod externals;
 mod utils;
-pub use crate::externals::*;
+pub mod externals;
 pub mod nft;
-pub use crate::nft::internal::*;
-pub use crate::nft::metadata::*;
+pub use crate::externals::*;
 
 // Copied from Paras market contract. Will need to be fine-tuned.
 // https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17

@@ -1,8 +1,9 @@
 use crate::*;
 
+use near_contract_standards::non_fungible_token::{
+    metadata::TokenMetadata,
+    Token,};
 pub use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
-pub use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
-pub use near_contract_standards::non_fungible_token::Token;
 use near_sdk::{assert_one_yocto, PromiseOrValue, PromiseResult};
 
 
