@@ -32,8 +32,8 @@ export async function newLease(
   expiration,
   amountNear
 ) {
-  let YACTO = BigInt("1000000000000000000000000");
-  let amountYacto = BigInt(amountNear) * YACTO;
+  let SCALE = BigInt("1000000000000000000000");
+  let amountYacto = BigInt(Math.round(amountNear * 1000)) * SCALE;
   if (tokenId == "") return [];
   let message = JSON.stringify({
     contract_addr: contract.contractId,
