@@ -477,6 +477,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
 
     // Bob tries to accept the lease again.
     // The transaction will be aborted and the amount will be returned to borrower
+    // TODO[Libo, Haichen]: check what is the expected return if the promise chain throws an exception
     borrower
         .call(ft_contract.id(), "ft_transfer_call")
         .args_json(json!({

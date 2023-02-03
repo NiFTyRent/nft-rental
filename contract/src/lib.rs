@@ -538,7 +538,15 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 }
 
 
-
+/*
+    The trait for receiving FT payment
+    Depending on the FT contract implementation, it may need the users to register to deposit.
+    So far we do not check if all partis have registered thier account on the FT contract,
+        - Lender: he should make sure he has registered otherwise he will not receive the payment
+        - Borrower: he cannot accept the lease if he does not register
+        - Royalty payments: if any accounts in the royalty didn't register, they will not receive the payout. That
+                             part of payment will be kept in this smart contract
+*/
 #[ext_contract(ext_ft_receiver)]
 pub trait FungibleTokenReceiver {
     fn ft_on_transfer(
