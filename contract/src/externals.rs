@@ -3,7 +3,7 @@ use crate::*;
 /// Interface of this contract
 #[ext_contract(ext_self)]
 trait ExtSelf {
-    fn activate_lease(&mut self, lease_id: LeaseId) -> Promise;
+    fn activate_lease(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
     fn create_lease_with_payout(
         &mut self,

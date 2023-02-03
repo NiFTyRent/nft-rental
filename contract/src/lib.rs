@@ -73,7 +73,7 @@ pub struct NftOnTransferJson {
 }
 
 /// Struct for keeping track of the lease conditions
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseCondition {
     pub contract_addr: AccountId,    // NFT contract
@@ -158,7 +158,7 @@ impl Contract {
     }
 
     #[private]
-    pub fn activate_lease(&mut self, lease_id: LeaseId) {
+    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128{
         require!(
             is_promise_success(),
             "NFT transfer failed, abort lease activation."
@@ -173,6 +173,8 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
+        let unused_ammount: U128 = U128::from(0);
+        return unused_ammount;
     }
 
     #[payable]
@@ -561,6 +563,7 @@ impl FungibleTokenReceiver for Contract {
         // Borrower can accept a pending lending. When this happened, the lease contract does the following:
         // 1. Retrieve the lease data from the lease_map
         // 2. Check if the tx sender is the borrower
+        // 2. Check if the FT contract is designated by the lender
         // 3. Check if the deposit equals rent
         // 4. Transfer the NFT to the lease contract
         // 5. Update the lease state, when transfer succeeds
@@ -570,6 +573,10 @@ impl FungibleTokenReceiver for Contract {
         assert_eq!(
             lease_condition.borrower_id, sender_id,
             "Borrower is not the same one!"
+        );
+        assert_eq!(
+            lease_condition.ft_contract_addr, env::predecessor_account_id(),
+            "The FT contract address does match the lender's ask!"
         );
         assert_eq!(
             amount.0, lease_condition.price,
@@ -597,10 +604,8 @@ impl FungibleTokenReceiver for Contract {
                     .with_static_gas(GAS_FOR_ROYALTIES)
                     .activate_lease(lease_acceptance_json.lease_id.clone()),
             )
-            .as_return();
-            
-        let unused_ammount: U128 = U128::from(0);
-        return PromiseOrValue::Value(unused_ammount);
+            .as_return()
+            .into()
     }
 }
 

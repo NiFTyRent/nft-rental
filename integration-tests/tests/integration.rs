@@ -421,7 +421,6 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
-                          "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": "1000"
             }).to_string()
@@ -541,7 +540,6 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
-                          "ft_contract_addr": "dummy_ft_id",
                           "expiration": expiration_ts_nano,
                           "price": "1000"
             }).to_string()
@@ -610,9 +608,10 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
+
     // TODO: this test will fail because the transaction is finished but the lease is not accepted
-    // assert_eq!(borrower_balance_after_accept.0, 10000000000);
-    println!("       ✅ Lease cannot be accepted by Bob. The transaction will panic.");
+    assert_eq!(borrower_balance_after_accept.0, 10000000);
+    println!("       ✅ Lease cannot be accepted by Bob. The transaction will be aborted and Bos's balance will not change.");
 
     let updated_leases: Vec<(String, LeaseCondition)> = contract
         .call("leases_by_owner")
