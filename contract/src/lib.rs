@@ -173,6 +173,7 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
+        // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
         let unused_ammount: U128 = U128::from(0);
         return unused_ammount;
     }
