@@ -25,7 +25,7 @@ trait NonFungibleTokenReceiver {
 
 #[ext_contract(ext_self)]
 trait NonFungibleTokenResolver {
-    /// This method resolves the promise returned from the XCC to the receiver contract.
+    /// This method resolves the promise returned from the XCC to the receiver contract,
     /// as part of the nft_transfer_call method
     fn nft_resolve_transfer(
         &mut self,
@@ -43,7 +43,7 @@ impl NonFungibleTokenCore for Contract {
         approval_id: Option<u64>,
         memo: Option<String>
     ){
-        //security assurance, on full access
+        // Security assurance, on full access
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         self.internal_transfer(
@@ -91,10 +91,10 @@ impl NonFungibleTokenCore for Contract {
     fn nft_token(&self, token_id: TokenId) -> Option<Token> {
         if self.active_lease_ids.contains(&token_id) {
 
-            //Get the lease condition to assemble token info and token metadata
+            // Get the lease condition to assemble token info and token metadata
             let lease_condition = self.lease_map.get(&token_id).unwrap();
 
-            //Generate token metadata on the fly. Hard coded for now
+            // Generate token metadata on the fly. Hard coded for now
             let token_metadata = TokenMetadata{
                 title: Some(format!("NiftyRent Lease Ownership Token: {}", &token_id)), 
                 description: Some(
@@ -105,7 +105,7 @@ impl NonFungibleTokenCore for Contract {
                     leased_token_id=&lease_condition.token_id, 
                     contract_id=&lease_condition.contract_addr
                 )),
-                media: None,    //todo(syu) add the media link         
+                media: None,    // TODO(syu): add the media link         
                 media_hash: None,
                 copies: None,
                 issued_at: None,
@@ -122,7 +122,7 @@ impl NonFungibleTokenCore for Contract {
                 token_id,
                 owner_id: lease_condition.lender_id,
                 metadata: Some(token_metadata),
-                approved_account_ids: None,     //(todo) Add support for Approval
+                approved_account_ids: None,     // TODO(syu): Add support for Approval
             })
         } else {
             //if there wasn't any token_id in tokens_by_id, return None
@@ -177,19 +177,8 @@ impl NonFungibleTokenResolver for Contract {
             receiver_id,
             previouse_owner_id
         );
+        
         self.internal_update_active_lease_lender(&receiver_id, &previouse_owner_id, &token_id);
-
-        // update lease lender to reflect the tranfer revert
-        let lease_condition = self
-            .lease_map
-            .get(&token_id)
-            .expect("No matching lease for the given LEASE token id!");
-
-        let new_lease_condition = LeaseCondition {
-            lender_id: previouse_owner_id.clone(),
-            ..lease_condition
-        };
-        self.lease_map.insert(&token_id, &new_lease_condition);
 
         return false;
     }
