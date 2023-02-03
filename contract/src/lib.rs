@@ -157,49 +157,6 @@ impl Contract {
         }
     }
 
-    #[payable]
-    pub fn lending_accept(&mut self, lease_id: LeaseId) {
-        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
-        // 1. Retrieve the lease data from the lease_map
-        // 2. Check if the tx sender is the borrower
-        // 3. Check if the deposit equals rent
-        // 4. Transfer the NFT to the lease contract
-        // 5. Update the lease state, when transfer succeeds
-
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-        assert!(
-            lease_condition.borrower_id == env::predecessor_account_id(),
-            "Borrower is not the same one!"
-        );
-        assert!(
-            env::attached_deposit() >= lease_condition.price,
-            "Deposit is less than the agreed rent!"
-        );
-        assert_eq!(
-            lease_condition.state,
-            LeaseState::Pending,
-            "This lease is not pending on acceptance!"
-        );
-
-        // TODO(libo): handles the case when payout is not implemented by the NFT contract.
-        ext_nft::ext(lease_condition.contract_addr.clone())
-            .with_static_gas(Gas(10 * TGAS))
-            .with_attached_deposit(1)
-            .nft_transfer(
-                env::current_account_id(),                 // receiver_id
-                lease_condition.token_id.clone(),          // token_id
-                Some(lease_condition.approval_id.clone()), // approval_id
-                None,                                      // memo
-            )
-            .then(
-                ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
-                    .with_static_gas(GAS_FOR_ROYALTIES)
-                    .activate_lease(lease_id),
-            )
-            .as_return();
-    }
-
     #[private]
     pub fn activate_lease(&mut self, lease_id: LeaseId) {
         require!(
@@ -670,77 +627,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Borrower is not the same one!")]
-    fn test_lending_accept_wrong_borrower() {
-        let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-
-        contract.lease_map.insert(&key, &lease_condition);
-        let wrong_borrower: AccountId = accounts(4).into();
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(wrong_borrower.clone())
-            .build());
-
-        contract.lending_accept(key);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "assertion failed: `(left == right)`\n  left: `Active`,\n right: `Pending`: This lease is not pending on acceptance!"
-    )]
-    fn test_lending_accept_fail_wrong_state_() {
-        let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Active;
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower_id.clone())
-            .attached_deposit(lease_condition.price)
-            .build());
-
-        contract.lending_accept(key);
-    }
-
-    #[test]
-    #[should_panic(expected = "Deposit is less than the agreed rent!")]
-    fn test_lending_accept_insufficient_deposit() {
-        let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower_id.clone())
-            .attached_deposit(lease_condition.price - 1)
-            .build());
-
-        contract.lending_accept(key);
-    }
-
-    #[test]
-    fn test_lending_accept_success() {
-        let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower_id.clone())
-            .attached_deposit(lease_condition.price)
-            .build());
-
-        contract.lending_accept(key);
-    }
-
-    #[test]
     fn test_activate_lease_with_payout_success() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
@@ -923,53 +809,6 @@ mod tests {
         contract.claim_back(key);
 
         // Nothing can be checked, except the fact the call doesn't panic.
-    }
-
-    #[test]
-    fn test_resolve_claim_back_succeeds_pay_royalty() {
-        let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Active;
-        lease_condition.price = 20;
-        lease_condition.payout = Some(Payout {
-            payout: HashMap::from([(accounts(2), U128::from(5)), (accounts(3), U128::from(15))]),
-        });
-        let key = "test_key".to_string();
-        contract.internal_insert_lease(&key, &lease_condition);
-        let init_balance = 100;
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(0))
-            .account_balance(init_balance)
-            .build());
-        contract.resolve_claim_back(key);
-
-        assert_eq!(env::account_balance(), init_balance - 20);
-        assert!(contract.lease_map.is_empty());
-    }
-
-    #[test]
-    fn test_resolve_claim_back_succeeds_no_payout_info() {
-        let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Active;
-        lease_condition.price = 20;
-        lease_condition.payout = None;
-        let key = "test_key".to_string();
-        contract.internal_insert_lease(&key, &lease_condition);
-
-        let init_balance = 100;
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(0))
-            .account_balance(init_balance)
-            .build());
-        contract.resolve_claim_back(key);
-
-        assert_eq!(env::account_balance(), init_balance - 20);
-        assert!(contract.lease_map.is_empty());
     }
 
     #[test]
