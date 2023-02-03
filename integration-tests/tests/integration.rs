@@ -476,7 +476,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     println!("      ✅ Lease accepted by Bob");
 
     // Bob tries to accept the lease again.
-    // This call will be success but the transaction will not be aborted and returned to borrower
+    // The transaction will be aborted and the amount will be returned to borrower
     borrower
         .call(ft_contract.id(), "ft_transfer_call")
         .args_json(json!({
@@ -609,7 +609,6 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    // TODO: this test will fail because the transaction is finished but the lease is not accepted
     assert_eq!(borrower_balance_after_accept.0, 10000000);
     println!("       ✅ Lease cannot be accepted by Bob. The transaction will be aborted and Bos's balance will not change.");
 

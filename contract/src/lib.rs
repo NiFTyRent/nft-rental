@@ -229,21 +229,23 @@ impl Contract {
         match lease_condition.payout {
             Some(payout) => {
                 for (receiver_id, amount) in payout.payout {
-                    ext_ft_core::ext(lease_condition.ft_contract_addr.clone())
-                        .with_static_gas(Gas(10 * TGAS))
-                        .with_attached_deposit(1)
-                        .ft_transfer(receiver_id, amount, None);
+                    self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), receiver_id, amount);
                 }
             }
             None => {
-                ext_ft_core::ext(lease_condition.ft_contract_addr.clone())
-                    .with_static_gas(Gas(10 * TGAS))
-                    .with_attached_deposit(1)
-                    .ft_transfer(lease_condition.lender_id, U128::from(lease_condition.price), None);
+                self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), lease_condition.lender_id, U128::from(lease_condition.price));
             }
         }
 
         self.internal_remove_lease(&lease_id);
+    }
+
+    // private function to transfer FT to receiver_id
+    fn internal_transfer_ft(&self, ft_contract_addr: AccountId, receiver_id: AccountId, amount: U128) -> Promise {
+        ext_ft_core::ext(ft_contract_addr)
+            .with_static_gas(Gas(10 * TGAS))
+            .with_attached_deposit(1)
+            .ft_transfer(receiver_id, amount, None).as_return()
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -588,7 +590,6 @@ impl FungibleTokenReceiver for Contract {
             "This lease is not pending on acceptance!"
         );
 
-        // TODO(libo): handles the case when payout is not implemented by the NFT contract.
         ext_nft::ext(lease_condition.contract_addr.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
