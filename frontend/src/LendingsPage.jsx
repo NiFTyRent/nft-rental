@@ -46,7 +46,7 @@ export default function LendingsPage() {
                       scope="col"
                       className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                     >
-                      Token
+                      Token ID
                     </th>
                     <th
                       scope="col"
@@ -67,39 +67,41 @@ export default function LendingsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {lendings.map(([key, lending]) => (
-                    <tr key={key}>
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                        {lending.contract_addr}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {lending.token_id}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {lending.state}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {lending.expiration < Date.now() ? "Y" : "N"}
-                      </td>
-                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        {lending.expiration < Date.now() &&
-                          lending.state == "Active" ? (
-                          <button
-                            className="text-indigo-600 hover:text-indigo-900"
-                            onClick={(_) => claim(key)}
-                          >
-                            Claim
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
+                  {lendings.map(([key, lending]) => {
+                    const expired = lending.expiration > Date.now() / 1000;
+                    return (
+                      < tr key={key} >
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                          {lending.contract_addr}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {lending.token_id}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {lending.state}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {expired ? "Y" : "N"}
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                          {expired && lending.state == "Active" ? (
+                            <button
+                              className="text-indigo-600 hover:text-indigo-900"
+                              onClick={(_) => claim(key)}
+                            >
+                              Claim
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
