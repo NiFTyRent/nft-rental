@@ -50,6 +50,12 @@ impl Contract {
         this
     }
 
+    pub fn unsafe_register_and_deposit(&mut self, account_id: AccountId, balance: Balance) {
+        self.token.internal_register_account(&account_id.clone());
+        self.token.internal_deposit(&account_id.clone(), balance);
+
+    }
+
     fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
         log!("Closed @{} with {}", account_id, balance);
     }

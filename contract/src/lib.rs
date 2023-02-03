@@ -11,7 +11,7 @@ use near_sdk::{
     CryptoHash,
 };
 use near_sdk::{
-    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue
 };
 
 pub mod externals;
@@ -270,20 +270,21 @@ impl Contract {
         match lease_condition.payout {
             Some(payout) => {
                 for (receiver_id, amount) in payout.payout {
-                    self.internal_transfer_near(receiver_id, amount.0);
+                    ext_ft_core::ext(lease_condition.ft_contract_addr.clone())
+                        .with_static_gas(Gas(10 * TGAS))
+                        .with_attached_deposit(1)
+                        .ft_transfer(receiver_id, amount, None);
                 }
             }
             None => {
-                self.internal_transfer_near(lease_condition.lender_id, lease_condition.price);
+                ext_ft_core::ext(lease_condition.ft_contract_addr.clone())
+                    .with_static_gas(Gas(10 * TGAS))
+                    .with_attached_deposit(1)
+                    .ft_transfer(lease_condition.lender_id, U128::from(lease_condition.price), None);
             }
         }
 
         self.internal_remove_lease(&lease_id);
-    }
-
-    fn internal_transfer_near(&self, to: AccountId, amount: Balance) -> Promise {
-        // helper function to perform FT transfer
-        Promise::new(to).transfer(amount)
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -572,6 +573,77 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                     ),
             )
             .as_return();
+    }
+}
+
+
+
+#[ext_contract(ext_ft_receiver)]
+pub trait FungibleTokenReceiver {
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128>;
+}
+#[near_bindgen]
+impl FungibleTokenReceiver for Contract {
+    /// where we add the sale because we know nft owner can only call nft_approve
+    #[payable]
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128> {
+        //the lease conditions come from the msg field
+        let lease_acceptance_json: LeaseAcceptanceJson =
+            near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
+
+        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
+        // 1. Retrieve the lease data from the lease_map
+        // 2. Check if the tx sender is the borrower
+        // 3. Check if the deposit equals rent
+        // 4. Transfer the NFT to the lease contract
+        // 5. Update the lease state, when transfer succeeds
+
+        // TODO: check if the FT contract is the designated one
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_acceptance_json.lease_id.clone()).unwrap();
+        assert_eq!(
+            lease_condition.borrower_id, sender_id,
+            "Borrower is not the same one!"
+        );
+        assert_eq!(
+            amount.0, lease_condition.price,
+            "Deposit does not equal to the agreed rent!"
+        );
+        assert_eq!(
+            lease_condition.state,
+            LeaseState::Pending,
+            "This lease is not pending on acceptance!"
+        );
+
+        // TODO(libo): handles the case when payout is not implemented by the NFT contract.
+        ext_nft::ext(lease_condition.contract_addr.clone())
+            .with_static_gas(Gas(10 * TGAS))
+            .with_attached_deposit(1)
+            .nft_transfer(
+                env::current_account_id(),                 // receiver_id
+                lease_condition.token_id.clone(),          // token_id
+                Some(lease_condition.approval_id.clone()), // approval_id
+                None,                                      // memo
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_attached_deposit(0)
+                    .with_static_gas(GAS_FOR_ROYALTIES)
+                    .activate_lease(lease_acceptance_json.lease_id.clone()),
+            )
+            .as_return();
+            
+        let unused_ammount: U128 = U128::from(0);
+        return PromiseOrValue::Value(unused_ammount);
     }
 }
 
