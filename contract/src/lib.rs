@@ -14,9 +14,9 @@ use near_sdk::{
 };
 
 mod utils;
-pub mod externals;
-pub mod nft;
-pub use crate::externals::*;
+mod externals;
+mod nft;
+use crate::externals::*;
 
 // Copied from Paras market contract. Will need to be fine-tuned.
 // https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17
@@ -103,9 +103,8 @@ pub struct Contract {
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
 
-    // iou nft contract related fields
-    active_lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>, // Active Lease has matching LEASE tokens
-    active_lease_ids: UnorderedSet<LeaseId>, // This will also be used to query all existing token ids
+    active_lease_ids: UnorderedSet<LeaseId>, // This also records all existing LEASE token ids
+    active_lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
