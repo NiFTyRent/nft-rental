@@ -89,10 +89,12 @@ impl NonFungibleTokenCore for Contract {
 
     /// Returns the token info with a given token_id. Info are assembled on the fly
     fn nft_token(&self, token_id: TokenId) -> Option<Token> {
-        if self.active_lease_ids.contains(&token_id) {
+        let active_lease_id_for_token = self.lease_token_id_to_lease_id(&token_id);
+
+        if self.active_lease_ids.contains(&active_lease_id_for_token) {
 
             // Get the lease condition to assemble token info and token metadata
-            let lease_condition = self.lease_map.get(&token_id).unwrap();
+            let lease_condition = self.lease_map.get(&active_lease_id_for_token).unwrap();
 
             // Generate token metadata on the fly. Hard coded for now
             let token_metadata = TokenMetadata{
@@ -101,7 +103,7 @@ impl NonFungibleTokenCore for Contract {
                     format!("
                     This is a token representing the ownership the NFT under the NiFTyRent lease: {lease_id}\n
                     The under-leased NFT is {leased_token_id} at {contract_id}", 
-                    lease_id=&token_id,
+                    lease_id=&active_lease_id_for_token,
                     leased_token_id=&lease_condition.token_id, 
                     contract_id=&lease_condition.contract_addr
                 )),
@@ -117,7 +119,7 @@ impl NonFungibleTokenCore for Contract {
                 reference_hash: None,
             };
 
-            //Return the token object with assembed info
+            // Return the token object with assembed info
             Some(Token {
                 token_id,
                 owner_id: lease_condition.lender_id,
@@ -125,15 +127,15 @@ impl NonFungibleTokenCore for Contract {
                 approved_account_ids: None,     // TODO(syu): Add support for Approval
             })
         } else {
-            //if there wasn't any token_id in tokens_by_id, return None
+            // If there wasn't any token_id in tokens_by_id, return None
             None
         }
     }
 }
 
 impl NonFungibleTokenResolver for Contract {
-    /// resolves XCC result from receiver's nft_on_transfer
-    /// returns true if the token was successfully transferred to the receiver_id
+    /// Resolves XCC result from receiver's nft_on_transfer
+    /// Returns true if the token was successfully transferred to the receiver_id
     fn nft_resolve_transfer(
         &mut self,
         previouse_owner_id: AccountId,
@@ -166,7 +168,7 @@ impl NonFungibleTokenResolver for Contract {
                 return true;
             }
         } else {
-            // no token_id record. The token doesn't exist any more, or got burned
+            // No token_id record. The token doesn't exist any more, or got burned
             return true;
         }
 
@@ -177,7 +179,7 @@ impl NonFungibleTokenResolver for Contract {
             receiver_id,
             previouse_owner_id
         );
-        
+
         self.internal_update_active_lease_lender(&receiver_id, &previouse_owner_id, &token_id);
 
         return false;

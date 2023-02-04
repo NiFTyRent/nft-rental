@@ -24,20 +24,20 @@ impl Contract {
             "Current lender can not be the receiver!"
         );
 
-        // transfer lease from sender to receiver
+        // Transfer lease from sender to receiver
         self.internal_update_active_lease_lender(sender_id, receiver_id, token_id);
 
-        // if there was memo, log it
+        // If there was memo, log it
         if let Some(memo) = memo {
             env::log_str(&format!("Memo: {}", memo).to_string());
         }
 
-        // return the new token info, when internal transfer succeeded
+        // Return the new token info, when internal transfer succeeded
         Token {
             token_id: token_id.clone(),
             owner_id: receiver_id.clone(),
             metadata: None,
-            approved_account_ids: None
+            approved_account_ids: None,
         }
     }
 
@@ -62,7 +62,7 @@ impl Contract {
             .get(old_lender)
             .expect("Active Lease is not owned by the old lender!");
 
-        // 3. remove the active lease from the old lender
+        // 3. Remove the active lease from the old lender
         // update index for active lease ids
         active_lease_ids_set.remove(lease_id);
         if active_lease_ids_set.is_empty() {
@@ -71,7 +71,7 @@ impl Contract {
             self.active_lease_ids_by_lender
                 .insert(old_lender, &active_lease_ids_set);
         }
-        // update index for lease ids
+        // Update index for lease ids
         let mut lease_ids_set = self.lease_ids_by_lender.get(old_lender).unwrap();
         lease_ids_set.remove(lease_id);
         if lease_ids_set.is_empty() {
@@ -80,7 +80,7 @@ impl Contract {
             self.lease_ids_by_lender.insert(old_lender, &lease_ids_set);
         }
 
-        // 4. add the active lease to the new lender
+        // 4. Add the active lease to the new lender
         // update the index for active lease ids
         let mut active_lease_ids_set = self
             .active_lease_ids_by_lender
@@ -98,7 +98,7 @@ impl Contract {
         active_lease_ids_set.insert(lease_id);
         self.active_lease_ids_by_lender
             .insert(new_lender, &active_lease_ids_set);
-        // udpate the index for lease ids
+        // Udpate the index for lease ids
         let mut lease_ids_set = self.lease_ids_by_lender.get(new_lender).unwrap_or_else(|| {
             // if the receiver doesn;t have any lease, create a new record
             UnorderedSet::new(
@@ -112,16 +112,16 @@ impl Contract {
         lease_ids_set.insert(lease_id);
         self.lease_ids_by_lender.insert(new_lender, &lease_ids_set);
 
-        // 5. update lease map index
+        // 5. Update lease map index accordingly
         let mut lease_condition = self.lease_map.get(lease_id).unwrap();
         lease_condition.lender_id = new_lender.clone();
     }
 
     /// Update NFT related fields. It will be called once lease become active.
     /// This function is visible only within the current contract
-    pub(crate) fn nft_mint(&mut self, token_id: TokenId, receiver_id: AccountId) {
-        // update the record for active_leases
-        let mut token_ids_set = self
+    pub(crate) fn nft_mint(&mut self, lease_id: LeaseId, receiver_id: AccountId) {
+        // Update the record for active_leases
+        let mut active_lease_ids_set = self
             .active_lease_ids_by_lender
             .get(&receiver_id)
             .unwrap_or_else(|| {
@@ -135,11 +135,21 @@ impl Contract {
                 )
             });
 
-        token_ids_set.insert(&token_id);
+        active_lease_ids_set.insert(&lease_id);
         self.active_lease_ids_by_lender
-            .insert(&receiver_id, &token_ids_set);
+            .insert(&receiver_id, &active_lease_ids_set);
 
         // Record active leases/Lease Tokens
-        self.active_lease_ids.insert(&token_id);
+        self.active_lease_ids.insert(&lease_id);
+    }
+
+    pub(crate) fn lease_token_id_to_lease_id(&self, token_id: &TokenId) -> LeaseId {
+        let splits: Vec<&str> = token_id.split('_').collect();
+        splits[0].to_string()
+    }
+
+    pub(crate) fn lease_id_to_lease_token_id(&self, lease_id: &LeaseId) -> TokenId {
+        let suffix: &str = "_lender";
+        format!("{}{}", lease_id, suffix)
     }
 }

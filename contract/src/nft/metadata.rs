@@ -5,7 +5,7 @@ use near_contract_standards::non_fungible_token::metadata::{
 
 #[near_bindgen]
 impl NonFungibleTokenMetadataProvider for Contract {
-    // contract metatdata will be hardcoded for now
+    // Contract metatdata will be hardcoded for now
     fn nft_metadata(&self) -> NFTContractMetadata {
         NFTContractMetadata {
             spec: NFT_METADATA_SPEC.to_string(),

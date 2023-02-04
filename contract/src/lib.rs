@@ -13,9 +13,9 @@ use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue
 };
 
-mod utils;
 mod externals;
 mod nft;
+mod utils;
 use crate::externals::*;
 
 // Copied from Paras market contract. Will need to be fine-tuned.
@@ -668,6 +668,7 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
     use super::*;
+    use near_contract_standards::non_fungible_token::Token;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig, ONE_NEAR};
@@ -1253,6 +1254,30 @@ mod tests {
         assert!(contract.lease_map.len() == 1);
         assert!(!contract.lease_ids_by_borrower.contains_key(&borrower_1));
         assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
+    }
+
+    #[test]
+    fn test_lease_id_to_lease_token_id_success() {
+        let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
+        let lease_token_id_expected: TokenId =
+            "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
+
+        let contract = Contract::new(accounts(1).into());
+        let lease_token_id_real: TokenId = contract.lease_id_to_lease_token_id(&lease_id);
+
+        assert_eq!(lease_token_id_expected, lease_token_id_real);
+    }
+
+    #[test]
+    fn test_lease_token_id_to_lease_id_success() {
+        let lease_token_id: TokenId =
+            "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
+        let lease_id_expected: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
+
+        let contract = Contract::new(accounts(1).into());
+        let lease_id_real: LeaseId = contract.lease_token_id_to_lease_id(&lease_token_id);
+
+        assert_eq!(lease_id_expected, lease_id_real);
     }
 
     // Helper function to return a lease condition using default seting
