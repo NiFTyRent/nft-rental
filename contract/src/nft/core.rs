@@ -119,7 +119,7 @@ impl NonFungibleTokenCore for Contract {
                 reference_hash: None,
             };
 
-            // Return the token object with assembed info
+            // Return the token object with assembled info
             Some(Token {
                 token_id,
                 owner_id: lease_condition.lender_id,

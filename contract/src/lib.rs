@@ -517,6 +517,82 @@ impl Contract {
             &lease_id,
         );
     }
+
+    /// This function updates only the lender info in an active lease
+    /// All affecting indices will be updated
+    fn internal_update_active_lease_lender(
+        &mut self,
+        old_lender: &AccountId,
+        new_lender: &AccountId,
+        lease_id: &LeaseId,
+    ) {
+        // 1. Check if the active lease exist
+        assert_eq!(
+            self.active_lease_ids.contains(lease_id),
+            true,
+            "Only active lease can update lender!"
+        );
+
+        // 2. Ensure the given active lease belongs to the old owner
+        let mut active_lease_ids_set = self
+            .active_lease_ids_by_lender
+            .get(old_lender)
+            .expect("Active Lease is not owned by the old lender!");
+
+        // 3. Remove the active lease from the old lender
+        // update index for active lease ids
+        active_lease_ids_set.remove(lease_id);
+        if active_lease_ids_set.is_empty() {
+            self.active_lease_ids_by_lender.remove(old_lender);
+        } else {
+            self.active_lease_ids_by_lender
+                .insert(old_lender, &active_lease_ids_set);
+        }
+        // Update the index for lease ids by lender
+        let mut lease_ids_set = self.lease_ids_by_lender.get(old_lender).unwrap();
+        lease_ids_set.remove(lease_id);
+        if lease_ids_set.is_empty() {
+            self.lease_ids_by_lender.remove(old_lender);
+        } else {
+            self.lease_ids_by_lender.insert(old_lender, &lease_ids_set);
+        }
+
+        // 4. Add the active lease to the new lender
+        // update the index for active lease ids
+        let mut active_lease_ids_set = self
+            .active_lease_ids_by_lender
+            .get(new_lender)
+            .unwrap_or_else(|| {
+                // if the new lender doesn't have any active lease, create a new record
+                UnorderedSet::new(
+                    StorageKey::ActiveLeaseIdsByOwnerInner {
+                        account_id_hash: utils::hash_account_id(new_lender),
+                    }
+                    .try_to_vec()
+                    .unwrap(),
+                )
+            });
+        active_lease_ids_set.insert(lease_id);
+        self.active_lease_ids_by_lender
+            .insert(new_lender, &active_lease_ids_set);
+        // Udpate the index for lease ids by lender
+        let mut lease_ids_set = self.lease_ids_by_lender.get(new_lender).unwrap_or_else(|| {
+            // if the receiver doesn;t have any lease, create a new record
+            UnorderedSet::new(
+                StorageKey::LeasesIdsByLenderInner {
+                    account_id_hash: utils::hash_account_id(new_lender),
+                }
+                .try_to_vec()
+                .unwrap(),
+            )
+        });
+        lease_ids_set.insert(lease_id);
+        self.lease_ids_by_lender.insert(new_lender, &lease_ids_set);
+
+        // 5. Update the lease map index accordingly
+        let mut lease_condition = self.lease_map.get(lease_id).unwrap();
+        lease_condition.lender_id = new_lender.clone();
+    }
 }
 
 // TODO: move nft callback function to separate file e.g. nft_callbacks.rs
