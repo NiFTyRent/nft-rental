@@ -11,7 +11,7 @@ use near_sdk::{
     CryptoHash,
 };
 use near_sdk::{
-    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue
 };
 
 pub mod externals;
@@ -73,7 +73,7 @@ pub struct NftOnTransferJson {
 }
 
 /// Struct for keeping track of the lease conditions
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseCondition {
     pub contract_addr: AccountId,    // NFT contract
@@ -157,51 +157,8 @@ impl Contract {
         }
     }
 
-    #[payable]
-    pub fn lending_accept(&mut self, lease_id: LeaseId) {
-        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
-        // 1. Retrieve the lease data from the lease_map
-        // 2. Check if the tx sender is the borrower
-        // 3. Check if the deposit equals rent
-        // 4. Transfer the NFT to the lease contract
-        // 5. Update the lease state, when transfer succeeds
-
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-        assert!(
-            lease_condition.borrower_id == env::predecessor_account_id(),
-            "Borrower is not the same one!"
-        );
-        assert!(
-            env::attached_deposit() >= lease_condition.price,
-            "Deposit is less than the agreed rent!"
-        );
-        assert_eq!(
-            lease_condition.state,
-            LeaseState::Pending,
-            "This lease is not pending on acceptance!"
-        );
-
-        // TODO(libo): handles the case when payout is not implemented by the NFT contract.
-        ext_nft::ext(lease_condition.contract_addr.clone())
-            .with_static_gas(Gas(10 * TGAS))
-            .with_attached_deposit(1)
-            .nft_transfer(
-                env::current_account_id(),                 // receiver_id
-                lease_condition.token_id.clone(),          // token_id
-                Some(lease_condition.approval_id.clone()), // approval_id
-                None,                                      // memo
-            )
-            .then(
-                ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
-                    .with_static_gas(GAS_FOR_ROYALTIES)
-                    .activate_lease(lease_id),
-            )
-            .as_return();
-    }
-
     #[private]
-    pub fn activate_lease(&mut self, lease_id: LeaseId) {
+    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128{
         require!(
             is_promise_success(),
             "NFT transfer failed, abort lease activation."
@@ -216,6 +173,9 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
+        // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
+        let unused_ammount: U128 = U128::from(0);
+        return unused_ammount;
     }
 
     #[payable]
@@ -270,20 +230,23 @@ impl Contract {
         match lease_condition.payout {
             Some(payout) => {
                 for (receiver_id, amount) in payout.payout {
-                    self.internal_transfer_near(receiver_id, amount.0);
+                    self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), receiver_id, amount);
                 }
             }
             None => {
-                self.internal_transfer_near(lease_condition.lender_id, lease_condition.price);
+                self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), lease_condition.lender_id, U128::from(lease_condition.price));
             }
         }
 
         self.internal_remove_lease(&lease_id);
     }
 
-    fn internal_transfer_near(&self, to: AccountId, amount: Balance) -> Promise {
-        // helper function to perform FT transfer
-        Promise::new(to).transfer(amount)
+    // private function to transfer FT to receiver_id
+    fn internal_transfer_ft(&self, ft_contract_addr: AccountId, receiver_id: AccountId, amount: U128) -> Promise {
+        ext_ft_core::ext(ft_contract_addr)
+            .with_static_gas(Gas(10 * TGAS))
+            .with_attached_deposit(1)
+            .ft_transfer(receiver_id, amount, None).as_return()
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -575,6 +538,87 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
     }
 }
 
+
+/*
+    The trait for receiving FT payment
+    Depending on the FT contract implementation, it may need the users to register to deposit.
+    So far we do not check if all partis have registered thier account on the FT contract,
+        - Lender: he should make sure he has registered otherwise he will not receive the payment
+        - Borrower: he cannot accept the lease if he does not register
+        - Royalty payments: if any accounts in the royalty didn't register, they will not receive the payout. That
+                             part of payment will be kept in this smart contract
+*/
+#[ext_contract(ext_ft_receiver)]
+pub trait FungibleTokenReceiver {
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128>;
+}
+#[near_bindgen]
+impl FungibleTokenReceiver for Contract {
+    /// where we add the sale because we know nft owner can only call nft_approve
+    #[payable]
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128> {
+        //the lease conditions come from the msg field
+        let lease_acceptance_json: LeaseAcceptanceJson =
+            near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
+
+        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
+        // 1. Retrieve the lease data from the lease_map
+        // 2. Check if the tx sender is the borrower
+        // 2. Check if the FT contract is designated by the lender
+        // 3. Check if the deposit equals rent
+        // 4. Transfer the NFT to the lease contract
+        // 5. Update the lease state, when transfer succeeds
+
+        // TODO: check if the FT contract is the designated one
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_acceptance_json.lease_id.clone()).unwrap();
+        assert_eq!(
+            lease_condition.borrower_id, sender_id,
+            "Borrower is not the same one!"
+        );
+        assert_eq!(
+            lease_condition.ft_contract_addr, env::predecessor_account_id(),
+            "The FT contract address does match the lender's ask!"
+        );
+        assert_eq!(
+            amount.0, lease_condition.price,
+            "Deposit does not equal to the agreed rent!"
+        );
+        assert_eq!(
+            lease_condition.state,
+            LeaseState::Pending,
+            "This lease is not pending on acceptance!"
+        );
+
+        ext_nft::ext(lease_condition.contract_addr.clone())
+            .with_static_gas(Gas(10 * TGAS))
+            .with_attached_deposit(1)
+            .nft_transfer(
+                env::current_account_id(),                 // receiver_id
+                lease_condition.token_id.clone(),          // token_id
+                Some(lease_condition.approval_id.clone()), // approval_id
+                None,                                      // memo
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_attached_deposit(0)
+                    .with_static_gas(GAS_FOR_ROYALTIES)
+                    .activate_lease(lease_acceptance_json.lease_id.clone()),
+            )
+            .as_return()
+            .into()
+    }
+}
+
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     /*
@@ -595,77 +639,6 @@ mod tests {
         let contract = Contract::new(accounts(1).into());
         assert_eq!(accounts(1), contract.owner);
         assert!(UnorderedMap::is_empty(&contract.lease_map));
-    }
-
-    #[test]
-    #[should_panic(expected = "Borrower is not the same one!")]
-    fn test_lending_accept_wrong_borrower() {
-        let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-
-        contract.lease_map.insert(&key, &lease_condition);
-        let wrong_borrower: AccountId = accounts(4).into();
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(wrong_borrower.clone())
-            .build());
-
-        contract.lending_accept(key);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "assertion failed: `(left == right)`\n  left: `Active`,\n right: `Pending`: This lease is not pending on acceptance!"
-    )]
-    fn test_lending_accept_fail_wrong_state_() {
-        let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Active;
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower_id.clone())
-            .attached_deposit(lease_condition.price)
-            .build());
-
-        contract.lending_accept(key);
-    }
-
-    #[test]
-    #[should_panic(expected = "Deposit is less than the agreed rent!")]
-    fn test_lending_accept_insufficient_deposit() {
-        let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower_id.clone())
-            .attached_deposit(lease_condition.price - 1)
-            .build());
-
-        contract.lending_accept(key);
-    }
-
-    #[test]
-    fn test_lending_accept_success() {
-        let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.borrower_id.clone())
-            .attached_deposit(lease_condition.price)
-            .build());
-
-        contract.lending_accept(key);
     }
 
     #[test]
@@ -851,53 +824,6 @@ mod tests {
         contract.claim_back(key);
 
         // Nothing can be checked, except the fact the call doesn't panic.
-    }
-
-    #[test]
-    fn test_resolve_claim_back_succeeds_pay_royalty() {
-        let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Active;
-        lease_condition.price = 20;
-        lease_condition.payout = Some(Payout {
-            payout: HashMap::from([(accounts(2), U128::from(5)), (accounts(3), U128::from(15))]),
-        });
-        let key = "test_key".to_string();
-        contract.internal_insert_lease(&key, &lease_condition);
-        let init_balance = 100;
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(0))
-            .account_balance(init_balance)
-            .build());
-        contract.resolve_claim_back(key);
-
-        assert_eq!(env::account_balance(), init_balance - 20);
-        assert!(contract.lease_map.is_empty());
-    }
-
-    #[test]
-    fn test_resolve_claim_back_succeeds_no_payout_info() {
-        let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Active;
-        lease_condition.price = 20;
-        lease_condition.payout = None;
-        let key = "test_key".to_string();
-        contract.internal_insert_lease(&key, &lease_condition);
-
-        let init_balance = 100;
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(0))
-            .account_balance(init_balance)
-            .build());
-        contract.resolve_claim_back(key);
-
-        assert_eq!(env::account_balance(), init_balance - 20);
-        assert!(contract.lease_map.is_empty());
     }
 
     #[test]

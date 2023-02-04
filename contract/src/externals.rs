@@ -3,7 +3,7 @@ use crate::*;
 /// Interface of this contract
 #[ext_contract(ext_self)]
 trait ExtSelf {
-    fn activate_lease(&mut self, lease_id: LeaseId) -> Promise;
+    fn activate_lease(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
     fn create_lease_with_payout(
         &mut self,
@@ -43,12 +43,9 @@ pub trait Nft {
     );
 
     fn nft_payout(self, token_id: String, balance: U128, max_len_payout: Option<u32>) -> Payout;
+}
 
-    fn ft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
-        msg: String,
-    ) -> Promise;
+#[ext_contract(ext_ft_core)]
+pub trait FungibleTokenCore {
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
 }
