@@ -68,7 +68,7 @@ impl NonFungibleTokenEnumeration for Contract {
         // Get starting index, default to 0
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();
         require!(
-            (self.active_lease_ids.len() as u128) >= start_index,
+            (active_lease_ids.len() as u128) >= start_index,
             "Out of bounds, please use a smaller from_index."
         );
 
