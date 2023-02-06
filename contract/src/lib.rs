@@ -1332,6 +1332,7 @@ mod tests {
         assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
     }
 
+    // TODO(syu): move this test to the same file that defines the function
     #[test]
     fn test_lease_id_to_lease_token_id_success() {
         let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();

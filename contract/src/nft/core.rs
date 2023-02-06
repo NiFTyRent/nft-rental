@@ -23,6 +23,7 @@ trait NonFungibleTokenReceiver {
     ) -> Promise;
 }
 
+// TODO(syu): check if ext_self conflicts with the trait defined in externals.rs
 #[ext_contract(ext_self)]
 trait NonFungibleTokenResolver {
     /// This method resolves the promise returned from the XCC to the receiver contract,
