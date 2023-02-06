@@ -77,3 +77,45 @@ impl Contract {
         format!("{}{}", lease_id, suffix)
     }
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    /*
+    Unit test cases and helper functions
+
+    Test naming format for better readability:
+    - test_{function_name} _{succeeds_or_fails} _{condition}
+    - When more than one test cases are needed for one function,
+    follow the code order of testing failing conditions first and success condition last
+    */
+
+    use near_contract_standards::non_fungible_token::TokenId;
+    use near_sdk::test_utils::accounts;
+
+    use crate::Contract;
+    use crate::LeaseId;
+
+    #[test]
+    fn test_lease_id_to_lease_token_id_success() {
+        let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
+        let lease_token_id_expected: TokenId =
+            "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
+
+        let contract = Contract::new(accounts(1).into());
+        let lease_token_id_real: TokenId = contract.lease_id_to_lease_token_id(&lease_id);
+
+        assert_eq!(lease_token_id_expected, lease_token_id_real);
+    }
+
+    #[test]
+    fn test_lease_token_id_to_lease_id_success() {
+        let lease_token_id: TokenId =
+            "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
+        let lease_id_expected: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
+
+        let contract = Contract::new(accounts(1).into());
+        let lease_id_real: LeaseId = contract.lease_token_id_to_lease_id(&lease_token_id);
+
+        assert_eq!(lease_id_expected, lease_id_real);
+    }
+}

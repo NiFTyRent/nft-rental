@@ -10,7 +10,8 @@ use near_sdk::{
     CryptoHash,
 };
 use near_sdk::{
-    env, log, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue
+    env, log, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    PromiseOrValue,
 };
 
 mod externals;
@@ -172,7 +173,7 @@ impl Contract {
     }
 
     #[private]
-    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128{
+    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128 {
         require!(
             is_promise_success(),
             "NFT transfer failed, abort lease activation."
@@ -247,11 +248,19 @@ impl Contract {
         match lease_condition.payout {
             Some(payout) => {
                 for (receiver_id, amount) in payout.payout {
-                    self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), receiver_id, amount);
+                    self.internal_transfer_ft(
+                        lease_condition.ft_contract_addr.clone(),
+                        receiver_id,
+                        amount,
+                    );
                 }
             }
             None => {
-                self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), lease_condition.lender_id, U128::from(lease_condition.price));
+                self.internal_transfer_ft(
+                    lease_condition.ft_contract_addr.clone(),
+                    lease_condition.lender_id,
+                    U128::from(lease_condition.price),
+                );
             }
         }
 
@@ -259,11 +268,17 @@ impl Contract {
     }
 
     // private function to transfer FT to receiver_id
-    fn internal_transfer_ft(&self, ft_contract_addr: AccountId, receiver_id: AccountId, amount: U128) -> Promise {
+    fn internal_transfer_ft(
+        &self,
+        ft_contract_addr: AccountId,
+        receiver_id: AccountId,
+        amount: U128,
+    ) -> Promise {
         ext_ft_core::ext(ft_contract_addr)
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
-            .ft_transfer(receiver_id, amount, None).as_return()
+            .ft_transfer(receiver_id, amount, None)
+            .as_return()
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -652,7 +667,6 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
     }
 }
 
-
 /*
     The trait for receiving FT payment
     Depending on the FT contract implementation, it may need the users to register to deposit.
@@ -694,13 +708,17 @@ impl FungibleTokenReceiver for Contract {
         // 5. Update the lease state, when transfer succeeds
 
         // TODO: check if the FT contract is the designated one
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_acceptance_json.lease_id.clone()).unwrap();
+        let lease_condition: LeaseCondition = self
+            .lease_map
+            .get(&lease_acceptance_json.lease_id.clone())
+            .unwrap();
         assert_eq!(
             lease_condition.borrower_id, sender_id,
             "Borrower is not the same one!"
         );
         assert_eq!(
-            lease_condition.ft_contract_addr, env::predecessor_account_id(),
+            lease_condition.ft_contract_addr,
+            env::predecessor_account_id(),
             "The FT contract address does match the lender's ask!"
         );
         assert_eq!(
@@ -1328,31 +1346,6 @@ mod tests {
         assert!(contract.lease_map.len() == 1);
         assert!(!contract.lease_ids_by_borrower.contains_key(&borrower_1));
         assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
-    }
-
-    // TODO(syu): move this test to the same file that defines the function
-    #[test]
-    fn test_lease_id_to_lease_token_id_success() {
-        let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
-        let lease_token_id_expected: TokenId =
-            "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
-
-        let contract = Contract::new(accounts(1).into());
-        let lease_token_id_real: TokenId = contract.lease_id_to_lease_token_id(&lease_id);
-
-        assert_eq!(lease_token_id_expected, lease_token_id_real);
-    }
-
-    #[test]
-    fn test_lease_token_id_to_lease_id_success() {
-        let lease_token_id: TokenId =
-            "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
-        let lease_id_expected: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
-
-        let contract = Contract::new(accounts(1).into());
-        let lease_id_real: LeaseId = contract.lease_token_id_to_lease_id(&lease_token_id);
-
-        assert_eq!(lease_id_expected, lease_id_real);
     }
 
     // Helper function to return a lease condition using default seting
