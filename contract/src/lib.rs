@@ -744,10 +744,8 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
     use super::*;
-    use near_contract_standards::non_fungible_token::Token;
-    use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig, ONE_NEAR};
+    use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig};
 
     #[test]
     fn test_new() {
