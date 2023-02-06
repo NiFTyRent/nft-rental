@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use near_contract_standards::non_fungible_token::TokenId;
-
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
@@ -11,12 +10,14 @@ use near_sdk::{
     CryptoHash,
 };
 use near_sdk::{
-    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue
+    env, log, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    PromiseOrValue,
 };
 
-pub mod externals;
+mod externals;
+mod nft;
 mod utils;
-pub use crate::externals::*;
+use crate::externals::*;
 
 // Copied from Paras market contract. Will need to be fine-tuned.
 // https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17
@@ -102,6 +103,9 @@ pub struct Contract {
     lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
+
+    active_lease_ids: UnorderedSet<LeaseId>, // This also records all existing LEASE token ids
+    active_lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -112,6 +116,9 @@ enum StorageKey {
     LeaseIdsByBorrower,
     LeaseIdsByBorrowerInner { account_id_hash: CryptoHash },
     LeaseIdByContractAddrAndTokenId,
+    ActiveLeaseIdsByOwner,
+    ActiveLeaseIdsByOwnerInner { account_id_hash: CryptoHash },
+    ActiveLeaseIds,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,6 +140,10 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
+            active_lease_ids_by_lender: LookupMap::new(
+                StorageKey::ActiveLeaseIdsByOwner.try_to_vec().unwrap(),
+            ),
+            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }
     }
 
@@ -154,11 +165,15 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
+            active_lease_ids_by_lender: LookupMap::new(
+                StorageKey::ActiveLeaseIdsByOwner.try_to_vec().unwrap(),
+            ),
+            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }
     }
 
     #[private]
-    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128{
+    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128 {
         require!(
             is_promise_success(),
             "NFT transfer failed, abort lease activation."
@@ -173,6 +188,9 @@ impl Contract {
             ..lease_condition
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
+
+        self.nft_mint(lease_id, new_lease_condition.lender_id.clone());
+
         // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
         let unused_ammount: U128 = U128::from(0);
         return unused_ammount;
@@ -230,11 +248,19 @@ impl Contract {
         match lease_condition.payout {
             Some(payout) => {
                 for (receiver_id, amount) in payout.payout {
-                    self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), receiver_id, amount);
+                    self.internal_transfer_ft(
+                        lease_condition.ft_contract_addr.clone(),
+                        receiver_id,
+                        amount,
+                    );
                 }
             }
             None => {
-                self.internal_transfer_ft(lease_condition.ft_contract_addr.clone(), lease_condition.lender_id, U128::from(lease_condition.price));
+                self.internal_transfer_ft(
+                    lease_condition.ft_contract_addr.clone(),
+                    lease_condition.lender_id,
+                    U128::from(lease_condition.price),
+                );
             }
         }
 
@@ -242,11 +268,17 @@ impl Contract {
     }
 
     // private function to transfer FT to receiver_id
-    fn internal_transfer_ft(&self, ft_contract_addr: AccountId, receiver_id: AccountId, amount: U128) -> Promise {
+    fn internal_transfer_ft(
+        &self,
+        ft_contract_addr: AccountId,
+        receiver_id: AccountId,
+        amount: U128,
+    ) -> Promise {
         ext_ft_core::ext(ft_contract_addr)
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
-            .ft_transfer(receiver_id, amount, None).as_return()
+            .ft_transfer(receiver_id, amount, None)
+            .as_return()
     }
 
     pub fn leases_by_owner(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -427,6 +459,27 @@ impl Contract {
         // remove from index by_contract_addr_and_token_id
         self.lease_id_by_contract_addr_and_token_id
             .remove(&(lease_condition.contract_addr, lease_condition.token_id));
+
+        // Clean up NFT related fields
+        // update active leases set
+        self.active_lease_ids.remove(&lease_id);
+
+        // update active_lease_ids_per_owner
+        let mut active_lease_id_set = self
+            .active_lease_ids_by_lender
+            .get(&lease_condition.lender_id);
+
+        if let Some(active_lease_id_set) = active_lease_id_set.as_mut() {
+            active_lease_id_set.remove(&lease_id);
+
+            if active_lease_id_set.is_empty() {
+                self.active_lease_ids_by_lender
+                    .remove(&lease_condition.lender_id);
+            } else {
+                self.active_lease_ids_by_lender
+                    .insert(&lease_condition.lender_id, &active_lease_id_set);
+            }
+        }
     }
 
     // helper method to insert a new lease and update all indices
@@ -478,6 +531,82 @@ impl Contract {
             ),
             &lease_id,
         );
+    }
+
+    /// This function updates only the lender info in an active lease
+    /// All affecting indices will be updated
+    fn internal_update_active_lease_lender(
+        &mut self,
+        old_lender: &AccountId,
+        new_lender: &AccountId,
+        lease_id: &LeaseId,
+    ) {
+        // 1. Check if the active lease exist
+        assert_eq!(
+            self.active_lease_ids.contains(lease_id),
+            true,
+            "Only active lease can update lender!"
+        );
+
+        // 2. Ensure the given active lease belongs to the old owner
+        let mut active_lease_ids_set = self
+            .active_lease_ids_by_lender
+            .get(old_lender)
+            .expect("Active Lease is not owned by the old lender!");
+
+        // 3. Remove the active lease from the old lender
+        // update index for active lease ids
+        active_lease_ids_set.remove(lease_id);
+        if active_lease_ids_set.is_empty() {
+            self.active_lease_ids_by_lender.remove(old_lender);
+        } else {
+            self.active_lease_ids_by_lender
+                .insert(old_lender, &active_lease_ids_set);
+        }
+        // Update the index for lease ids by lender
+        let mut lease_ids_set = self.lease_ids_by_lender.get(old_lender).unwrap();
+        lease_ids_set.remove(lease_id);
+        if lease_ids_set.is_empty() {
+            self.lease_ids_by_lender.remove(old_lender);
+        } else {
+            self.lease_ids_by_lender.insert(old_lender, &lease_ids_set);
+        }
+
+        // 4. Add the active lease to the new lender
+        // update the index for active lease ids
+        let mut active_lease_ids_set = self
+            .active_lease_ids_by_lender
+            .get(new_lender)
+            .unwrap_or_else(|| {
+                // if the new lender doesn't have any active lease, create a new record
+                UnorderedSet::new(
+                    StorageKey::ActiveLeaseIdsByOwnerInner {
+                        account_id_hash: utils::hash_account_id(new_lender),
+                    }
+                    .try_to_vec()
+                    .unwrap(),
+                )
+            });
+        active_lease_ids_set.insert(lease_id);
+        self.active_lease_ids_by_lender
+            .insert(new_lender, &active_lease_ids_set);
+        // Udpate the index for lease ids by lender
+        let mut lease_ids_set = self.lease_ids_by_lender.get(new_lender).unwrap_or_else(|| {
+            // if the receiver doesn;t have any lease, create a new record
+            UnorderedSet::new(
+                StorageKey::LeasesIdsByLenderInner {
+                    account_id_hash: utils::hash_account_id(new_lender),
+                }
+                .try_to_vec()
+                .unwrap(),
+            )
+        });
+        lease_ids_set.insert(lease_id);
+        self.lease_ids_by_lender.insert(new_lender, &lease_ids_set);
+
+        // 5. Update the lease map index accordingly
+        let mut lease_condition = self.lease_map.get(lease_id).unwrap();
+        lease_condition.lender_id = new_lender.clone();
     }
 }
 
@@ -538,7 +667,6 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
     }
 }
 
-
 /*
     The trait for receiving FT payment
     Depending on the FT contract implementation, it may need the users to register to deposit.
@@ -580,13 +708,17 @@ impl FungibleTokenReceiver for Contract {
         // 5. Update the lease state, when transfer succeeds
 
         // TODO: check if the FT contract is the designated one
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_acceptance_json.lease_id.clone()).unwrap();
+        let lease_condition: LeaseCondition = self
+            .lease_map
+            .get(&lease_acceptance_json.lease_id.clone())
+            .unwrap();
         assert_eq!(
             lease_condition.borrower_id, sender_id,
             "Borrower is not the same one!"
         );
         assert_eq!(
-            lease_condition.ft_contract_addr, env::predecessor_account_id(),
+            lease_condition.ft_contract_addr,
+            env::predecessor_account_id(),
             "The FT contract address does match the lender's ask!"
         );
         assert_eq!(
@@ -630,9 +762,8 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
     use super::*;
-    use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig, ONE_NEAR};
+    use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig};
 
     #[test]
     fn test_new() {
