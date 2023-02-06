@@ -188,7 +188,7 @@ impl Contract {
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
 
-        self.nft_mint(lease_id, new_lease_condition.lender_id.clone())
+        self.nft_mint(lease_id, new_lease_condition.lender_id.clone());
 
         // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
         let unused_ammount: U128 = U128::from(0);
