@@ -40,6 +40,8 @@ impl NonFungibleTokenCore for Contract {
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
+        // TODO(libo): remove this suppressor after we implemented approval.
+        #[allow(unused_variables)]
         approval_id: Option<u64>,
         memo: Option<String>
     ){
@@ -58,6 +60,8 @@ impl NonFungibleTokenCore for Contract {
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
+        // TODO(libo): remove this suppressor after we implemented approval.
+        #[allow(unused_variables)]
         approval_id: Option<u64>,
         memo: Option<String>,
         msg: String,

@@ -712,19 +712,13 @@ impl FungibleTokenReceiver for Contract {
             .lease_map
             .get(&lease_acceptance_json.lease_id.clone())
             .unwrap();
-        assert_eq!(
-            lease_condition.borrower_id, sender_id,
-            "Borrower is not the same one!"
-        );
+        assert_eq!(lease_condition.borrower_id, sender_id, "Wrong borrower!");
         assert_eq!(
             lease_condition.ft_contract_addr,
             env::predecessor_account_id(),
-            "The FT contract address does match the lender's ask!"
+            "Wrong FT contract address!"
         );
-        assert_eq!(
-            amount.0, lease_condition.price,
-            "Deposit does not equal to the agreed rent!"
-        );
+        assert_eq!(amount.0, lease_condition.price, "Insufficient rent!");
         assert_eq!(
             lease_condition.state,
             LeaseState::Pending,
@@ -762,6 +756,7 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
     use super::*;
+    use near_sdk::serde_json::json;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig};
 
@@ -770,6 +765,106 @@ mod tests {
         let contract = Contract::new(accounts(1).into());
         assert_eq!(accounts(1), contract.owner);
         assert!(UnorderedMap::is_empty(&contract.lease_map));
+    }
+
+    #[test]
+    #[should_panic(expected = "Wrong borrower!")]
+    fn test_lending_accept_wrong_borrower() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+
+        contract.lease_map.insert(&key, &lease_condition);
+        let wrong_borrower: AccountId = accounts(4).into();
+
+        testing_env!(VMContextBuilder::new()
+            .predecessor_account_id(lease_condition.ft_contract_addr.clone())
+            .build());
+
+        contract.ft_on_transfer(
+            wrong_borrower.clone(),
+            U128::from(lease_condition.price),
+            json!({ "lease_id": key }).to_string(),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Wrong FT contract address!")]
+    fn test_lending_accept_fail_wrong_ft_addr() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+        let wrong_ft_addr = accounts(0);
+        contract.lease_map.insert(&key, &lease_condition);
+
+        testing_env!(VMContextBuilder::new()
+            .predecessor_account_id(wrong_ft_addr.into())
+            .build());
+
+        contract.ft_on_transfer(
+            lease_condition.borrower_id.clone(),
+            U128::from(lease_condition.price),
+            json!({ "lease_id": key }).to_string(),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Insufficient rent!")]
+    fn test_lending_accept_fail_insufficient_rent() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        testing_env!(VMContextBuilder::new()
+            .predecessor_account_id(lease_condition.ft_contract_addr.clone())
+            .build());
+
+        contract.ft_on_transfer(
+            lease_condition.borrower_id.clone(),
+            U128::from(lease_condition.price - 1),
+            json!({ "lease_id": key }).to_string(),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "This lease is not pending on acceptance!")]
+    fn test_lending_accept_fail_wrong_state() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        testing_env!(VMContextBuilder::new()
+            .predecessor_account_id(lease_condition.ft_contract_addr.clone())
+            .build());
+
+        contract.ft_on_transfer(
+            lease_condition.borrower_id.clone(),
+            U128::from(lease_condition.price),
+            json!({ "lease_id": key }).to_string(),
+        );
+    }
+
+    #[test]
+    fn test_lending_accept_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        let lease_condition = create_lease_condition_default();
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+
+        testing_env!(VMContextBuilder::new()
+            .predecessor_account_id(lease_condition.ft_contract_addr.clone())
+            .build());
+
+        contract.ft_on_transfer(
+            lease_condition.borrower_id.clone(),
+            U128::from(lease_condition.price),
+            json!({ "lease_id": key }).to_string(),
+        );
+
+        // Nothing can be checked, except the fact the call doesn't panic.
     }
 
     #[test]
