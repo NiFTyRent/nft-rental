@@ -370,8 +370,10 @@ impl Contract {
         price: u128,
         approval_id: u64,
     ) {
+        // TODO(syu): Add test to check when payout XCC failed, we have a single record in payout field.
+        // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
         let mut optional_payout: Option<Payout> = None;
-        // if NFT has implemented the `nft_payout` interface
+        // If NFT has implemented the `nft_payout` interface
         // then process the result and verify if sum of payout is close enough to the original price
         if is_promise_success() {
             optional_payout = promise_result_as_success().map(|value| {
@@ -391,6 +393,15 @@ impl Contract {
                     "The difference between the lease price and the sum of payout is too large"
                 );
                 payout
+            });
+        } else{
+            // If leased nft didn't provide payouts, we add a proxy payout record making original lender own all the rent.
+            // This will make claiming back using LEASE NFT easier.
+            optional_payout = Some(Payout{
+                payout: HashMap::from([(
+                    owner_id.clone(),
+                    U128::from(price.clone()),
+                )]),
             });
         }
 

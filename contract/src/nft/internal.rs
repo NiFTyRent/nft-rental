@@ -43,7 +43,6 @@ impl Contract {
 
     /// Update NFT related fields. It will be called once lease become active.
     /// This function is visible only within the current contract
-    /// This function will also handle the payouts for the under-leased nft
     pub(crate) fn nft_mint(&mut self, lease_id: LeaseId, receiver_id: AccountId) {
         // Update the record for active_leases
         let mut active_lease_ids_set = self
@@ -66,20 +65,6 @@ impl Contract {
 
         // Record active leases/Lease Tokens
         self.active_lease_ids.insert(&lease_id);
-
-        // Handle payouts record for the under-leased nft
-        let mut lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-        let proxy_payout = lease_condition.payout.unwrap_or_else(|| {
-            // if leased nft didn't provide payouts, we add a proxy payout record making original lender own all the rent.
-            // This will make claiming back using LEASE NFT easier.
-            Payout {
-                payout: HashMap::from([(
-                    lease_condition.lender_id,
-                    U128::from(lease_condition.price),
-                )]),
-            }
-        });
-        lease_condition.payout = Some(proxy_payout);
     }
 
     pub(crate) fn lease_token_id_to_lease_id(&self, token_id: &TokenId) -> LeaseId {
