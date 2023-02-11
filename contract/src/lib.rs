@@ -718,7 +718,11 @@ impl FungibleTokenReceiver for Contract {
             env::predecessor_account_id(),
             "Wrong FT contract address!"
         );
-        assert_eq!(amount.0, lease_condition.price, "Insufficient rent!");
+        // TODO(libo): Allow surplus tokens transferred, refund the extra in the end.
+        assert_eq!(
+            amount.0, lease_condition.price,
+            "Transferred amount doesn't match the asked rent!"
+        );
         assert_eq!(
             lease_condition.state,
             LeaseState::Pending,
@@ -809,8 +813,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Insufficient rent!")]
-    fn test_lending_accept_fail_insufficient_rent() {
+    #[should_panic(expected = "Transferred amount doesn't match the asked rent!")]
+    fn test_lending_accept_fail_wrong_rent() {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
         let key = "test_key".to_string();
@@ -829,7 +833,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "This lease is not pending on acceptance!")]
-    fn test_lending_accept_fail_wrong_state() {
+    fn test_lending_accept_fail_wrong_lease_state() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
