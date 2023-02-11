@@ -1502,7 +1502,7 @@ mod tests {
     }
 
     // Helper function to return a lease condition using default seting
-    fn create_lease_condition_default() -> LeaseCondition {
+    pub(crate) fn create_lease_condition_default() -> LeaseCondition {
         let token_id: TokenId = "test_token".to_string();
         let approval_id = 1;
         let lender: AccountId = accounts(2).into();

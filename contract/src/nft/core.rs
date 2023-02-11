@@ -189,3 +189,43 @@ impl NonFungibleTokenResolver for Contract {
         return false;
     }
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests{
+    /*
+    Unit test cases and helper functions
+    Test naming format for better readability:
+    - test_{function_name} _{succeeds_or_fails} _{condition}
+    - When more than one test cases are needed for one function,
+    follow the code order of testing failing conditions first and success condition last
+    */
+    use crate::{Contract, LeaseState};
+    use crate::tests::*;
+
+    use near_contract_standards::non_fungible_token::TokenId;
+    use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::{testing_env,};
+
+
+    #[test]
+    fn test_nft_token_succeeds_non_existing_token_id(){
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+        contract.active_lease_ids.insert(&key);
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(lease_condition.lender_id.clone())
+            .build());
+
+        let non_existing_token_id:TokenId= "dummy_token_id".to_string();
+        let a_token = contract.nft_token(non_existing_token_id.clone());
+
+        assert!(a_token.is_none())
+    }
+}
