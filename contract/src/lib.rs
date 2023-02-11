@@ -1086,7 +1086,59 @@ mod tests {
     }
 
     #[test]
-    fn test_create_lease_with_payout_success() {
+    fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_failed() {
+        let mut contract = Contract::new(accounts(1).into());
+        let nft_contract_id: AccountId = accounts(4).into();
+        let token_id: TokenId = "test_token".to_string();
+        let owner_id: AccountId = accounts(2).into();
+        let borrower_id: AccountId = accounts(3).into();
+        let ft_contract_addr: AccountId = accounts(4).into();
+        let price: u128 = 5;
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(borrower_id.clone())
+                .attached_deposit(price)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Failed],
+        );
+
+        contract.create_lease_with_payout(
+            nft_contract_id.clone(),
+            token_id.clone(),
+            owner_id.clone(),
+            borrower_id.clone(),
+            ft_contract_addr,
+            1000,
+            price,
+            1,
+        );
+
+        let payout_expected = Payout {
+            payout: HashMap::from([(owner_id.clone().into(), U128::from(price.clone()))]),
+        };
+        assert!(!contract.lease_map.is_empty());
+        let lease_condition = &contract.leases_by_owner(owner_id.clone())[0].1;
+        assert!(lease_condition.payout.is_some());
+        assert_eq!(
+            1,
+            lease_condition.payout.as_ref().unwrap().payout.keys().len()
+        );
+        assert!(lease_condition
+            .payout
+            .as_ref()
+            .unwrap()
+            .payout
+            .contains_key(&owner_id));
+        assert_eq!(Some(payout_expected), lease_condition.payout);
+    }
+
+    #[test]
+    fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_succeeded() {
         let mut contract = Contract::new(accounts(1).into());
         let nft_contract_id: AccountId = accounts(4).into();
         let token_id: TokenId = "test_token".to_string();
