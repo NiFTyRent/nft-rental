@@ -1,9 +1,8 @@
 use near_contract_standards::non_fungible_token::Token;
-use near_sdk::ONE_NEAR;
+use near_sdk::json_types::U128;
 use near_units::parse_near;
 use nft_rental::{LeaseCondition, LeaseState};
 use serde_json::json;
-use near_sdk::json_types::U128;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
 
 use crate::utils::assert_aprox_eq;
@@ -80,36 +79,28 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
 
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
-        .args_json(
-            json!({ "account_id": contract.id(), "balance": 10000000}),
-        )
+        .args_json(json!({ "account_id": contract.id(), "balance": 10000000}))
         .transact()
         .await?
         .into_result()?;
 
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
-        .args_json(
-            json!({ "account_id": alice.id(), "balance": 10000000}),
-        )
+        .args_json(json!({ "account_id": alice.id(), "balance": 10000000}))
         .transact()
         .await?
         .into_result()?;
-    
+
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
-        .args_json(
-            json!({ "account_id": bob.id(), "balance": 10000000}),
-        )
+        .args_json(json!({ "account_id": bob.id(), "balance": 10000000}))
         .transact()
         .await?
         .into_result()?;
-    
+
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
-        .args_json(
-            json!({ "account_id": nft_contract.id(), "balance": 10000000}),
-        )
+        .args_json(json!({ "account_id": nft_contract.id(), "balance": 10000000}))
         .transact()
         .await?
         .into_result()?;
@@ -196,7 +187,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-    
+
     println!("      ✅ Lease accepted");
 
     println!("Confirm the lease is activated ...");
@@ -249,7 +240,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
+
     let nft_contract_balance_after_claim_back: U128 = ft_contract
         .view("ft_balance_of")
         .args_json(json!({
@@ -503,7 +494,6 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
         .json()?;
     assert_eq!(borrower_balance_after_second_accept.0, 10000000 - 1000);
 
-    
     println!("      ✅ Lease cannot be accepted by Bob again.");
     Ok(())
 }
