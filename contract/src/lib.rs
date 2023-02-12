@@ -1530,6 +1530,11 @@ mod tests {
     }
 
     #[test]
+    fn test_internal_update_active_lease_lender_succeeds(){
+        todo!()
+    }
+
+    #[test]
     #[should_panic(expected = "Only the owner can set allowed FT contracts")]
     fn test_update_allowed_contract_addrs_fail_when_called_by_nonowner() {
         let mut contract = Contract::new(accounts(1).into());

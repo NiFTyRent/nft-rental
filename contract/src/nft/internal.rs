@@ -68,7 +68,7 @@ impl Contract {
     }
 
     pub(crate) fn lease_token_id_to_lease_id(&self, token_id: &TokenId) -> LeaseId {
-        let splits: Vec<&str> = token_id.split('_').collect();
+        let splits: Vec<&str> = token_id.split("_lender").collect();
         splits[0].to_string()
     }
 
