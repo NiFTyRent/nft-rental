@@ -392,12 +392,11 @@ impl Contract {
         price: U128,
         approval_id: u64,
     ) {
-        // TODO(syu): Add test to check when payout XCC failed, we have a single record in payout field.
         // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
-        let mut optional_payout: Option<Payout> = None;
-        // If NFT has implemented the `nft_payout` interface
-        // then process the result and verify if sum of payout is close enough to the original price
+        let optional_payout;
         if is_promise_success() {
+            // If NFT has implemented the `nft_payout` interface
+            // then process the result and verify if sum of payout is close enough to the original price
             optional_payout = promise_result_as_success().map(|value| {
                 let payout = serde_json::from_slice::<Payout>(&value).unwrap();
                 let payout_diff: u128 = price
