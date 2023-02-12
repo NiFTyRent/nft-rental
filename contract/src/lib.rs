@@ -1529,7 +1529,7 @@ mod tests {
         assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
     }
 
-    #[test]
+    // #[test]
     fn test_internal_update_active_lease_lender_succeeds(){
         todo!()
     }
