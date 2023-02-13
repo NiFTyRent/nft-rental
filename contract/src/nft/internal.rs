@@ -42,6 +42,7 @@ impl Contract {
     }
 
     /// Update NFT related fields. It will be called once lease become active.
+    /// In essence, this function updates indices that tracks active lease.
     /// This function is visible only within the current contract
     pub(crate) fn nft_mint(&mut self, lease_id: LeaseId, receiver_id: AccountId) {
         // Update the record for active_leases
@@ -96,7 +97,7 @@ mod tests {
     use crate::LeaseId;
 
     #[test]
-    fn test_lease_id_to_lease_token_id_success() {
+    fn test_lease_id_to_lease_token_id_succeeds() {
         let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
         let lease_token_id_expected: TokenId =
             "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
@@ -108,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lease_token_id_to_lease_id_success() {
+    fn test_lease_token_id_to_lease_id_succeeds() {
         let lease_token_id: TokenId =
             "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
         let lease_id_expected: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
@@ -118,4 +119,11 @@ mod tests {
 
         assert_eq!(lease_id_expected, lease_id_real);
     }
+
+    /// check the indices got updated correctly
+    // #[test]
+    fn test_nft_mint_succeeds() {
+        todo!()
+    }
+
 }
