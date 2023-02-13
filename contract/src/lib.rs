@@ -394,14 +394,11 @@ impl Contract {
                 );
                 payout
             });
-        } else{
+        } else {
             // If leased nft didn't provide payouts, we add a proxy payout record making original lender own all the rent.
             // This will make claiming back using LEASE NFT easier.
-            optional_payout = Some(Payout{
-                payout: HashMap::from([(
-                    owner_id.clone(),
-                    U128::from(price.clone()),
-                )]),
+            optional_payout = Some(Payout {
+                payout: HashMap::from([(owner_id.clone(), U128::from(price.clone()))]),
             });
         }
 
@@ -618,6 +615,7 @@ impl Contract {
         // 5. Update the lease map index accordingly
         let mut lease_condition = self.lease_map.get(lease_id).unwrap();
         lease_condition.lender_id = new_lender.clone();
+        self.lease_map.insert(&lease_id, &lease_condition); // insert data back to persis the value
     }
 }
 
