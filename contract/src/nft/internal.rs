@@ -90,11 +90,12 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
 
-    use near_contract_standards::non_fungible_token::TokenId;
-    use near_sdk::test_utils::accounts;
+    use crate::tests::*;
+    use crate::{Contract, LeaseId, LeaseState};
 
-    use crate::Contract;
-    use crate::LeaseId;
+    use near_contract_standards::non_fungible_token::TokenId;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::testing_env;
 
     #[test]
     fn test_lease_id_to_lease_token_id_succeeds() {
@@ -121,9 +122,42 @@ mod tests {
     }
 
     /// check the indices got updated correctly
-    // #[test]
+    /// - active_lease_ids got updated
+    /// - active_lease_ids_by_lender has new record
+    #[test]
     fn test_nft_mint_succeeds() {
-        todo!()
-    }
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
 
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+        lease_condition.state = LeaseState::Active;
+
+        // Before calling nft mint, no records for the active lease
+        assert!(!contract.active_lease_ids.contains(&lease_key));
+        assert!(!contract
+            .active_lease_ids_by_lender
+            .contains_key(&lease_condition.lender_id));
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(5))
+            .build());
+
+        contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
+
+        // After calling nft_mint(), active lease records should be updated
+        assert!(contract.active_lease_ids.contains(&lease_key));
+        assert!(contract
+            .active_lease_ids_by_lender
+            .contains_key(&lease_condition.lender_id));
+        assert_eq!(
+            contract.lease_map.get(&lease_key).unwrap().lender_id,
+            lease_condition.lender_id
+        );
+        assert!(contract
+            .active_lease_ids_by_lender
+            .get(&lease_condition.lender_id)
+            .unwrap()
+            .contains(&lease_key));
+    }
 }
