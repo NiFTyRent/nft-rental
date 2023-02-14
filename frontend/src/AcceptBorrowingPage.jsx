@@ -1,7 +1,8 @@
 import React from "react";
 import { useQuery, gql } from "@apollo/client";
-import { myBorrowings, acceptLease } from "./near-api";
 import { useParams } from "react-router-dom";
+import { nearConfig, myBorrowings } from "./near-api";
+import { initFtContract } from "./FtContract";
 
 function NftInfo({ contractId, tokenId }) {
   const GET_TOKEN = gql`
@@ -101,14 +102,33 @@ export default function AcceptBorrowingPage() {
         return k == leaseId;
       });
 
+      const ftContract = await initFtContract(borrowing[1].ft_contract_addr);
+      const ftMetadata = await ftContract.ft_metadata();
+      console.log(ftMetadata);
+      const ftDecimals = ftMetadata.decimals;
+      borrowing[1].uiPrice = Number(BigInt(borrowing[1].price) / (10n ** BigInt(ftDecimals - 3))) / 1000;
+      borrowing[1].symbol = ftMetadata.symbol;
+
       setBorrowing((_) => borrowing);
     }
     fetchBorrowings();
   }, [leaseId]);
 
-  let onSubmit = () => {
-    console.log(acceptLease(leaseId, borrowing[1].price));
+  let onSubmit = async () => {
+    if (!borrowing) return;
+    const ftContract = await initFtContract(borrowing[1].ft_contract_addr);
+    const amount = BigInt(borrowing[1].price).toString();
+    return await ftContract.ft_transfer_call({
+      args: {
+        receiver_id: nearConfig.contractName,
+        amount: amount,
+        msg: JSON.stringify({ lease_id: borrowing[0] })
+      },
+      gas: "300000000000000",
+      amount: "1",
+    })
   };
+
 
   return borrowing ? (
     <>
@@ -158,9 +178,7 @@ export default function AcceptBorrowingPage() {
                       Rent
                     </label>
                     <div className="mt-1 sm:w-2/3 sm:mt-0">
-                      {parseFloat(window.nearApi.utils.format.formatNearAmount(
-                        BigInt(borrowing[1].price).toString()
-                      ))} Ⓝ
+                      {borrowing[1].uiPrice} {borrowing[1].symbol}
                     </div>
                   </div>
                 </div>
