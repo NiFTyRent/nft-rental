@@ -1,6 +1,7 @@
 use crate::*;
 
 /// Interface of this contract
+// TODO(libo): explicitly implement this trait.
 #[ext_contract(ext_self)]
 trait ExtSelf {
     fn activate_lease(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
@@ -13,7 +14,7 @@ trait ExtSelf {
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
         expiration: u64,
-        price: u128,
+        price: U128,
         approval_id: u64,
     ) -> Promise;
 }
