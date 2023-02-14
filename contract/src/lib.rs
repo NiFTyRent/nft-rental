@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     bs58, ext_contract, is_promise_success, promise_result_as_success, require, serde_json,
@@ -140,9 +140,30 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            active_lease_ids_by_lender: LookupMap::new(
-                StorageKey::ActiveLeaseIdsByOwner.try_to_vec().unwrap(),
+            active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
+            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
+        }
+    }
+
+    /// A temporary method to completely reset the contract state.
+    /// It's the last resort to recover when the contract state got corrupted.
+    /// Inspired by: https://gist.github.com/ilyar/19bdc04d1aa09ae0fc84eb4297df1a1d
+    #[private]
+    #[init(ignore_state)]
+    pub fn clean(owner_id: AccountId, keys: Vec<Base64VecU8>) -> Self {
+        for key in keys.iter() {
+            env::storage_remove(&key.0);
+        }
+
+        Self {
+            owner: owner_id,
+            lease_map: UnorderedMap::new(StorageKey::LendingsKey),
+            lease_ids_by_lender: LookupMap::new(StorageKey::LeaseIdsByLender),
+            lease_ids_by_borrower: LookupMap::new(StorageKey::LeaseIdsByBorrower),
+            lease_id_by_contract_addr_and_token_id: LookupMap::new(
+                StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
+            active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }
     }
@@ -165,9 +186,7 @@ impl Contract {
             lease_id_by_contract_addr_and_token_id: LookupMap::new(
                 StorageKey::LeaseIdByContractAddrAndTokenId,
             ),
-            active_lease_ids_by_lender: LookupMap::new(
-                StorageKey::ActiveLeaseIdsByOwner.try_to_vec().unwrap(),
-            ),
+            active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
         }
     }
