@@ -166,7 +166,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
     assert_to_string_eq!(lease.lender_id, lender.id().to_string());
     assert_to_string_eq!(lease.borrower_id, borrower.id().to_string());
     assert_eq!(lease.expiration, expiration_ts_nano);
-    assert_eq!(lease.price, price);
+    assert_eq!(lease.price.0, price);
     assert_eq!(lease.state, LeaseState::Pending);
     println!("      ✅ Lease creation confirmed");
 
