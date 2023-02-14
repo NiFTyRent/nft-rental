@@ -68,7 +68,7 @@ export default function LendingsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {lendings.map(([key, lending]) => {
-                    const expired = lending.expiration > Date.now() / 1000;
+                    const expired = lending.expiration < Date.now() / 1000;
                     return (
                       < tr key={key} >
                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
