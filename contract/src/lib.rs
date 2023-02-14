@@ -84,7 +84,7 @@ pub struct LeaseCondition {
     pub ft_contract_addr: AccountId, // the account id for the ft contract
     pub approval_id: u64,            // Approval from owner to lease
     pub expiration: u64,             // TODO: duration
-    pub price: u128,                 // Proposed lease price
+    pub price: U128,                 // Proposed lease price
     pub payout: Option<Payout>,      // Payout info (e.g. for Royalty split)
     pub state: LeaseState,           // Current lease state
 }
@@ -93,6 +93,11 @@ pub struct LeaseCondition {
 pub struct ContractV1 {
     owner: AccountId,
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
+    lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
+    lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
+    lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
+    active_lease_ids: UnorderedSet<LeaseId>, // This also records all existing LEASE token ids
+    active_lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
 }
 
 #[near_bindgen]
@@ -386,7 +391,7 @@ impl Contract {
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
         expiration: u64,
-        price: u128,
+        price: U128,
         approval_id: u64,
     ) {
         // TODO(syu): Add test to check when payout XCC failed, we have a single record in payout field.
@@ -398,6 +403,7 @@ impl Contract {
             optional_payout = promise_result_as_success().map(|value| {
                 let payout = serde_json::from_slice::<Payout>(&value).unwrap();
                 let payout_diff: u128 = price
+                    .0
                     .checked_sub(
                         payout
                             .payout
@@ -687,7 +693,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
                         lease_json.expiration,
-                        lease_json.price.0,
+                        lease_json.price,
                         approval_id,
                     ),
             )
@@ -748,7 +754,7 @@ impl FungibleTokenReceiver for Contract {
         );
         // TODO(libo): Allow surplus tokens transferred, refund the extra in the end.
         assert_eq!(
-            amount.0, lease_condition.price,
+            amount.0, lease_condition.price.0,
             "Transferred amount doesn't match the asked rent!"
         );
         assert_eq!(
@@ -854,7 +860,7 @@ mod tests {
 
         contract.ft_on_transfer(
             lease_condition.borrower_id.clone(),
-            U128::from(lease_condition.price - 1),
+            U128::from(lease_condition.price.0 - 1),
             json!({ "lease_id": key }).to_string(),
         );
     }
@@ -918,7 +924,6 @@ mod tests {
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
                 .predecessor_account_id(lease_condition.borrower_id.clone())
-                .attached_deposit(lease_condition.price)
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
@@ -944,7 +949,6 @@ mod tests {
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
                 .predecessor_account_id(lease_condition.borrower_id.clone())
-                .attached_deposit(lease_condition.price)
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
@@ -971,7 +975,6 @@ mod tests {
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
                 .predecessor_account_id(lease_condition.borrower_id.clone())
-                .attached_deposit(lease_condition.price)
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
@@ -1069,7 +1072,7 @@ mod tests {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
-        lease_condition.price = 20;
+        lease_condition.price = U128::from(20);
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
 
@@ -1092,7 +1095,7 @@ mod tests {
         let owner_id: AccountId = accounts(2).into();
         let borrower_id: AccountId = accounts(3).into();
         let ft_contract_addr: AccountId = accounts(4).into();
-        let price: u128 = 5;
+        let price: U128 = U128::from(5);
 
         let payout = Payout {
             payout: HashMap::from([
@@ -1105,7 +1108,6 @@ mod tests {
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
                 .predecessor_account_id(borrower_id.clone())
-                .attached_deposit(price)
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
@@ -1133,7 +1135,7 @@ mod tests {
         assert_eq!(token_id, lease_condition.token_id);
         assert_eq!(owner_id, lease_condition.lender_id);
         assert_eq!(borrower_id, lease_condition.borrower_id);
-        assert_eq!(5, lease_condition.price);
+        assert_eq!(5, lease_condition.price.0);
         assert_eq!(1000, lease_condition.expiration);
         assert_eq!(Some(payout), lease_condition.payout);
     }
@@ -1149,7 +1151,7 @@ mod tests {
         let owner_id: AccountId = accounts(2).into();
         let borrower_id: AccountId = accounts(3).into();
         let ft_contract_addr: AccountId = accounts(4).into();
-        let price: u128 = 5;
+        let price: U128 = U128::from(5);
 
         let payout = Payout {
             payout: HashMap::from([
@@ -1162,7 +1164,6 @@ mod tests {
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
                 .predecessor_account_id(borrower_id.clone())
-                .attached_deposit(price)
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
@@ -1330,7 +1331,7 @@ mod tests {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
-        lease_condition.price = 20;
+        lease_condition.price = U128::from(20);
         lease_condition.contract_addr = accounts(4).into();
         lease_condition.token_id = "test_token".to_string();
         let key = "test_key".to_string();
@@ -1371,7 +1372,7 @@ mod tests {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
-        lease_condition.price = 20;
+        lease_condition.price = U128::from(20);
         lease_condition.contract_addr = accounts(4).into();
         lease_condition.token_id = "test_token".to_string();
         let key = "test_key".to_string();
@@ -1484,7 +1485,7 @@ mod tests {
         let nft_address: AccountId = accounts(4).into();
         let ft_contract_addr: AccountId = accounts(5).into();
         let expiration = 1000;
-        let price = 5;
+        let price = U128::from(5);
 
         create_lease_condition(
             nft_address,
@@ -1509,7 +1510,7 @@ mod tests {
         ft_contract_addr: AccountId,
         approval_id: u64,
         expiration: u64,
-        price: u128,
+        price: U128,
         payout: Option<Payout>,
         state: LeaseState,
     ) -> LeaseCondition {
