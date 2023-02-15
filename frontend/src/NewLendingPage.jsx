@@ -1,6 +1,8 @@
 import React from "react";
-import AutoInput from "./AutoInput";
 import { useQuery, gql } from "@apollo/client";
+
+import AutoInput from "./AutoInput";
+import { CurrencySelector, CURRENCY_OPTIONS } from "./CurrencySelector";
 import { initContract, newLease } from "./NftContract";
 
 
@@ -46,12 +48,14 @@ function TokenAutoInput({ className, accountId, selected, setSelected }) {
   />;
 }
 
+
 export default function NewLendingPage() {
   const [selectedToken, setSelectedToken] = React.useState(null);
   const [borrower, setBorrower] = React.useState("");
   const [durationMinute, setDurationMinute] = React.useState(0);
   const [durationHour, setDurationHour] = React.useState(0);
   const [durationDay, setDurationDay] = React.useState(0);
+  const [rentCurrency, setRentCurrency] = React.useState(CURRENCY_OPTIONS[0]);
   const [rent, setRent] = React.useState(0);
 
   let onSubmit = async () => {
@@ -62,7 +66,7 @@ export default function NewLendingPage() {
       durationHour * 3600 +
       durationMinute * 60;
 
-    newLease(contract, selectedToken.token_id, borrower, expiration, rent);
+    newLease(contract, selectedToken.token_id, borrower, expiration, rentCurrency.address, rent);
   };
 
   return (
@@ -185,14 +189,21 @@ export default function NewLendingPage() {
                       Rent
                     </label>
                     <div className="mt-1 sm:w-2/3 sm:mt-0">
-                      <input
-                        type="number"
-                        className={"input max-w-lg" + (rent >= 0 ? "" : " input-error")}
-                        value={rent}
-                        onChange={(e) => setRent(e.target.value)}
-                      />
+                      <div className="flex flex-row space-x-2 max-w-lg">
+                        <div className="w-36">
+                          <CurrencySelector
+                            selected={rentCurrency}
+                            setSelected={setRentCurrency} />
+                        </div>
+                        <input
+                          type="number"
+                          className={"input" + (rent >= 0 ? "" : " input-error")}
+                          value={rent}
+                          onChange={(e) => setRent(e.target.value)}
+                        />
+                      </div>
                       <p className="mt-2 text-sm text-gray-500">
-                        How much rent the borrower should pay you (in NEAR)
+                        How much rent the borrower should pay you
                       </p>
                     </div>
                   </div>
