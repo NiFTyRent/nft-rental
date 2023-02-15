@@ -38,7 +38,7 @@ export async function newLease(
   const ftMetadata = await ftContract.ft_metadata();
   const ftDecimals = ftMetadata.decimals;
 
-  const scale = 10n ** BigInt(ftDecimals - 3);
+  const scale = BigInt(10) ** BigInt(ftDecimals - 3);
   const priceNormalised = BigInt(Math.round(price * 1000)) * scale;
   const message = JSON.stringify({
     contract_addr: contract.contractId,
