@@ -226,7 +226,6 @@ mod tests{
 
     #[test]
     fn test_nft_token_succeeds_existing_token_id(){
-        // prepare 
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
@@ -235,11 +234,9 @@ mod tests{
         contract.lease_map.insert(&lease_id, &lease_condition);
         contract.active_lease_ids.insert(&lease_id);
 
-        // query
         let lease_nft_token_id = contract.lease_id_to_lease_token_id(&lease_id);
         let a_token = contract.nft_token(lease_nft_token_id.clone());
 
-        // test
         assert!(a_token.is_some());
         assert_eq!(lease_nft_token_id, a_token.as_ref().unwrap().token_id);
         assert_eq!(lease_condition.lender_id.clone(), a_token.as_ref().unwrap().owner_id);
