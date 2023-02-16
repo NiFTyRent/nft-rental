@@ -111,6 +111,10 @@ pub struct Contract {
 
     active_lease_ids: UnorderedSet<LeaseId>, // This also records all existing LEASE token ids
     active_lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
+
+    // Allowlist of the contract addresses of the FT for the rent payment currency.
+    // It's ok to load all allowed FT addresses into memory at once, since it's won't be long.
+    allowed_ft_contract_addrs: Vec<AccountId>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -147,6 +151,7 @@ impl Contract {
             ),
             active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
+            allowed_ft_contract_addrs: Vec::new(),
         }
     }
 
@@ -159,18 +164,7 @@ impl Contract {
         for key in keys.iter() {
             env::storage_remove(&key.0);
         }
-
-        Self {
-            owner: owner_id,
-            lease_map: UnorderedMap::new(StorageKey::LendingsKey),
-            lease_ids_by_lender: LookupMap::new(StorageKey::LeaseIdsByLender),
-            lease_ids_by_borrower: LookupMap::new(StorageKey::LeaseIdsByBorrower),
-            lease_id_by_contract_addr_and_token_id: LookupMap::new(
-                StorageKey::LeaseIdByContractAddrAndTokenId,
-            ),
-            active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
-            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
-        }
+        Self::new(owner_id)
     }
 
     /// Note: This migration function will clear all existing leases.
@@ -183,17 +177,7 @@ impl Contract {
             "Only the owner can invoke the migration"
         );
 
-        Self {
-            owner: prev.owner,
-            lease_map: UnorderedMap::new(StorageKey::LendingsKey),
-            lease_ids_by_lender: LookupMap::new(StorageKey::LeaseIdsByLender),
-            lease_ids_by_borrower: LookupMap::new(StorageKey::LeaseIdsByBorrower),
-            lease_id_by_contract_addr_and_token_id: LookupMap::new(
-                StorageKey::LeaseIdByContractAddrAndTokenId,
-            ),
-            active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
-            active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
-        }
+        Self::new(prev.owner)
     }
 
     #[private]
@@ -357,6 +341,20 @@ impl Contract {
                 return None;
             }
         }
+    }
+
+    pub fn set_allowed_ft_contract_addrs(&mut self, addrs: Vec<AccountId>) {
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner,
+            "Only the owner can set allowed FT contracts"
+        );
+
+        self.allowed_ft_contract_addrs = addrs
+    }
+
+    pub fn get_allowed_ft_contract_addrs(&self) -> Vec<AccountId> {
+        self.allowed_ft_contract_addrs.clone()
     }
 
     pub fn proxy_func_calls(&self, contract_id: AccountId, method_name: String, args: String) {
@@ -1474,6 +1472,33 @@ mod tests {
         assert!(contract.lease_map.len() == 1);
         assert!(!contract.lease_ids_by_borrower.contains_key(&borrower_1));
         assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
+    }
+
+    #[test]
+    #[should_panic(expected = "Only the owner can set allowed FT contracts")]
+    fn test_update_allowed_contract_addrs_fail_when_called_by_nonowner() {
+        let mut contract = Contract::new(accounts(1).into());
+        assert!(contract.get_allowed_ft_contract_addrs().is_empty());
+
+        contract.set_allowed_ft_contract_addrs(vec![accounts(2)]);
+    }
+
+    #[test]
+    fn test_update_allowed_contract_addrs_success() {
+        let mut contract = Contract::new(accounts(1).into());
+        assert!(contract.get_allowed_ft_contract_addrs().is_empty());
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .build());
+        contract.set_allowed_ft_contract_addrs(vec![accounts(2), accounts(3)]);
+        assert_eq!(
+            contract.get_allowed_ft_contract_addrs(),
+            vec![accounts(2), accounts(3)]
+        );
+        contract.set_allowed_ft_contract_addrs(vec![accounts(4)]);
+        assert_eq!(contract.get_allowed_ft_contract_addrs(), vec![accounts(4)]);
     }
 
     // Helper function to return a lease condition using default seting
