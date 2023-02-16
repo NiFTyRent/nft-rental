@@ -106,7 +106,7 @@ impl NonFungibleTokenCore for Contract {
                 description: Some(
                     format!("
                     This is a token representing the ownership the NFT under the NiFTyRent lease: {lease_id}\n
-                    The under-leased NFT is ({leased_token_id}) at ({contract_id})", 
+                    The under-leased NFT: {leased_token_id} at {contract_id}", 
                     lease_id=&active_lease_id_for_token,
                     leased_token_id=&lease_condition.token_id, 
                     contract_id=&lease_condition.contract_addr
