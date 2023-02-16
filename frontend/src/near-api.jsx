@@ -1,6 +1,7 @@
 import "near-api-js/dist/near-api-js.min.js";
 const { connect, Contract, keyStores, WalletConnection } = window.nearApi;
 import { getConfig } from "./near-config";
+import { initFtContract } from "./FtContract";
 
 export const nearConfig = getConfig(import.meta.env.MODE || "development");
 
@@ -26,7 +27,7 @@ export async function initContract() {
     window.walletConnection.account(),
     nearConfig.contractName,
     {
-      viewMethods: ["leases_by_borrower", "leases_by_owner"],
+      viewMethods: ["leases_by_borrower", "leases_by_owner", "get_allowed_ft_contract_addrs"],
       changeMethods: ["lending_accept", "claim_back"],
     }
   );
@@ -47,17 +48,25 @@ export function signInWithNearWallet() {
 }
 
 export async function myLendings() {
-  let tokens = await window.contract.leases_by_owner({
+  return await window.contract.leases_by_owner({
     account_id: window.accountId,
   });
-  return tokens;
 }
 
 export async function myBorrowings() {
-  let tokens = await window.contract.leases_by_borrower({
+  return await window.contract.leases_by_borrower({
     account_id: window.accountId,
   });
-  return tokens;
+}
+
+export async function getAllowedFTs() {
+  const ftAddrs = await window.contract.get_allowed_ft_contract_addrs({});
+  const fts = await Promise.all(ftAddrs.map(async addr => {
+    const contract = await initFtContract(addr);
+    const ftMetadata = await contract.ft_metadata({});
+    return { address: addr, ...ftMetadata };
+  }));
+  return fts;
 }
 
 export async function acceptLease(leaseId, rent) {
