@@ -1547,10 +1547,6 @@ mod tests {
         lease_condition.state = LeaseState::Active;
         contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
 
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(5))
-            .build());
-
         contract.internal_update_active_lease_lender(
             &lease_condition.lender_id, // Alice
             &accounts(1).into(),        // Bob
@@ -1601,10 +1597,6 @@ mod tests {
         );
         active_lease_ids_set.insert(&lease_key);
 
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .build());
-
         contract.internal_update_active_lease_lender(
             &accounts(3).into(), // Charlie
             &accounts(2).into(), // Bob
@@ -1621,10 +1613,6 @@ mod tests {
 
         let lease_key = "test_key".to_string();
         contract.internal_insert_lease(&lease_key, &lease_condition);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .build());
 
         contract.internal_update_active_lease_lender(
             &lease_condition.lender_id, // Alice

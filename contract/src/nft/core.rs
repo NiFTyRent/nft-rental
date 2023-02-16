@@ -206,9 +206,7 @@ mod tests{
     use near_contract_standards::non_fungible_token::TokenId;
     use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
 
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env,};
-
+    use near_sdk::test_utils::{accounts};
 
     #[test]
     fn test_nft_token_succeeds_non_existing_token_id(){
@@ -219,10 +217,6 @@ mod tests{
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
         contract.active_lease_ids.insert(&key);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .build());
 
         let non_existing_token_id:TokenId= "dummy_token_id".to_string();
         let a_token = contract.nft_token(non_existing_token_id.clone());
@@ -240,10 +234,6 @@ mod tests{
         let lease_id = "test_lease_id".to_string();
         contract.lease_map.insert(&lease_id, &lease_condition);
         contract.active_lease_ids.insert(&lease_id);
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .build());
 
         // query
         let lease_nft_token_id = contract.lease_id_to_lease_token_id(&lease_id);

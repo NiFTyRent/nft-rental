@@ -94,9 +94,8 @@ mod tests {
     use crate::{Contract, LeaseId, LeaseState};
 
     use near_contract_standards::non_fungible_token::TokenId;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::testing_env;
-
+    use near_sdk::test_utils::{accounts};
+    
     #[test]
     fn test_lease_id_to_lease_token_id_succeeds() {
         let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
@@ -138,10 +137,6 @@ mod tests {
         assert!(!contract
             .active_lease_ids_by_lender
             .contains_key(&lease_condition.lender_id));
-
-        testing_env!(VMContextBuilder::new()
-            .current_account_id(accounts(5))
-            .build());
 
         contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
 
