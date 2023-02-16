@@ -2,7 +2,7 @@ import React from "react";
 import { useQuery, gql } from "@apollo/client";
 
 import AutoInput from "./AutoInput";
-import { CurrencySelector, CURRENCY_OPTIONS } from "./CurrencySelector";
+import { CurrencySelector } from "./CurrencySelector";
 import { initContract, newLease } from "./NftContract";
 
 
@@ -55,7 +55,7 @@ export default function NewLendingPage() {
   const [durationMinute, setDurationMinute] = React.useState(0);
   const [durationHour, setDurationHour] = React.useState(0);
   const [durationDay, setDurationDay] = React.useState(0);
-  const [rentCurrency, setRentCurrency] = React.useState(CURRENCY_OPTIONS[0]);
+  const [rentCurrency, setRentCurrency] = React.useState(window.CURRENCY_OPTIONS[0]);
   const [rent, setRent] = React.useState(0);
 
   let onSubmit = async () => {

@@ -9,18 +9,19 @@ import NewLendingPage from "./NewLendingPage";
 import AcceptBorrowingPage from "./AcceptBorrowingPage";
 import BorrowingsPage from "./BorrowingsPage";
 import LendingsPage from "./LendingsPage";
-import { initContract } from "./near-api";
+import { initContract, getAllowedFTs } from "./near-api";
 import {
   ApolloClient,
   InMemoryCache,
   ApolloProvider,
-  gql,
 } from "@apollo/client";
 
 const reactRoot = createRoot(document.querySelector("#root"));
 
-window.nearInitPromise = initContract()
-  .then(() => {
+async function render() {
+  try {
+    await initContract();
+    window.CURRENCY_OPTIONS = await getAllowedFTs();
     reactRoot.render(
       <ApolloProvider client={mintbaseClient}>
         <BrowserRouter>
@@ -38,19 +39,20 @@ window.nearInitPromise = initContract()
             </Route>
           </Routes>
         </BrowserRouter>
-      </ApolloProvider>
-    );
-  })
-  .catch((e) => {
+      </ApolloProvider>);
+  } catch (e) {
     reactRoot.render(
       <div style={{ color: "red" }}>
         Error: <code>{e.message}</code>
       </div>
     );
     console.error(e);
-  });
+  }
+}
 
 const mintbaseClient = new ApolloClient({
   uri: "https://interop-testnet.hasura.app/v1/graphql",
   cache: new InMemoryCache(),
 });
+
+render();

@@ -104,7 +104,6 @@ export default function AcceptBorrowingPage() {
 
       const ftContract = await initFtContract(borrowing[1].ft_contract_addr);
       const ftMetadata = await ftContract.ft_metadata();
-      console.log(ftMetadata);
       const ftDecimals = ftMetadata.decimals;
       borrowing[1].uiPrice = Number(BigInt(borrowing[1].price) / (BigInt(10) ** BigInt(ftDecimals - 3))) / 1000;
       borrowing[1].symbol = ftMetadata.symbol;
