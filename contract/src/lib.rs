@@ -1548,7 +1548,7 @@ mod tests {
         contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
 
         contract.internal_update_active_lease_lender(
-            &lease_condition.lender_id, // Alice
+            &lease_condition.lender_id,     // Alice
             &accounts(1).into(),        // Bob
             &lease_key,
         );
@@ -1556,10 +1556,10 @@ mod tests {
         assert_eq!(1, contract.active_lease_ids.len());
         assert!(!contract
             .active_lease_ids_by_lender
-            .contains_key(&lease_condition.lender_id));
+            .contains_key(&accounts(0).into()));
         assert!(!contract
             .lease_ids_by_lender
-            .contains_key(&lease_condition.lender_id));
+            .contains_key(&accounts(0).into()));
         assert!(contract
             .active_lease_ids_by_lender
             .contains_key(&accounts(1).into()));
@@ -1615,7 +1615,7 @@ mod tests {
         contract.internal_insert_lease(&lease_key, &lease_condition);
 
         contract.internal_update_active_lease_lender(
-            &lease_condition.lender_id, // Alice
+            &lease_condition.lender_id,     // Alice
             &accounts(2).into(),        // Bob
             &lease_key,
         );
