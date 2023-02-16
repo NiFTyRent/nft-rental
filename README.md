@@ -24,7 +24,7 @@ To check the current list:
     near call $CONTRACT_NAME get_allowed_ft_contract_addrs "" --accountId $ACCOUNT_ID
 
 
-To set the list:
+To set the list (for the testnet for example):
 
     near call $CONTRACT_NAME set_allowed_ft_contract_addrs '{"addrs": ["wrap.testnet", "usdc.fakes.testnet"]}' --accountId $ACCOUNT_ID
 
