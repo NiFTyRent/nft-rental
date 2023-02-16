@@ -618,3 +618,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
 // TODO: nft_on_approve - check lease createion happened correctly & all indices have been updated accordingly
 // TODO: add a dummy NFT contract without payout being implemented to test the related scenarios
+// TODO(syu): After a lease got accepted, the lender should receive a LEASE NFT
+// TODO(syu): LEASE NFT can be correctly transferred. E.g. lender field got updated correctly
+// TODO(syu): Claim_back when LEASE NFT owner is different from the original lender, without payout 
+// TODO(syu): Claim_back when LEASE NFT owner is different from the original lender, with payout 
