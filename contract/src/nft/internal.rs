@@ -42,6 +42,7 @@ impl Contract {
     }
 
     /// Update NFT related fields. It will be called once lease become active.
+    /// In essence, this function updates indices that tracks active lease.
     /// This function is visible only within the current contract
     pub(crate) fn nft_mint(&mut self, lease_id: LeaseId, receiver_id: AccountId) {
         // Update the record for active_leases
@@ -68,7 +69,7 @@ impl Contract {
     }
 
     pub(crate) fn lease_token_id_to_lease_id(&self, token_id: &TokenId) -> LeaseId {
-        let splits: Vec<&str> = token_id.split('_').collect();
+        let splits: Vec<&str> = token_id.split("_lender").collect();
         splits[0].to_string()
     }
 
@@ -89,14 +90,14 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
 
+    use crate::tests::*;
+    use crate::{Contract, LeaseId, LeaseState};
+
     use near_contract_standards::non_fungible_token::TokenId;
-    use near_sdk::test_utils::accounts;
-
-    use crate::Contract;
-    use crate::LeaseId;
-
+    use near_sdk::test_utils::{accounts};
+    
     #[test]
-    fn test_lease_id_to_lease_token_id_success() {
+    fn test_lease_id_to_lease_token_id_succeeds() {
         let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
         let lease_token_id_expected: TokenId =
             "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
@@ -108,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lease_token_id_to_lease_id_success() {
+    fn test_lease_token_id_to_lease_id_succeeds() {
         let lease_token_id: TokenId =
             "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK_lender".to_string();
         let lease_id_expected: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
@@ -117,5 +118,41 @@ mod tests {
         let lease_id_real: LeaseId = contract.lease_token_id_to_lease_id(&lease_token_id);
 
         assert_eq!(lease_id_expected, lease_id_real);
+    }
+
+    /// check the indices got updated correctly
+    /// - active_lease_ids got updated
+    /// - active_lease_ids_by_lender has new record
+    #[test]
+    fn test_nft_mint_succeeds() {
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+        lease_condition.state = LeaseState::Active;
+
+        // Before calling nft mint, no records for the active lease
+        assert!(!contract.active_lease_ids.contains(&lease_key));
+        assert!(!contract
+            .active_lease_ids_by_lender
+            .contains_key(&lease_condition.lender_id));
+
+        contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
+
+        // After calling nft_mint(), active lease records should be updated
+        assert!(contract.active_lease_ids.contains(&lease_key));
+        assert!(contract
+            .active_lease_ids_by_lender
+            .contains_key(&lease_condition.lender_id));
+        assert_eq!(
+            contract.lease_map.get(&lease_key).unwrap().lender_id,
+            lease_condition.lender_id
+        );
+        assert!(contract
+            .active_lease_ids_by_lender
+            .get(&lease_condition.lender_id)
+            .unwrap()
+            .contains(&lease_key));
     }
 }

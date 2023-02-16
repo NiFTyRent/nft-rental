@@ -392,12 +392,11 @@ impl Contract {
         price: U128,
         approval_id: u64,
     ) {
-        // TODO(syu): Add test to check when payout XCC failed, we have a single record in payout field.
         // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
-        let mut optional_payout: Option<Payout> = None;
-        // If NFT has implemented the `nft_payout` interface
-        // then process the result and verify if sum of payout is close enough to the original price
+        let optional_payout;
         if is_promise_success() {
+            // If NFT has implemented the `nft_payout` interface
+            // then process the result and verify if sum of payout is close enough to the original price
             optional_payout = promise_result_as_success().map(|value| {
                 let payout = serde_json::from_slice::<Payout>(&value).unwrap();
                 let payout_diff: u128 = price
@@ -594,7 +593,7 @@ impl Contract {
             self.active_lease_ids_by_lender
                 .insert(old_lender, &active_lease_ids_set);
         }
-        // Update the index for lease ids by lender
+        // Update the index for lease ids by lender for old lender
         let mut lease_ids_set = self.lease_ids_by_lender.get(old_lender).unwrap();
         lease_ids_set.remove(lease_id);
         if lease_ids_set.is_empty() {
@@ -621,7 +620,7 @@ impl Contract {
         active_lease_ids_set.insert(lease_id);
         self.active_lease_ids_by_lender
             .insert(new_lender, &active_lease_ids_set);
-        // Udpate the index for lease ids by lender
+        // Udpate the index for lease ids by lender for new lender
         let mut lease_ids_set = self.lease_ids_by_lender.get(new_lender).unwrap_or_else(|| {
             // if the receiver doesn;t have any lease, create a new record
             UnorderedSet::new(
@@ -1086,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn test_create_lease_with_payout_success() {
+    fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_succeeded() {
         let mut contract = Contract::new(accounts(1).into());
         let nft_contract_id: AccountId = accounts(4).into();
         let token_id: TokenId = "test_token".to_string();
@@ -1136,6 +1135,62 @@ mod tests {
         assert_eq!(5, lease_condition.price.0);
         assert_eq!(1000, lease_condition.expiration);
         assert_eq!(Some(payout), lease_condition.payout);
+    }
+
+    #[test]
+    fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_failed() {
+        // When nft_payout xcc failed, we should still produce a internal payout record,
+        // allocating to the original lender the whole price.
+
+        let mut contract = Contract::new(accounts(1).into());
+
+        let nft_contract_id: AccountId = accounts(1).into();
+        let token_id: TokenId = "test_token".to_string();
+        let owner_id: AccountId = accounts(2).into();
+        let borrower_id: AccountId = accounts(3).into();
+        let ft_contract_addr: AccountId = accounts(1).into();
+        let price: U128 = U128::from(5);
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(borrower_id.clone())
+                .attached_deposit(price.0)
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Failed],
+        );
+
+        contract.create_lease_with_payout(
+            nft_contract_id.clone(),
+            token_id.clone(),
+            owner_id.clone(),
+            borrower_id.clone(),
+            ft_contract_addr,
+            1000,
+            price,
+            1,
+        );
+
+        let payout_expected = Payout {
+            payout: HashMap::from([(owner_id.clone().into(), U128::from(price.clone()))]),
+        };
+        let lease_condition = &contract.leases_by_owner(owner_id.clone())[0].1;
+
+        assert!(lease_condition.payout.is_some());
+        assert_eq!(
+            1,
+            lease_condition.payout.as_ref().unwrap().payout.keys().len()
+        );
+        assert!(lease_condition
+            .payout
+            .as_ref()
+            .unwrap()
+            .payout
+            .contains_key(&owner_id));
+        assert_eq!(Some(payout_expected), lease_condition.payout);
     }
 
     #[test]
@@ -1474,6 +1529,98 @@ mod tests {
         assert!(contract.lease_ids_by_borrower.contains_key(&borrower_2));
     }
 
+    /// 1. Initially, Alice owns an active lease
+    /// 2. Alice transfers the lease to Bob
+    /// 3. Check Success:
+    ///    - Lease record for Alice is emptied
+    ///    - Lease record for Bob is updated
+    #[test]
+    fn test_internal_update_active_lease_lender_succeeds() {
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.lender_id = accounts(0).into(); //Alice
+
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+
+        // update active lease records for Alice
+        lease_condition.state = LeaseState::Active;
+        contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
+
+        contract.internal_update_active_lease_lender(
+            &lease_condition.lender_id,     // Alice
+            &accounts(1).into(),        // Bob
+            &lease_key,
+        );
+
+        assert_eq!(1, contract.active_lease_ids.len());
+        assert!(!contract
+            .active_lease_ids_by_lender
+            .contains_key(&accounts(0).into()));
+        assert!(!contract
+            .lease_ids_by_lender
+            .contains_key(&accounts(0).into()));
+        assert!(contract
+            .active_lease_ids_by_lender
+            .contains_key(&accounts(1).into()));
+        assert!(contract
+            .lease_ids_by_lender
+            .contains_key(&accounts(1).into()));
+        assert_eq!(
+            contract.lease_map.get(&lease_key).unwrap().lender_id,
+            accounts(1).into()
+        );
+    }
+
+    /// 1. Initially, Alice owns an active lease
+    /// 2. Charlie tries to transfer Alice's lease to Bob
+    /// 3. Panic, due to unmatching lenders
+    #[test]
+    #[should_panic(expected = "Active Lease is not owned by the old lender!")]
+    fn test_internal_update_active_lease_lender_fails_unmatched_old_lender() {
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.lender_id = accounts(1).into(); //Alice
+
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+
+        // update active lease records
+        lease_condition.state = LeaseState::Active;
+        contract.active_lease_ids.insert(&lease_key);
+        let mut active_lease_ids_set: UnorderedSet<String> = UnorderedSet::new(
+            StorageKey::ActiveLeaseIdsByOwnerInner {
+                account_id_hash: utils::hash_account_id(&lease_condition.lender_id),
+            }
+            .try_to_vec()
+            .unwrap(),
+        );
+        active_lease_ids_set.insert(&lease_key);
+
+        contract.internal_update_active_lease_lender(
+            &accounts(3).into(), // Charlie
+            &accounts(2).into(), // Bob
+            &lease_key,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Only active lease can update lender!")]
+    fn test_internal_update_active_lease_lender_fails_not_an_active_lease() {
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Pending;
+
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+
+        contract.internal_update_active_lease_lender(
+            &lease_condition.lender_id,     // Alice
+            &accounts(2).into(),        // Bob
+            &lease_key,
+        );
+    }
+
     #[test]
     #[should_panic(expected = "Only the owner can set allowed FT contracts")]
     fn test_update_allowed_contract_addrs_fail_when_called_by_nonowner() {
@@ -1502,7 +1649,7 @@ mod tests {
     }
 
     // Helper function to return a lease condition using default seting
-    fn create_lease_condition_default() -> LeaseCondition {
+    pub(crate) fn create_lease_condition_default() -> LeaseCondition {
         let token_id: TokenId = "test_token".to_string();
         let approval_id = 1;
         let lender: AccountId = accounts(2).into();

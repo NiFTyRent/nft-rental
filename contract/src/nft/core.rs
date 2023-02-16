@@ -106,7 +106,7 @@ impl NonFungibleTokenCore for Contract {
                 description: Some(
                     format!("
                     This is a token representing the ownership the NFT under the NiFTyRent lease: {lease_id}\n
-                    The under-leased NFT is {leased_token_id} at {contract_id}", 
+                    The under-leased NFT: {leased_token_id} at {contract_id}", 
                     lease_id=&active_lease_id_for_token,
                     leased_token_id=&lease_condition.token_id, 
                     contract_id=&lease_condition.contract_addr
@@ -187,5 +187,61 @@ impl NonFungibleTokenResolver for Contract {
         self.internal_update_active_lease_lender(&receiver_id, &previouse_owner_id, &token_id);
 
         return false;
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests{
+    /*
+    Unit test cases and helper functions
+    Test naming format for better readability:
+    - test_{function_name} _{succeeds_or_fails} _{condition}
+    - When more than one test cases are needed for one function,
+    follow the code order of testing failing conditions first and success condition last
+    */
+
+    use crate::{Contract, LeaseState};
+    use crate::tests::*;
+
+    use near_contract_standards::non_fungible_token::TokenId;
+    use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
+
+    use near_sdk::test_utils::{accounts};
+
+    #[test]
+    fn test_nft_token_succeeds_non_existing_token_id(){
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+
+        let key = "test_key".to_string();
+        contract.lease_map.insert(&key, &lease_condition);
+        contract.active_lease_ids.insert(&key);
+
+        let non_existing_token_id:TokenId= "dummy_token_id".to_string();
+        let a_token = contract.nft_token(non_existing_token_id.clone());
+
+        assert!(a_token.is_none())
+    }
+
+    #[test]
+    fn test_nft_token_succeeds_existing_token_id(){
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::Active;
+
+        let lease_id = "test_lease_id".to_string();
+        contract.lease_map.insert(&lease_id, &lease_condition);
+        contract.active_lease_ids.insert(&lease_id);
+
+        let lease_nft_token_id = contract.lease_id_to_lease_token_id(&lease_id);
+        let a_token = contract.nft_token(lease_nft_token_id.clone());
+
+        assert!(a_token.is_some());
+        assert_eq!(lease_nft_token_id, a_token.as_ref().unwrap().token_id);
+        assert_eq!(lease_condition.lender_id.clone(), a_token.as_ref().unwrap().owner_id);
+        assert!(a_token.as_ref().unwrap().metadata.is_some());
+        assert!(a_token.as_ref().unwrap().metadata.as_ref().unwrap().title.is_some());
+        assert!(a_token.as_ref().unwrap().metadata.as_ref().unwrap().description.is_some());
     }
 }
