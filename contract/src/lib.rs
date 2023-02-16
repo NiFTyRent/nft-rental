@@ -1149,13 +1149,13 @@ mod tests {
         let owner_id: AccountId = accounts(2).into();
         let borrower_id: AccountId = accounts(3).into();
         let ft_contract_addr: AccountId = accounts(1).into();
-        let price: u128 = 5;
+        let price: U128 = U128::from(5);
 
         testing_env!(
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
                 .predecessor_account_id(borrower_id.clone())
-                .attached_deposit(price)
+                .attached_deposit(price.0)
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
