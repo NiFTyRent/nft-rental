@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::result;
 
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -311,6 +312,21 @@ impl Contract {
             .lease_ids_by_borrower
             .get(&account_id)
             .unwrap_or(UnorderedSet::new(b"s"));
+        for id in lease_ids.iter() {
+            let lease_condition = self.lease_map.get(&id).unwrap();
+            results.push((id, lease_condition))
+        }
+        return results;
+    }
+
+    pub fn active_leases_by_lender(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
+        let mut results = vec![];
+
+        let lease_ids = self
+            .active_lease_ids_by_lender
+            .get(&account_id)
+            .unwrap_or(UnorderedSet::new(b"s"));
+
         for id in lease_ids.iter() {
             let lease_condition = self.lease_map.get(&id).unwrap();
             results.push((id, lease_condition))
@@ -1316,6 +1332,62 @@ mod tests {
         assert!(result_borrower == expected_borrower_id);
     }
 
+    /// Creat two leases using the same lender
+    /// Before the leases got actived, active_leases_by_lender() should return 0 leases
+    /// After both leases got actived, active_leases_by_lender() should return 2 leases
+    #[test]
+    fn test_active_leases_by_lender_succeeds() {
+        let mut contract = Contract::new(accounts(0).into());
+        let expected_lender_id: AccountId = accounts(2).into();
+
+        let mut lease_condition_1 = create_lease_condition_default();
+        lease_condition_1.token_id = "test_token_1".to_string();
+        lease_condition_1.lender_id = expected_lender_id.clone();
+        let key_1 = "test_key_1".to_string();
+        contract.internal_insert_lease(&key_1, &lease_condition_1);
+
+        let mut lease_condition_2 = create_lease_condition_default();
+        lease_condition_2.token_id = "test_token_2".to_string();
+        lease_condition_2.lender_id = expected_lender_id.clone();
+
+        // check before the leases got activated
+        let active_leases = contract.active_leases_by_lender(expected_lender_id.clone());
+        assert_eq!(active_leases.len(), 0);
+
+        // activate the 1st lease
+        let key_2 = "test_key_2".to_string();
+        contract.internal_insert_lease(&key_2, &lease_condition_2);
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition_1.borrower_id.clone())
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(Vec::new())],
+        );
+        contract.activate_lease(key_1.clone());
+
+        // activate the 2nd lease
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition_2.borrower_id.clone())
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(Vec::new())],
+        );
+        contract.activate_lease(key_2.clone());
+
+        // test after the leases got activated
+        let active_leases = contract.active_leases_by_lender(expected_lender_id.clone());
+        assert_eq!(active_leases.len(), 2);
+    }
+
     #[test]
     fn test_leases_by_borrower_success() {
         let mut contract = Contract::new(accounts(1).into());
@@ -1548,7 +1620,7 @@ mod tests {
         contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
 
         contract.internal_update_active_lease_lender(
-            &lease_condition.lender_id,     // Alice
+            &lease_condition.lender_id, // Alice
             &accounts(1).into(),        // Bob
             &lease_key,
         );
@@ -1615,7 +1687,7 @@ mod tests {
         contract.internal_insert_lease(&lease_key, &lease_condition);
 
         contract.internal_update_active_lease_lender(
-            &lease_condition.lender_id,     // Alice
+            &lease_condition.lender_id, // Alice
             &accounts(2).into(),        // Bob
             &lease_key,
         );
