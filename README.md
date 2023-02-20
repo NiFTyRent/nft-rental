@@ -26,6 +26,8 @@ To check the current list:
 
 To set the list (for the testnet for example):
 
+UPDATE: there is script automates the following: `./scripts/set_allowed_fts.js`
+
     near call $CONTRACT_NAME set_allowed_ft_contract_addrs '{"addrs": ["wrap.testnet", "usdc.fakes.testnet"]}' --accountId $ACCOUNT_ID
 
 Bear in mind that you need to make sure:
