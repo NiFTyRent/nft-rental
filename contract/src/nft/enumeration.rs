@@ -4,6 +4,7 @@ use near_contract_standards::non_fungible_token::{
 };
 use near_sdk::json_types::U128;
 
+#[near_bindgen]
 impl NonFungibleTokenEnumeration for Contract {
     /// Returns the total supply of non-fungible tokens as a string representing an
     /// Unsigned 128-bit integer to avoid JSON number limit of 2^53.

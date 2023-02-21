@@ -35,6 +35,7 @@ trait NonFungibleTokenResolver {
     ) -> bool;
 }
 
+#[near_bindgen]
 impl NonFungibleTokenCore for Contract {
     fn nft_transfer(
         &mut self,
@@ -137,6 +138,7 @@ impl NonFungibleTokenCore for Contract {
     }
 }
 
+#[near_bindgen]
 impl NonFungibleTokenResolver for Contract {
     /// Resolves XCC result from receiver's nft_on_transfer
     /// Returns true if the token was successfully transferred to the receiver_id
