@@ -8,7 +8,6 @@ const FT_ADDRS = [
   "wrap.testnet",
   "usdt.fakes.testnet",
   "usdc.fakes.testnet",
-  "usn.fakes.testnet",
 ]
 
 
