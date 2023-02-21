@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::result;
 
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -322,14 +321,13 @@ impl Contract {
     pub fn active_leases_by_lender(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
         let mut results = vec![];
 
-        let lease_ids = self
+        let active_lease_ids = self
             .active_lease_ids_by_lender
             .get(&account_id)
             .unwrap_or(UnorderedSet::new(b"s"));
-
-        for id in lease_ids.iter() {
+        for id in active_lease_ids.iter() {
             let lease_condition = self.lease_map.get(&id).unwrap();
-            results.push((id, lease_condition))
+            results.push((id, lease_condition));
         }
         return results;
     }
