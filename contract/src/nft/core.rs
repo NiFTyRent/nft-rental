@@ -37,6 +37,7 @@ trait NonFungibleTokenResolver {
 
 #[near_bindgen]
 impl NonFungibleTokenCore for Contract {
+    #[payable]
     fn nft_transfer(
         &mut self,
         receiver_id: AccountId,
@@ -57,6 +58,7 @@ impl NonFungibleTokenCore for Contract {
         );
     }
 
+    #[payable]
     fn nft_transfer_call(
         &mut self,
         receiver_id: AccountId,
