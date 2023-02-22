@@ -13,7 +13,7 @@ impl Contract {
         memo: Option<String>,
     ) -> Token {
         // Check if the lease exist
-        let lease_id = self.lease_token_id_to_lease_id(&token_id);
+        let lease_id = self.lease_token_id_to_lease_id(token_id);
         let lease_condition = self
             .lease_map
             .get(&lease_id)
