@@ -13,9 +13,10 @@ impl Contract {
         memo: Option<String>,
     ) -> Token {
         // Check if the lease exist
+        let lease_id = self.lease_token_id_to_lease_id(token_id);
         let lease_condition = self
             .lease_map
-            .get(&token_id)
+            .get(&lease_id)
             .expect("No matching lease for the given LEASE token id!");
         let owner_id = lease_condition.lender_id.clone();
         assert_eq!(&owner_id, sender_id, "Only current lender can transfer!");
@@ -25,7 +26,7 @@ impl Contract {
         );
 
         // Transfer lease from sender to receiver
-        self.internal_update_active_lease_lender(sender_id, receiver_id, token_id);
+        self.internal_update_active_lease_lender(sender_id, receiver_id, &lease_id);
 
         // If there was memo, log it
         if let Some(memo) = memo {
