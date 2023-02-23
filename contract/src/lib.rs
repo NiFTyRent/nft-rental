@@ -1347,19 +1347,17 @@ mod tests {
         let mut lease_condition_2 = create_lease_condition_default();
         lease_condition_2.token_id = "test_token_2".to_string();
         lease_condition_2.lender_id = expected_lender_id.clone();
+        let key_2 = "test_key_2".to_string();
+        contract.internal_insert_lease(&key_2, &lease_condition_2);
 
         // check before the leases got activated
         let active_leases = contract.active_leases_by_lender(expected_lender_id.clone());
         assert_eq!(active_leases.len(), 0);
 
         // activate the 1st lease
-        let key_2 = "test_key_2".to_string();
-        contract.internal_insert_lease(&key_2, &lease_condition_2);
-
         testing_env!(
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
-                .predecessor_account_id(lease_condition_1.borrower_id.clone())
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
@@ -1372,7 +1370,6 @@ mod tests {
         testing_env!(
             VMContextBuilder::new()
                 .current_account_id(accounts(0))
-                .predecessor_account_id(lease_condition_2.borrower_id.clone())
                 .build(),
             VMConfig::test(),
             RuntimeFeesConfig::test(),
