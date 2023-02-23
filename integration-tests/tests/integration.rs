@@ -809,16 +809,13 @@ async fn test_lease_nft_can_be_transferred_to_other_account_succeeds() -> anyhow
         .await?
         .into_result()?;
 
+    println!("Accepting the created lease ...");
     let leases: Vec<(String, LeaseCondition)> = contract
         .call("leases_by_owner")
         .args_json(json!({"account_id": lender.id().clone()}))
         .transact()
         .await?
         .json()?;
-    assert_eq!(leases.len(), 1);
-    println!("      ✅ Lease created");
-
-    println!("Accepting the created lease ...");
     let lease_id = &leases[0].0;
     borrower
         .call(ft_contract.id(), "ft_transfer_call")
@@ -857,10 +854,10 @@ async fn test_lease_nft_can_be_transferred_to_other_account_succeeds() -> anyhow
         .json()?;
     assert_eq!(1, lease_nft_tokens_for_lender.len());
 
-    let lease_token_id_expected = format!("{}{}", lease_id, "_lender");
+    let lease_token_id = format!("{}{}", lease_id, "_lender");
     let lease_nft_token: Option<Token> = lender
         .call(contract.id(), "nft_token")
-        .args_json(json!({"token_id": lease_token_id_expected.clone()}))
+        .args_json(json!({"token_id": lease_token_id.clone()}))
         .transact()
         .await?
         .json()?;
@@ -872,7 +869,7 @@ async fn test_lease_nft_can_be_transferred_to_other_account_succeeds() -> anyhow
         .call(contract.id(), "nft_transfer")
         .args_json(json!({
             "receiver_id": lease_nft_receiver.id(),
-            "token_id": lease_token_id_expected.clone(),
+            "token_id": lease_token_id.clone(),
         }))
         .deposit(1) //require deposit of exact 1 yocto near
         .transact()
@@ -901,7 +898,7 @@ async fn test_lease_nft_can_be_transferred_to_other_account_succeeds() -> anyhow
     // after transfer, lease nft is owned by the new lender
     let lease_nft_token: Option<Token> = lender
         .call(contract.id(), "nft_token")
-        .args_json(json!({"token_id": lease_token_id_expected.clone()}))
+        .args_json(json!({"token_id": lease_token_id.clone()}))
         .transact()
         .await?
         .json()?;
@@ -931,10 +928,292 @@ async fn test_lease_nft_can_be_transferred_to_other_account_succeeds() -> anyhow
     Ok(())
 }
 
+#[tokio::test]
+async fn test_claim_back_without_payout_using_lease_nft() -> anyhow::Result<()> {
+    let context = init(NFT_NO_PAYOUT_CODE).await?;
+
+    let lender = context.lender;
+    let borrower = context.borrower;
+    let lease_nft_receiver = context.lease_nft_receiver;
+
+    let contract = context.contract;
+    let nft_contract = context.nft_contract;
+    let ft_contract = context.ft_contract;
+
+    let worker = context.worker;
+    let token_id = "test"; // leasing nft. This should match the info at nft initialisation
+    let price = 10000;
+    let latest_block = worker.view_block().await?;
+    let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
+
+    println!("Creating lease ...");
+    lender
+        .call(nft_contract.id(), "nft_approve")
+        .args_json(json!({
+            "token_id": token_id,
+            "account_id": contract.id(),
+            "msg": json!({"contract_addr": nft_contract.id(),
+                          "token_id": token_id,
+                          "borrower_id": borrower.id(),
+                          "ft_contract_addr": ft_contract.id(),
+                          "expiration": expiration_ts_nano,
+                          "price": price.to_string(),
+            }).to_string()
+        }))
+        .deposit(parse_near!("1 N"))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("      ✅ Lease created");
+
+    println!("Accepting the created lease ...");
+    let leases: Vec<(String, LeaseCondition)> = contract
+        .call("leases_by_owner")
+        .args_json(json!({"account_id": lender.id().clone()}))
+        .transact()
+        .await?
+        .json()?;
+
+    let lease_id = &leases[0].0;
+    borrower
+        .call(ft_contract.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": contract.id().clone(),
+            "amount": price.to_string(),
+            "memo": "",
+            "msg": json!({
+                "lease_id": lease_id,
+            }).to_string()
+        }))
+        .deposit(1)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("      ✅ Lease accepted");
+
+    println!("Lender Transfering the LEASE NFT to a new user ...");
+    let lease_token_id = format!("{}{}", lease_id, "_lender");
+    lender
+        .call(contract.id(), "nft_transfer")
+        .args_json(json!({
+            "receiver_id": lease_nft_receiver.id(),
+            "token_id": lease_token_id.clone(),
+        }))
+        .deposit(1) //require deposit of exact 1 yocto near
+        .transact()
+        .await?
+        .into_result()?;
+    println!("      ✅ LEASE NFT transferred");
+
+    // Fast foward to after expiration
+    worker.fast_forward(12).await?;
+
+    println!("Claiming back the NFT...");
+    let balance_before_claim_back_original_lender: U128 = ft_contract
+        .view("ft_balance_of")
+        .args_json(json!({
+            "account_id": lender.id(),
+        }))
+        .await?
+        .json()?;
+
+    lease_nft_receiver
+        .call(contract.id(), "claim_back")
+        .args_json(json!({
+            "lease_id": lease_id,
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    let balance_after_claim_back_original_lender: U128 = ft_contract
+        .view("ft_balance_of")
+        .args_json(json!({
+            "account_id": lender.id(),
+        }))
+        .await?
+        .json()?;
+
+    // All fund goes to the original lender.
+    assert_aprox_eq(
+        balance_after_claim_back_original_lender.0 - balance_before_claim_back_original_lender.0,
+        price,
+    );
+    println!("      ✅ Rent payout is correct");
+
+    // NFT is sent to the lease_nft_receiver
+    let tokens_for_lease_nft_receiver: Vec<Token> = nft_contract
+        .call("nft_tokens_for_owner")
+        .args_json(json!({"account_id": lease_nft_receiver.id().to_string()}))
+        .transact()
+        .await?
+        .json()?;
+
+    let nft_token = &tokens_for_lease_nft_receiver[0];
+    assert_eq!(nft_token.token_id, token_id);
+    println!("      ✅ NFT claimed back correctly");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
+    let context = init(NFT_PAYOUT_CODE).await?;
+
+    let lender = context.lender;
+    let borrower = context.borrower;
+    let lease_nft_receiver = context.lease_nft_receiver;
+
+    let contract = context.contract;
+    let nft_contract = context.nft_contract;
+    let ft_contract = context.ft_contract;
+
+    let worker = context.worker;
+    let token_id = "test"; // leasing nft. This should match the info at nft initialisation
+    let price = 10000;
+    let latest_block = worker.view_block().await?;
+    let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
+
+    println!("Creating lease ...");
+    lender
+        .call(nft_contract.id(), "nft_approve")
+        .args_json(json!({
+            "token_id": token_id,
+            "account_id": contract.id(),
+            "msg": json!({"contract_addr": nft_contract.id(),
+                          "token_id": token_id,
+                          "borrower_id": borrower.id(),
+                          "ft_contract_addr": ft_contract.id(),
+                          "expiration": expiration_ts_nano,
+                          "price": price.to_string(),
+            }).to_string()
+        }))
+        .deposit(parse_near!("1 N"))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("      ✅ Lease created");
+
+    println!("Accepting the created lease ...");
+    let leases: Vec<(String, LeaseCondition)> = contract
+        .call("leases_by_owner")
+        .args_json(json!({"account_id": lender.id().clone()}))
+        .transact()
+        .await?
+        .json()?;
+
+    let lease_id = &leases[0].0;
+    borrower
+        .call(ft_contract.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": contract.id().clone(),
+            "amount": price.to_string(),
+            "memo": "",
+            "msg": json!({
+                "lease_id": lease_id,
+            }).to_string()
+        }))
+        .deposit(1)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("      ✅ Lease accepted");
+
+    println!("Lender Transfering the LEASE NFT to a new user ...");
+    let lease_token_id = format!("{}{}", lease_id, "_lender");
+    lender
+        .call(contract.id(), "nft_transfer")
+        .args_json(json!({
+            "receiver_id": lease_nft_receiver.id(),
+            "token_id": lease_token_id.clone(),
+        }))
+        .deposit(1) //require deposit of exact 1 yocto near
+        .transact()
+        .await?
+        .into_result()?;
+    println!("      ✅ LEASE NFT transferred");
+
+    // Fast foward to after expiration
+    worker.fast_forward(12).await?;
+
+    println!("Claiming back the NFT...");
+    let balance_before_claim_back_original_lender: U128 = ft_contract
+        .view("ft_balance_of")
+        .args_json(json!({
+            "account_id": lender.id(),
+        }))
+        .await?
+        .json()?;
+
+    let balance_before_claim_back_nft_contract: U128 = ft_contract
+        .view("ft_balance_of")
+        .args_json(json!({
+            "account_id": nft_contract.id(),
+        }))
+        .await?
+        .json()?;
+
+    lease_nft_receiver
+        .call(contract.id(), "claim_back")
+        .args_json(json!({
+            "lease_id": lease_id,
+        }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    let balance_after_claim_back_original_lender: U128 = ft_contract
+        .view("ft_balance_of")
+        .args_json(json!({
+            "account_id": lender.id(),
+        }))
+        .await?
+        .json()?;
+
+    let balance_after_claim_back_nft_contract: U128 = ft_contract
+        .view("ft_balance_of")
+        .args_json(json!({
+            "account_id": nft_contract.id(),
+        }))
+        .await?
+        .json()?;
+
+    // Based on the demo NFT royalty logic: 
+    // - the NFT contract keeps 5% of the rent.
+    // - the lender receives the rest 95% of the rent.
+    assert_aprox_eq(
+        balance_after_claim_back_original_lender.0 - balance_before_claim_back_original_lender.0,
+        price / 20 * 19,
+    );
+    assert_aprox_eq(
+        balance_after_claim_back_nft_contract.0 - balance_before_claim_back_nft_contract.0,
+        price / 20,
+    );
+    println!("      ✅ Rent payouts are correct");
+
+    // NFT is sent to the lease_nft_receiver
+    let tokens_for_lease_nft_receiver: Vec<Token> = nft_contract
+        .call("nft_tokens_for_owner")
+        .args_json(json!({"account_id": lease_nft_receiver.id().to_string()}))
+        .transact()
+        .await?
+        .json()?;
+
+    let nft_token = &tokens_for_lease_nft_receiver[0];
+    assert_eq!(nft_token.token_id, token_id);
+    println!("      ✅ NFT claimed back correctly");
+
+    Ok(())
+}
+
 // TODO: claim_back - NFT transfer check
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
 // TODO: nft_on_approve - check lease createion happened correctly & all indices have been updated accordingly
 // TODO: add a dummy NFT contract without payout being implemented to test the related scenarios
-// TODO(syu): Claim_back when LEASE NFT owner is different from the original lender, without payout
-// TODO(syu): Claim_back when LEASE NFT owner is different from the original lender, with payout
 // TODO(syu): nft_resolve_transfer to reverse a LEASE NFT transfer

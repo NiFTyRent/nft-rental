@@ -222,7 +222,7 @@ impl Contract {
             "Queried Lease is not active!"
         );
 
-        // 3. only original lender or service contract owner can claim back from expried lease
+        // 3. only the current lease lender or service contract owner can claim back from expried lease
         assert!(
             (lease_condition.lender_id == env::predecessor_account_id())
                 || (self.owner == env::predecessor_account_id()),
