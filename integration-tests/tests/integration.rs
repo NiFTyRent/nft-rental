@@ -634,7 +634,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_lender_receives_a_lease_nft_after_lease_activation_succeeds() -> anyhow::Result<()> {
+async fn test_lender_receives_a_lease_nft_after_lease_activation() -> anyhow::Result<()> {
     let context = init(NFT_NO_PAYOUT_CODE).await?;
     let lender = context.lender;
     let borrower = context.borrower;
@@ -707,7 +707,7 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation_succeeds() -> a
     assert_eq!(active_leases[0].1.state, LeaseState::Active);
     println!("      ✅ Lease activation confirmed");
 
-    println!("Confirming LEASE NFT contract info ...");
+    println!("Confirming LEASE NFT contract metatdata ...");
     let nft_contract_metadata: NFTContractMetadata = lender
         .call(contract.id(), "nft_metadata")
         .transact()
@@ -722,14 +722,14 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation_succeeds() -> a
     assert_to_string_eq!("LEASE", nft_contract_metadata.symbol);
     println!("      ✅ LEASE NFT contract metadata confirmed");
 
-    println!("Confirming LEASE NFT is minted correctly ...");
+    println!("Confirming LEASE NFT enumeration ...");
     let nft_total_supply: U128 = lender
         .call(contract.id(), "nft_total_supply")
         .transact()
         .await?
         .json()?;
     assert_eq!(1, nft_total_supply.0);
-    println!("      ✅ LEASE NFT total supply is correct");
+    println!("      ✅ LEASE NFT total supply confirmed");
 
     let nft_total_supply_for_lender: U128 = lender
         .call(contract.id(), "nft_supply_for_owner")
@@ -738,7 +738,7 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation_succeeds() -> a
         .await?
         .json()?;
     assert_eq!(1, nft_total_supply_for_lender.0);
-    println!("      ✅ LEASE NFT total supply for lender is correct");
+    println!("      ✅ LEASE NFT total supply for lender confirmed");
 
     let lease_token_id_expected = format!("{}{}", lease_id, "_lender");
     let lease_nft_token: Option<Token> = lender
@@ -753,7 +753,25 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation_succeeds() -> a
         lease_nft_token.as_ref().unwrap().token_id
     );
     assert_to_string_eq!(lender.id(), lease_nft_token.as_ref().unwrap().owner_id);
-    println!("      ✅ LEASE NFT token info is confirmed");
+
+    let token_metadata = lease_nft_token.as_ref().unwrap().metadata.as_ref();
+    assert!(token_metadata.is_some());
+    assert_to_string_eq!(
+        format!(
+            "NiftyRent Lease Ownership Token: {}",
+            &lease_token_id_expected
+        ),
+        token_metadata.unwrap().title.as_ref().unwrap()
+    );
+    println!("      ✅ LEASE NFT nft_token info confirmed");
+
+    let lease_nft_tokens_for_borrower: Vec<Token> = borrower
+        .call(contract.id(), "nft_tokens_for_owner")
+        .args_json(json!({"account_id": borrower.id()}))
+        .transact()
+        .await?
+        .json()?;
+    assert_eq!(lease_nft_tokens_for_borrower.len(), 0);
 
     let lease_nft_tokens_for_lender: Vec<Token> = lender
         .call(contract.id(), "nft_tokens_for_owner")
@@ -761,18 +779,29 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation_succeeds() -> a
         .transact()
         .await?
         .json()?;
-    assert_eq!(1, lease_nft_tokens_for_lender.len());
+    assert_eq!(lease_nft_tokens_for_lender.len(), 1);
 
     let a_lease_nft_token = &lease_nft_tokens_for_lender[0];
     assert_to_string_eq!(lender.id(), a_lease_nft_token.owner_id);
     assert_eq!(lease_token_id_expected, a_lease_nft_token.token_id);
-    println!("      ✅ LEASE NFT token mint confirmed");
+    println!("      ✅ LEASE NFT nft_tokens_for_owner confirmed");
 
+    let lease_nft_tokens: Vec<Token> = lender
+        .call(contract.id(), "nft_tokens")
+        .args_json(json!({}))
+        .transact()
+        .await?
+        .json()?;
+    assert_eq!(lease_nft_tokens.len(), 1);
+    assert_eq!(lease_token_id_expected, lease_nft_tokens[0].token_id);
+    println!("      ✅ LEASE NFT all nft_tokens confirmed");
+
+    println!("      ✅ LEASE NFT token mint confirmed");
     Ok(())
 }
 
 #[tokio::test]
-async fn test_lease_nft_can_be_transferred_to_other_account_succeeds() -> anyhow::Result<()> {
+async fn test_lease_nft_can_be_transferred_to_other_account() -> anyhow::Result<()> {
     let context = init(NFT_NO_PAYOUT_CODE).await?;
 
     let lender = context.lender;
@@ -1184,7 +1213,7 @@ async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    // Based on the demo NFT royalty logic: 
+    // Based on the demo NFT royalty logic:
     // - the NFT contract keeps 5% of the rent.
     // - the lender receives the rest 95% of the rent.
     assert_aprox_eq(
