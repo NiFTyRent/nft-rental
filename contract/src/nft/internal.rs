@@ -104,7 +104,7 @@ mod tests {
     use crate::tests::*;
     use crate::{Contract, LeaseId, LeaseState};
 
-    use near_contract_standards::non_fungible_token::{events::NftMint, TokenId};
+    use near_contract_standards::non_fungible_token::TokenId;
     use near_sdk::test_utils::{self, accounts};
     use near_sdk::AccountId;
 
