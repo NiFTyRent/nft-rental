@@ -1740,6 +1740,11 @@ mod tests {
         )
     }
 
+    // helper method to generate a dummy AccountId using input name
+    pub(crate) fn get_dummy_account_id(account_name: &str) -> AccountId {
+        AccountId::new_unchecked(account_name.to_string())
+    }
+
     // Helper function create a lease condition based on input
     fn create_lease_condition(
         contract_addr: AccountId,

@@ -1,5 +1,5 @@
 use crate::*;
-use near_contract_standards::non_fungible_token::events::NftMint;
+use near_contract_standards::non_fungible_token::events::{NftMint, NftTransfer};
 use near_contract_standards::non_fungible_token::Token;
 
 /// This file includes NFT related features but not required in the Nomicon Standards
@@ -29,10 +29,15 @@ impl Contract {
         // Transfer lease from sender to receiver
         self.internal_update_active_lease_lender(sender_id, receiver_id, &lease_id);
 
-        // If there was memo, log it
-        if let Some(memo) = memo {
-            env::log_str(&format!("Memo: {}", memo).to_string());
+        // Log transfer event as per the Events standard
+        NftTransfer {
+            old_owner_id: sender_id,
+            new_owner_id: receiver_id,
+            token_ids: &[token_id],
+            authorized_id: None, // approval is not supported at the moment
+            memo: memo.as_deref(),
         }
+        .emit();
 
         // Return the new token info, when internal transfer succeeded
         Token {
@@ -69,7 +74,7 @@ impl Contract {
         // Record active leases/Lease Tokens
         self.active_lease_ids.insert(&lease_id);
 
-        // Log mint event as per the events standard
+        // Log mint event as per the Events standard
         let token_id = self.lease_id_to_lease_token_id(&lease_id);
         NftMint {
             owner_id: &receiver_id,
@@ -106,12 +111,6 @@ mod tests {
 
     use near_contract_standards::non_fungible_token::TokenId;
     use near_sdk::test_utils::{self, accounts};
-    use near_sdk::AccountId;
-
-    // helper method to generat a dummy AccountId
-    fn alice() -> AccountId {
-        AccountId::new_unchecked("alice".to_string())
-    }
 
     #[test]
     fn test_lease_id_to_lease_token_id_succeeds() {
@@ -174,10 +173,10 @@ mod tests {
     }
 
     #[test]
-    fn test_event_mint_log_emit_succeeds() {
+    fn test_event_mint_log_succeeds() {
         let mut contract = Contract::new(accounts(0).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.lender_id = alice();
+        lease_condition.lender_id = get_dummy_account_id("alice");
 
         let lease_key = "test_key".to_string();
         contract.internal_insert_lease(&lease_key, &lease_condition);
@@ -189,5 +188,30 @@ mod tests {
         let mint_log = &test_utils::get_logs()[0];
         let mint_log_expected = r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_mint","data":[{"owner_id":"alice","token_ids":["test_key_lender"]}]}"#;
         assert_eq!(mint_log, mint_log_expected);
+    }
+
+    #[test]
+    fn test_event_transfer_log_for_nft_transfer_succeeds() {
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.lender_id = get_dummy_account_id("alice");
+
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+        lease_condition.state = LeaseState::Active;
+
+        let token_id = contract.lease_id_to_lease_token_id(&lease_key);
+        contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
+        contract.internal_transfer(
+            &lease_condition.lender_id,
+            &get_dummy_account_id("bob"),
+            &token_id,
+            None,
+        );
+        
+        // Check logs emit correctly
+        let transfer_log = &test_utils::get_logs()[1];
+        let transfer_log_expected = r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{"old_owner_id":"alice","new_owner_id":"bob","token_ids":["test_key_lender"]}]}"#;
+        assert_eq!(transfer_log, transfer_log_expected);
     }
 }

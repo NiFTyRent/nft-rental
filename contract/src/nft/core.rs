@@ -4,6 +4,8 @@ use near_contract_standards::non_fungible_token::{
     metadata::TokenMetadata,
     Token,};
 pub use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
+use near_contract_standards::non_fungible_token::events::NftTransfer;
+
 use near_sdk::{assert_one_yocto, PromiseOrValue, PromiseResult};
 
 
@@ -32,6 +34,8 @@ trait NonFungibleTokenResolver {
         owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
+        authorized_id: Option<AccountId>,  // logging trasnfer event - deault to None
+        memo: Option<String>,   // memo for logging transfer event
     ) -> bool;
 }
 
@@ -89,7 +93,7 @@ impl NonFungibleTokenCore for Contract {
             .then(
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
-                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id),
+                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id, None, None),
             )
             .into()
     }
@@ -149,6 +153,11 @@ impl NonFungibleTokenResolver for Contract {
         previouse_owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
+        // TODO: remove this suppressor after implementing approval.
+        #[allow(unused_variables)]
+        authorized_id: Option<AccountId>,  // logging trasnfer event - deault to None
+        #[allow(unused_variables)]
+        memo: Option<String>,   // memo for logging transfer event
     ) -> bool {
         // Check whether the token should be returned to previous owner
         let should_revert = match env::promise_result(0) {
@@ -180,15 +189,18 @@ impl NonFungibleTokenResolver for Contract {
             return true;
         }
 
-        // At this stage, we can safely revert the transfer
-        log!(
-            "Return LEASE Token {} from @{} to @{}",
-            token_id,
-            receiver_id,
-            previouse_owner_id
-        );
-
         self.internal_update_active_lease_lender(&receiver_id, &previouse_owner_id, &token_id);
+        
+        // Log transfer event as per the Events standard
+        NftTransfer {
+            old_owner_id: &receiver_id,
+            new_owner_id: &previouse_owner_id,
+            token_ids: &[&token_id],
+            authorized_id: None,
+            memo: None,
+        }
+        .emit();
+
 
         return false;
     }
