@@ -1,4 +1,5 @@
 use crate::*;
+use near_contract_standards::non_fungible_token::events::NftMint;
 use near_contract_standards::non_fungible_token::Token;
 
 /// This file includes NFT related features but not required in the Nomicon Standards
@@ -67,6 +68,15 @@ impl Contract {
 
         // Record active leases/Lease Tokens
         self.active_lease_ids.insert(&lease_id);
+
+        // Log mint event as per the events standard
+        let token_id = self.lease_id_to_lease_token_id(&lease_id);
+        NftMint {
+            owner_id: &receiver_id,
+            token_ids: &[&token_id],
+            memo: None,
+        }
+        .emit();
     }
 
     pub(crate) fn lease_token_id_to_lease_id(&self, token_id: &TokenId) -> LeaseId {
@@ -94,9 +104,15 @@ mod tests {
     use crate::tests::*;
     use crate::{Contract, LeaseId, LeaseState};
 
-    use near_contract_standards::non_fungible_token::TokenId;
-    use near_sdk::test_utils::{accounts};
-    
+    use near_contract_standards::non_fungible_token::{events::NftMint, TokenId};
+    use near_sdk::test_utils::{self, accounts};
+    use near_sdk::AccountId;
+
+    // helper method to generat a dummy AccountId
+    fn alice() -> AccountId {
+        AccountId::new_unchecked("alice".to_string())
+    }
+
     #[test]
     fn test_lease_id_to_lease_token_id_succeeds() {
         let lease_id: LeaseId = "8Vin66zVuhiB6tb9Zn9P6vRJpjQMEUMum1EkKESxJnK".to_string();
@@ -155,5 +171,23 @@ mod tests {
             .get(&lease_condition.lender_id)
             .unwrap()
             .contains(&lease_key));
+    }
+
+    #[test]
+    fn test_event_mint_log_emit_succeeds() {
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.lender_id = alice();
+
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+        lease_condition.state = LeaseState::Active;
+
+        contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
+
+        // Check logs output correctly
+        let mint_log = &test_utils::get_logs()[0];
+        let mint_log_expected = r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_mint","data":[{"owner_id":"alice","token_ids":["test_key_lender"]}]}"#;
+        assert_eq!(mint_log, mint_log_expected);
     }
 }
