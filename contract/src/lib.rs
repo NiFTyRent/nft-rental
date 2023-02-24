@@ -1741,7 +1741,7 @@ mod tests {
     }
 
     // helper method to generate a dummy AccountId using input name
-    pub(crate) fn get_dummy_account_id(account_name: &str) -> AccountId {
+    pub(crate) fn create_a_dummy_account_id(account_name: &str) -> AccountId {
         AccountId::new_unchecked(account_name.to_string())
     }
 
