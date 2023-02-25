@@ -508,7 +508,7 @@ impl Contract {
         // update active leases set
         self.active_lease_ids.remove(&lease_id);
 
-        // update active_lease_ids_per_owner
+        // update active_lease_ids_by_lender
         let mut active_lease_id_set = self
             .active_lease_ids_by_lender
             .get(&lease_condition.lender_id);
@@ -1738,6 +1738,11 @@ mod tests {
             None,
             LeaseState::Pending,
         )
+    }
+
+    // helper method to generate a dummy AccountId using input name
+    pub(crate) fn create_a_dummy_account_id(account_name: &str) -> AccountId {
+        AccountId::new_unchecked(account_name.to_string())
     }
 
     // Helper function create a lease condition based on input

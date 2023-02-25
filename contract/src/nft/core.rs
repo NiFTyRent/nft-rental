@@ -4,6 +4,8 @@ use near_contract_standards::non_fungible_token::{
     metadata::TokenMetadata,
     Token,};
 pub use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
+use near_contract_standards::non_fungible_token::events::NftTransfer;
+
 use near_sdk::{assert_one_yocto, PromiseOrValue, PromiseResult};
 
 
@@ -33,6 +35,8 @@ trait NonFungibleTokenResolver {
         owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,  // logging trasnfer event - deault to None
+        memo: Option<String>,   // memo for logging transfer event
     ) -> bool;
 }
 
@@ -76,7 +80,7 @@ impl NonFungibleTokenCore for Contract {
             &sender_id,
             &receiver_id,
             &token_id,
-            memo,
+            memo.clone(),
         );
 
         ext_nft_receiver::ext(receiver_id.clone())
@@ -90,7 +94,7 @@ impl NonFungibleTokenCore for Contract {
             .then(
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
-                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id),
+                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id, None, memo),
             )
             .into()
     }
@@ -150,6 +154,10 @@ impl NonFungibleTokenResolver for Contract {
         previouse_owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
+        // TODO: remove this suppressor after implementing approval.
+        #[allow(unused_variables)]
+        approved_account_ids: Option<HashMap<AccountId, u64>>,  // logging trasnfer event - deault to None
+        memo: Option<String>,   // memo for logging transfer event
     ) -> bool {
         // Check whether the token should be returned to previous owner
         let should_revert = match env::promise_result(0) {
@@ -181,15 +189,18 @@ impl NonFungibleTokenResolver for Contract {
             return true;
         }
 
-        // At this stage, we can safely revert the transfer
-        log!(
-            "Return LEASE Token {} from @{} to @{}",
-            token_id,
-            receiver_id,
-            previouse_owner_id
-        );
-
         self.internal_update_active_lease_lender(&receiver_id, &previouse_owner_id, &token_id);
+        
+        // Log transfer event as per the Events standard
+        NftTransfer {
+            old_owner_id: &receiver_id,
+            new_owner_id: &previouse_owner_id,
+            token_ids: &[&token_id],
+            authorized_id: None,
+            memo: memo.as_deref(),
+        }
+        .emit();
+
 
         return false;
     }
@@ -211,7 +222,8 @@ mod tests{
     use near_contract_standards::non_fungible_token::TokenId;
     use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
 
-    use near_sdk::test_utils::{accounts};
+    use near_sdk::test_utils::{self, accounts, VMContextBuilder};
+    use near_sdk::testing_env;
 
     #[test]
     fn test_nft_token_succeeds_non_existing_token_id(){
@@ -248,5 +260,39 @@ mod tests{
         assert!(a_token.as_ref().unwrap().metadata.is_some());
         assert!(a_token.as_ref().unwrap().metadata.as_ref().unwrap().title.is_some());
         assert!(a_token.as_ref().unwrap().metadata.as_ref().unwrap().description.is_some());
+    }
+
+    #[test]
+    fn test_event_transfer_log_for_nft_transfer_succeeds() {
+        let mut contract = Contract::new(accounts(0).into());
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.lender_id = create_a_dummy_account_id("alice");
+
+        let lease_key = "test_key".to_string();
+        contract.internal_insert_lease(&lease_key, &lease_condition);
+        lease_condition.state = LeaseState::Active;
+
+        contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(lease_condition.lender_id.clone())
+                .attached_deposit(1)
+                .build()
+        );
+
+        // transfer the nft
+        let token_id = contract.lease_id_to_lease_token_id(&lease_key);
+        contract.nft_transfer(
+            create_a_dummy_account_id("bob"),
+            token_id.clone(),
+            None,
+            None,
+        );
+
+        // Check transfer logs
+        let transfer_log = &test_utils::get_logs()[0];  // the index can be different when other logs added
+        let transfer_log_expected = r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{"old_owner_id":"alice","new_owner_id":"bob","token_ids":["test_key_lender"]}]}"#;
+        assert_eq!(transfer_log, transfer_log_expected);
     }
 }
