@@ -221,7 +221,7 @@ mod tests{
     use near_contract_standards::non_fungible_token::TokenId;
     use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
 
-    use near_sdk::test_utils::{self, accounts,VMContextBuilder};
+    use near_sdk::test_utils::{self, accounts, VMContextBuilder};
     use near_sdk::testing_env;
 
     #[test]

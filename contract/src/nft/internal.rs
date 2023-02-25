@@ -34,7 +34,7 @@ impl Contract {
             old_owner_id: sender_id,
             new_owner_id: receiver_id,
             token_ids: &[token_id],
-            authorized_id: None, // approval is not supported at the moment
+            authorized_id: None,
             memo: memo.as_deref(),
         }
         .emit();
@@ -175,14 +175,9 @@ mod tests {
     #[test]
     fn test_event_mint_log_succeeds() {
         let mut contract = Contract::new(accounts(0).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.lender_id = create_a_dummy_account_id("alice");
-
         let lease_key = "test_key".to_string();
-        contract.internal_insert_lease(&lease_key, &lease_condition);
-        lease_condition.state = LeaseState::Active;
 
-        contract.nft_mint(lease_key.clone(), lease_condition.lender_id.clone());
+        contract.nft_mint(lease_key.clone(), create_a_dummy_account_id("alice"));
 
         // Check logs output correctly
         let mint_log = &test_utils::get_logs()[0];

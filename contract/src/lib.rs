@@ -508,7 +508,7 @@ impl Contract {
         // update active leases set
         self.active_lease_ids.remove(&lease_id);
 
-        // update active_lease_ids_per_owner
+        // update active_lease_ids_by_lender
         let mut active_lease_id_set = self
             .active_lease_ids_by_lender
             .get(&lease_condition.lender_id);
