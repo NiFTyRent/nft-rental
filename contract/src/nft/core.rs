@@ -34,7 +34,7 @@ trait NonFungibleTokenResolver {
         owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
-        authorized_id: Option<AccountId>,  // logging trasnfer event - deault to None
+        approved_account_ids: Option<HashMap<AccountId, u64>>,  // logging trasnfer event - deault to None
         memo: Option<String>,   // memo for logging transfer event
     ) -> bool;
 }
@@ -79,7 +79,7 @@ impl NonFungibleTokenCore for Contract {
             &sender_id,
             &receiver_id,
             &token_id,
-            memo,
+            memo.clone(),
         );
 
         ext_nft_receiver::ext(receiver_id.clone())
@@ -93,7 +93,7 @@ impl NonFungibleTokenCore for Contract {
             .then(
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
-                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id, None, None),
+                    .nft_resolve_transfer(previous_token.owner_id, receiver_id, token_id, None, memo),
             )
             .into()
     }
@@ -155,8 +155,7 @@ impl NonFungibleTokenResolver for Contract {
         token_id: TokenId,
         // TODO: remove this suppressor after implementing approval.
         #[allow(unused_variables)]
-        authorized_id: Option<AccountId>,  // logging trasnfer event - deault to None
-        #[allow(unused_variables)]
+        approved_account_ids: Option<HashMap<AccountId, u64>>,  // logging trasnfer event - deault to None
         memo: Option<String>,   // memo for logging transfer event
     ) -> bool {
         // Check whether the token should be returned to previous owner
@@ -197,7 +196,7 @@ impl NonFungibleTokenResolver for Contract {
             new_owner_id: &previouse_owner_id,
             token_ids: &[&token_id],
             authorized_id: None,
-            memo: None,
+            memo: memo.as_deref(),
         }
         .emit();
 
