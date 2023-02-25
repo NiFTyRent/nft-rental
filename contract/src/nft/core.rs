@@ -9,6 +9,7 @@ use near_sdk::{assert_one_yocto, PromiseOrValue, PromiseResult};
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
+const DATA_IMAGE_SVG: &str = include_str!("data_image_svg.txt");
 
 #[ext_contract(ext_nft_receiver)]
 trait NonFungibleTokenReceiver {
@@ -114,7 +115,7 @@ impl NonFungibleTokenCore for Contract {
                     leased_token_id=&lease_condition.token_id, 
                     contract_id=&lease_condition.contract_addr
                 )),
-                media: None,    // TODO(syu): add the media link         
+                media: Some(DATA_IMAGE_SVG.to_string()),
                 media_hash: None,
                 copies: None,
                 issued_at: None,
