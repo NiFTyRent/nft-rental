@@ -758,7 +758,7 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation() -> anyhow::Re
     assert!(token_metadata.is_some());
     assert_to_string_eq!(
         format!(
-            "NiftyRent Lease Ownership Token: {}",
+            "NiFTyRent Lease Ownership Token: {}",
             &lease_token_id_expected
         ),
         token_metadata.unwrap().title.as_ref().unwrap()
