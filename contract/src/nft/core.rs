@@ -110,7 +110,7 @@ impl NonFungibleTokenCore for Contract {
 
             // Generate token metadata on the fly. Hard coded for now
             let token_metadata = TokenMetadata{
-                title: Some(format!("NiftyRent Lease Ownership Token: {}", &token_id)), 
+                title: Some(format!("NiFTyRent Lease Ownership Token: {}", &token_id)), 
                 description: Some(
                     format!("
                     This is a token representing the ownership the NFT under the NiFTyRent lease: {lease_id}\n
