@@ -1,0 +1,27 @@
+[package]
+name = "niftyrent_marketplace"
+version = "1.0.0"
+authors = ["NiFTyRent Team"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-contract-standards = "4.1.1"
+near-sdk = "4.0.0"
+# near-contract-standards = "4.0.0"
+uint = { version = "0.9.3", default-features = false }
+# near-crypto = "0.14.0"
+# getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]
+members = []
