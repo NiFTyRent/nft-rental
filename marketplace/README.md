@@ -12,10 +12,12 @@ sequenceDiagram
     participant Marketplace
     participant Core
     participant Game
-    Lender->>Marketplace: Create lease offer
-    Borrower->>Marketplace: Take lease offer (by tranfer the rent)
+    Lender ->> Marketplace: Create lease offer
+    Borrower ->> Marketplace: Take lease offer (by tranfer the rent)
     Marketplace->>Core: Transfer NFT, transfer rent, and create an active lease
-    Game ->> Core: check current user
-    Lender ->> Core: claim back the NFT and rent
+    Lender ->> Core: View my lendings
+    Borrower ->> Core: view my borowings
+    Game ->> Core: Check current user
+    Lender ->> Core: Claim back the NFT and rent
 ```
 

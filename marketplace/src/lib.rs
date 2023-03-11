@@ -6,14 +6,15 @@ use near_sdk::{
     env,
     json_types::{U128, U64},
     near_bindgen,
-    serde::{self, Deserialize, Serialize},
+    serde::{Deserialize, Serialize},
     serde_json::json,
-    AccountId, Balance, CryptoHash,
+    AccountId, CryptoHash,
 };
 
 mod ft_callbacks;
 mod nft_callbacks;
 
+// TODO(libo): use a differnt id type, since same NFT could be listed for leased for different time period.
 type ListingId = (AccountId, TokenId);
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
