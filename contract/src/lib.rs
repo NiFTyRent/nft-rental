@@ -332,11 +332,13 @@ impl Contract {
         return results;
     }
 
-    pub fn get_borrower_by_contract_and_token(
+
+    #[private]
+    pub fn get_lease_by_contract_and_token(
         &self,
         contract_id: AccountId,
         token_id: TokenId,
-    ) -> Option<AccountId> {
+    ) -> Option<LeaseCondition> {
         // return the current borrower of the NFTs
         // Only active lease has valid borrower
 
@@ -347,13 +349,53 @@ impl Contract {
         if lease_id.is_none() {
             return None;
         } else {
-            let lease_condition = self.lease_map.get(&lease_id.unwrap()).unwrap();
-            if lease_condition.state == LeaseState::Active {
-                // only active lease has valid borrower
-                return Some(lease_condition.borrower_id);
-            } else {
-                return None;
-            }
+            return Some(self.lease_map.get(&lease_id.unwrap()).unwrap());
+        }
+    }
+
+    pub fn get_borrower_by_contract_and_token(
+        &self,
+        contract_id: AccountId,
+        token_id: TokenId,
+    ) -> Option<AccountId> {
+        // return the current borrower of the NFTs
+        // Only active lease has valid borrower
+
+        let lease_condition_option = self.get_lease_by_contract_and_token(contract_id, token_id);
+        if lease_condition_option.is_none() {
+            return None;
+        }
+
+        let lease_condition = lease_condition_option.unwrap();
+
+        if lease_condition.state == LeaseState::Active {
+            // only active lease has valid borrower
+            return Some(lease_condition.borrower_id);
+        } else {
+            return None;
+        }
+    }
+
+    pub fn get_current_owner_by_contract_and_token(
+        &self,
+        contract_id: AccountId,
+        token_id: TokenId,
+    ) -> Option<AccountId> {
+        // return the current borrower of the NFTs
+        // Only active lease has valid borrower
+
+        let lease_condition_option = self.get_lease_by_contract_and_token(contract_id, token_id);
+        if lease_condition_option.is_none() {
+            return None;
+        }
+
+        let lease_condition = lease_condition_option.unwrap();
+
+        if lease_condition.state == LeaseState::Active {
+            // only active lease has valid borrower
+            return Some(lease_condition.borrower_id);
+        } else {
+            return Some(lease_condition.lender_id);
         }
     }
 
@@ -1305,6 +1347,53 @@ mod tests {
         let result_borrower = contract
             .get_borrower_by_contract_and_token(expected_contract_address, expected_token_id);
         assert!(result_borrower.is_none());
+    }
+
+    #[test]
+    fn test_get_current_owner_by_contract_and_token_success_found_matching_borrower() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let expected_contract_address: AccountId = accounts(4).into();
+        let expected_token_id = "test_token".to_string();
+        let expected_borrower_id: AccountId = accounts(3).into();
+
+        lease_condition.state = LeaseState::Active;
+        lease_condition.contract_addr = expected_contract_address.clone();
+        lease_condition.token_id = expected_token_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
+
+        let key = "test_key".to_string();
+        contract.internal_insert_lease(&key, &lease_condition);
+
+        let result_owner = contract
+            .get_current_owner_by_contract_and_token(expected_contract_address, expected_token_id)
+            .unwrap();
+        assert!(result_owner == expected_borrower_id);
+    }
+
+    #[test]
+    fn test_get_current_owner_by_contract_and_token_success_lease_is_inactive() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let expected_contract_address: AccountId = accounts(4).into();
+        let expected_token_id = "test_token".to_string();
+        let expected_lender_id: AccountId = accounts(2).into();
+        let expected_borrower_id: AccountId = accounts(3).into();
+
+        lease_condition.state = LeaseState::Pending;
+        lease_condition.contract_addr = expected_contract_address.clone();
+        lease_condition.token_id = expected_token_id.clone();
+        lease_condition.lender_id = expected_lender_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
+
+        let key = "test_key".to_string();
+        contract.internal_insert_lease(&key, &lease_condition);
+
+        let result_owner = contract
+            .get_current_owner_by_contract_and_token(expected_contract_address, expected_token_id).unwrap();
+        assert!(result_owner == expected_lender_id);
     }
 
     #[test]
