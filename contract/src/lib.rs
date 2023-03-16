@@ -376,23 +376,24 @@ impl Contract {
         }
     }
 
-    pub fn get_current_owner_by_contract_and_token(
+    pub fn get_current_user_by_contract_and_token(
         &self,
         contract_id: AccountId,
         token_id: TokenId,
     ) -> Option<AccountId> {
-        // return the current borrower of the NFTs
-        // Only active lease has valid borrower
+        // return the current user of the NFTs
+        // The current user of an active lease is the borrower, otherwise it is the lender
 
         let lease_condition_option = self.get_lease_by_contract_and_token(contract_id, token_id);
-        if lease_condition_option.is_none() {
-            return None;
-        }
+        
+        assert!(
+            !lease_condition_option.is_none(),
+            "Cannot find a lease of this contract and token!"
+        );
 
         let lease_condition = lease_condition_option.unwrap();
 
         if lease_condition.state == LeaseState::Active {
-            // only active lease has valid borrower
             return Some(lease_condition.borrower_id);
         } else {
             return Some(lease_condition.lender_id);
@@ -1350,7 +1351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_current_owner_by_contract_and_token_success_found_matching_borrower() {
+    fn test_get_current_user_by_contract_and_token_success_found_matching_borrower() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
 
@@ -1367,13 +1368,13 @@ mod tests {
         contract.internal_insert_lease(&key, &lease_condition);
 
         let result_owner = contract
-            .get_current_owner_by_contract_and_token(expected_contract_address, expected_token_id)
+            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id)
             .unwrap();
         assert!(result_owner == expected_borrower_id);
     }
 
     #[test]
-    fn test_get_current_owner_by_contract_and_token_success_lease_is_inactive() {
+    fn test_get_current_user_by_contract_and_token_success_lease_is_inactive() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
 
@@ -1392,7 +1393,7 @@ mod tests {
         contract.internal_insert_lease(&key, &lease_condition);
 
         let result_owner = contract
-            .get_current_owner_by_contract_and_token(expected_contract_address, expected_token_id).unwrap();
+            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id).unwrap();
         assert!(result_owner == expected_lender_id);
     }
 
