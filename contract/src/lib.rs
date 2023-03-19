@@ -64,7 +64,7 @@ pub struct LeaseJson {
     borrower_id: AccountId,
     ft_contract_addr: AccountId,
     start_ts_nano: u64,
-    end_ts_nano: u64, // TODO: duration
+    end_ts_nano: u64,
     price: U128,
 }
 
@@ -84,8 +84,8 @@ pub struct LeaseCondition {
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
     pub approval_id: u64,            // Approval from owner to lease
-    pub start_ts_nano: u64,               // TODO: duration
-    pub end_ts_nano: u64,             // TODO: duration
+    pub start_ts_nano: u64,          // The timestamp in nano to start the lease, i.e. the current user will be the borrower
+    pub end_ts_nano: u64,            // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
     pub price: U128,                 // Proposed lease price
     pub payout: Option<Payout>,      // Payout info (e.g. for Royalty split)
     pub state: LeaseState,           // Current lease state
@@ -394,7 +394,6 @@ impl Contract {
         );
 
         let lease_condition = lease_condition_option.unwrap();
-        println!("block timestamp {}", env::block_timestamp());
         if lease_condition.state == LeaseState::Active && lease_condition.start_ts_nano < env::block_timestamp() {
             return Some(lease_condition.borrower_id);
         } else {
