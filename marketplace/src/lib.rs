@@ -1,4 +1,4 @@
-use near_contract_standards::non_fungible_token::TokenId;
+use near_contract_standards::non_fungible_token::{TokenId, Token};
 use near_sdk::{
     assert_one_yocto,
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -138,7 +138,7 @@ impl Contract {
         lease_start_time: u64,
         lease_end_time: u64,
     ) {
-        let listing_id: ListingId = (nft_contract_id, nft_token_id);
+        let listing_id: ListingId = (nft_contract_id.clone(), nft_token_id.clone());
 
         self.listings.insert(
             &listing_id,
@@ -197,6 +197,10 @@ impl Contract {
 
     fn internal_remove_listing(&mut self, listing_id: ListingId) {
         todo!()
+    }
+    
+    fn internal_delete_market_data(&mut self, nft_contract_id: &AccountId, token_id:&TokenId){
+        todo!() 
     }
 
     fn assert_owner(&self) {

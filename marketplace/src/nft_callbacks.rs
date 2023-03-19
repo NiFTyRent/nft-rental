@@ -54,7 +54,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 
         self.internal_delete_market_data(&nft_contract_id, &token_id);
 
-        if self.allowed_ft_token_ids.contains(&ft_contract_id) != true {
+        if self.allowed_ft_contract_ids.contains(&ft_contract_id) != true {
             env::panic_str(&"ft_contract_id not allowed");
         }
 
@@ -65,8 +65,8 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             token_id,
             ft_contract_id,
             price,
-            lease_start_time,
-            lease_end_time,
+            lease_start_time.0,
+            lease_end_time.0,
         );
     }
 }

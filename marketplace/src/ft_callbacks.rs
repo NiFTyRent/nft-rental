@@ -6,7 +6,7 @@ use crate::*;
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseAcceptanceJson {
     nft_contract_id: AccountId,
-    nft_token_id: AccountId,
+    nft_token_id: TokenId,
 }
 
 /// The trait for receiving FT payment
