@@ -7,7 +7,6 @@ use near_units::parse_near;
 use nft_rental::{LeaseCondition, LeaseState};
 use serde_json::json;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
-
 use crate::utils::assert_aprox_eq;
 
 mod utils;
@@ -145,6 +144,8 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
     let worker = context.worker;
     let token_id = "test";
     let price = 10000;
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let latest_block = worker.view_block().await?;
     let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
 
@@ -158,6 +159,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -304,6 +306,8 @@ async fn test_claim_back_without_payout_success() -> anyhow::Result<()> {
     let worker = context.worker;
     let token_id = "test";
     let price = 10000;
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let latest_block = worker.view_block().await?;
     let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
 
@@ -317,6 +321,7 @@ async fn test_claim_back_without_payout_success() -> anyhow::Result<()> {
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -418,6 +423,8 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     let ft_contract = context.ft_contract;
     let worker = context.worker;
     let token_id = "test";
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let latest_block = worker.view_block().await?;
     let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
 
@@ -431,6 +438,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": "1000"
             }).to_string()
@@ -537,6 +545,8 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
     let ft_contract = context.ft_contract;
     let worker = context.worker;
     let token_id = "test";
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let latest_block = worker.view_block().await?;
     let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
 
@@ -550,6 +560,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": "1000"
             }).to_string()
@@ -644,6 +655,8 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation() -> anyhow::Re
     let worker = context.worker;
     let token_id = "test"; // leasing nft. This should match the info at nft initialisation
     let price = 10000;
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let latest_block = worker.view_block().await?;
     let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
 
@@ -657,6 +670,7 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation() -> anyhow::Re
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -811,7 +825,8 @@ async fn test_lease_nft_can_be_transferred_to_other_account() -> anyhow::Result<
     let contract = context.contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
-
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let worker = context.worker;
     let token_id = "test"; // leasing nft. This should match the info at nft initialisation
     let price = 10000;
@@ -828,6 +843,7 @@ async fn test_lease_nft_can_be_transferred_to_other_account() -> anyhow::Result<
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -972,6 +988,8 @@ async fn test_claim_back_without_payout_using_lease_nft() -> anyhow::Result<()> 
     let worker = context.worker;
     let token_id = "test"; // leasing nft. This should match the info at nft initialisation
     let price = 10000;
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let latest_block = worker.view_block().await?;
     let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
 
@@ -985,6 +1003,7 @@ async fn test_claim_back_without_payout_using_lease_nft() -> anyhow::Result<()> 
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -1099,7 +1118,8 @@ async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
     let contract = context.contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
-
+    // 2023/01/01 00:00:00
+    let start_ts_nano: u64 = 1672531200000000000;
     let worker = context.worker;
     let token_id = "test"; // leasing nft. This should match the info at nft initialisation
     let price = 10000;
@@ -1116,6 +1136,7 @@ async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
                           "token_id": token_id,
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
                           "expiration": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
@@ -1240,6 +1261,129 @@ async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_create_lease_for_later_to_start() -> anyhow::Result<()> {
+    let context = init(NFT_PAYOUT_CODE).await?;
+    let lender = context.lender;
+    let borrower = context.borrower;
+    let contract = context.contract;
+    let nft_contract = context.nft_contract;
+    let ft_contract = context.ft_contract;
+    let worker = context.worker;
+    let token_id = "test";
+    let price = 10000;
+    let latest_block = worker.view_block().await?;
+    let start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
+    let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 100;
+
+    println!("Creating lease ...");
+    lender
+        .call(nft_contract.id(), "nft_approve")
+        .args_json(json!({
+            "token_id": token_id,
+            "account_id": contract.id(),
+            "msg": json!({"contract_addr": nft_contract.id(),
+                          "token_id": token_id,
+                          "borrower_id": borrower.id(),
+                          "ft_contract_addr": ft_contract.id(),
+                          "start_ts_nano": start_ts_nano,
+                          "expiration": expiration_ts_nano,
+                          "price": price.to_string(),
+            }).to_string()
+        }))
+        .deposit(parse_near!("1 N"))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("      ✅ Lease created");
+
+    println!("Confirming the created lease ...");
+    let leases: Vec<(String, LeaseCondition)> = contract
+        .call("leases_by_owner")
+        .args_json(json!({"account_id": lender.id()}))
+        .transact()
+        .await?
+        .json()?;
+    assert_eq!(leases.len(), 1);
+
+    let lease = &leases[0].1;
+
+    assert_to_string_eq!(lease.contract_addr, nft_contract.id());
+    assert_eq!(lease.token_id, "test".to_string());
+    assert_to_string_eq!(lease.lender_id, lender.id().to_string());
+    assert_to_string_eq!(lease.borrower_id, borrower.id().to_string());
+    assert_eq!(lease.expiration, expiration_ts_nano);
+    assert_eq!(lease.price.0, price);
+    assert_eq!(lease.state, LeaseState::Pending);
+    println!("      ✅ Lease creation confirmed");
+
+    println!("Accepting the created lease ...");
+    let lease_id = &leases[0].0;
+    borrower
+        .call(ft_contract.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": contract.id(),
+            "amount": price.to_string(),
+            "memo": "",
+            "msg": json!({
+                "lease_id": lease_id,
+            }).to_string()
+        }))
+        .deposit(1)
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+
+    println!("      ✅ Lease accepted");
+
+    println!("Confirm the lease is activated ...");
+    let borrower_id_result: String = borrower
+        .call(contract.id(), "get_borrower_by_contract_and_token")
+        .args_json(json!({
+            "contract_id": nft_contract.id(),
+            "token_id": token_id,
+        }))
+        .transact()
+        .await?
+        .json()?;
+
+    assert_eq!(borrower.id().to_string(), borrower_id_result);
+    println!("      ✅ Lease activation accepted");
+
+    let user_id_before_start: String = borrower
+        .call(contract.id(), "get_current_user_by_contract_and_token")
+        .args_json(json!({
+            "contract_id": nft_contract.id(),
+            "token_id": token_id,
+        }))
+        .transact()
+        .await?
+        .json()?;
+
+    assert_eq!(lender.id().to_string(), user_id_before_start);
+    println!("      ✅ The current user of this token is still the borrower");
+
+    worker.fast_forward(20).await?;
+    let user_id_afrter_start: String = borrower
+    .call(contract.id(), "get_current_user_by_contract_and_token")
+    .args_json(json!({
+        "contract_id": nft_contract.id(),
+        "token_id": token_id,
+    }))
+    .transact()
+    .await?
+    .json()?;
+
+    assert_eq!(borrower.id().to_string(), user_id_afrter_start);
+    println!("      ✅ The current user of this token is lender");
+
+
+    Ok(())
+}
+
 
 // TODO: claim_back - NFT transfer check
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().

@@ -63,6 +63,7 @@ pub struct LeaseJson {
     token_id: TokenId,
     borrower_id: AccountId,
     ft_contract_addr: AccountId,
+    start_ts_nano: u64,
     expiration: u64, // TODO: duration
     price: U128,
 }
@@ -83,6 +84,7 @@ pub struct LeaseCondition {
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
     pub approval_id: u64,            // Approval from owner to lease
+    pub start_ts_nano: u64,               // TODO: duration
     pub expiration: u64,             // TODO: duration
     pub price: U128,                 // Proposed lease price
     pub payout: Option<Payout>,      // Payout info (e.g. for Royalty split)
@@ -393,7 +395,7 @@ impl Contract {
 
         let lease_condition = lease_condition_option.unwrap();
 
-        if lease_condition.state == LeaseState::Active {
+        if lease_condition.state == LeaseState::Active && lease_condition.start_ts_nano < env::block_timestamp() {
             return Some(lease_condition.borrower_id);
         } else {
             return Some(lease_condition.lender_id);
@@ -445,6 +447,7 @@ impl Contract {
         owner_id: AccountId,
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
+        start_ts_nano: u64,
         expiration: u64,
         price: U128,
         approval_id: u64,
@@ -489,6 +492,7 @@ impl Contract {
             token_id: token_id,
             borrower_id: borrower_id,
             ft_contract_addr: ft_contract_addr,
+            start_ts_nano: start_ts_nano,
             expiration: expiration,
             price: price,
             payout: optional_payout,
@@ -746,6 +750,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                         owner_id,
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
+                        lease_json.start_ts_nano,
                         lease_json.expiration,
                         lease_json.price,
                         approval_id,
@@ -1177,6 +1182,7 @@ mod tests {
             owner_id.clone(),
             borrower_id.clone(),
             ft_contract_addr,
+            0,
             1000,
             price,
             1,
@@ -1226,6 +1232,7 @@ mod tests {
             owner_id.clone(),
             borrower_id.clone(),
             ft_contract_addr,
+            0,
             1000,
             price,
             1,
@@ -1289,6 +1296,7 @@ mod tests {
             owner_id.clone(),
             borrower_id.clone(),
             ft_contract_addr,
+            0,
             1000,
             price,
             1,
@@ -1388,6 +1396,32 @@ mod tests {
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
         lease_condition.borrower_id = expected_borrower_id.clone();
+
+        let key = "test_key".to_string();
+        contract.internal_insert_lease(&key, &lease_condition);
+
+        let result_owner = contract
+            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id).unwrap();
+        assert!(result_owner == expected_lender_id);
+    }
+
+    #[test]
+    fn test_get_current_user_by_contract_and_token_success_lease_not_start() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let expected_contract_address: AccountId = accounts(4).into();
+        let expected_token_id = "test_token".to_string();
+        let expected_lender_id: AccountId = accounts(2).into();
+        let expected_borrower_id: AccountId = accounts(3).into();
+
+        lease_condition.state = LeaseState::Pending;
+        lease_condition.contract_addr = expected_contract_address.clone();
+        lease_condition.token_id = expected_token_id.clone();
+        lease_condition.lender_id = expected_lender_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
+        // 2333/01/01 00:00
+        lease_condition.start_ts_nano = 11455171200000000000;
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
@@ -1813,6 +1847,7 @@ mod tests {
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
         let ft_contract_addr: AccountId = accounts(5).into();
+        let start_ts_nano = 0;
         let expiration = 1000;
         let price = U128::from(5);
 
@@ -1823,6 +1858,7 @@ mod tests {
             borrower.clone(),
             ft_contract_addr.clone(),
             approval_id,
+            start_ts_nano.clone(),
             expiration.clone(),
             price,
             None,
@@ -1843,6 +1879,7 @@ mod tests {
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
         approval_id: u64,
+        start_ts_nano: u64,
         expiration: u64,
         price: U128,
         payout: Option<Payout>,
@@ -1855,6 +1892,7 @@ mod tests {
             borrower_id,
             ft_contract_addr,
             approval_id,
+            start_ts_nano,
             expiration,
             price,
             payout,
