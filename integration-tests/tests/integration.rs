@@ -160,7 +160,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
         }))
@@ -186,7 +186,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
     assert_eq!(lease.token_id, "test".to_string());
     assert_to_string_eq!(lease.lender_id, lender.id().to_string());
     assert_to_string_eq!(lease.borrower_id, borrower.id().to_string());
-    assert_eq!(lease.expiration, expiration_ts_nano);
+    assert_eq!(lease.end_ts_nano, expiration_ts_nano);
     assert_eq!(lease.price.0, price);
     assert_eq!(lease.state, LeaseState::Pending);
     println!("      ✅ Lease creation confirmed");
@@ -322,7 +322,7 @@ async fn test_claim_back_without_payout_success() -> anyhow::Result<()> {
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
         }))
@@ -439,7 +439,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": "1000"
             }).to_string()
         }))
@@ -561,7 +561,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": "1000"
             }).to_string()
         }))
@@ -671,7 +671,7 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation() -> anyhow::Re
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
         }))
@@ -844,7 +844,7 @@ async fn test_lease_nft_can_be_transferred_to_other_account() -> anyhow::Result<
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
         }))
@@ -1004,7 +1004,7 @@ async fn test_claim_back_without_payout_using_lease_nft() -> anyhow::Result<()> 
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
         }))
@@ -1137,7 +1137,7 @@ async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
         }))
@@ -1288,7 +1288,7 @@ async fn test_create_lease_for_later_to_start() -> anyhow::Result<()> {
                           "borrower_id": borrower.id(),
                           "ft_contract_addr": ft_contract.id(),
                           "start_ts_nano": start_ts_nano,
-                          "expiration": expiration_ts_nano,
+                          "end_ts_nano": expiration_ts_nano,
                           "price": price.to_string(),
             }).to_string()
         }))
@@ -1314,7 +1314,7 @@ async fn test_create_lease_for_later_to_start() -> anyhow::Result<()> {
     assert_eq!(lease.token_id, "test".to_string());
     assert_to_string_eq!(lease.lender_id, lender.id().to_string());
     assert_to_string_eq!(lease.borrower_id, borrower.id().to_string());
-    assert_eq!(lease.expiration, expiration_ts_nano);
+    assert_eq!(lease.end_ts_nano, expiration_ts_nano);
     assert_eq!(lease.price.0, price);
     assert_eq!(lease.state, LeaseState::Pending);
     println!("      ✅ Lease creation confirmed");

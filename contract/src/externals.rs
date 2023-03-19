@@ -14,7 +14,7 @@ trait ExtSelf {
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
         start_ts_nano: u64,
-        expiration: u64,
+        end_ts_nano: u64,
         price: U128,
         approval_id: u64,
     ) -> Promise;
