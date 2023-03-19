@@ -1,14 +1,14 @@
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{
     assert_one_yocto,
-    borsh::{BorshDeserialize, BorshSerialize},
+    borsh::{self, BorshDeserialize, BorshSerialize},
     collections::{LookupMap, UnorderedMap, UnorderedSet},
     env,
     json_types::{U128, U64},
     near_bindgen,
     serde::{Deserialize, Serialize},
     serde_json::json,
-    AccountId, CryptoHash,
+    AccountId, BorshStorageKey, CryptoHash, PanicOnDefault,
 };
 
 mod ft_callbacks;
@@ -92,19 +92,19 @@ impl Contract {
     #[payable]
     pub fn add_approved_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
-        insert_accounts(nft_contract_ids, &mut self.approved_nft_contract_ids);
+        insert_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
 
     #[payable]
     pub fn remove_approved_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
-        remove_accounts(nft_contract_ids, &mut self.approved_nft_contract_ids);
+        remove_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
 
     #[payable]
     pub fn add_approved_ft_contract_ids(&mut self, ft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
-        insert_accounts(ft_contract_ids, &mut self.approved_ft_contract_ids);
+        insert_accounts(ft_contract_ids, &mut self.allowed_ft_contract_ids);
     }
 
     // ------------------ View Functions -----------------
@@ -141,17 +141,17 @@ impl Contract {
         let listing_id: ListingId = (nft_contract_id, nft_token_id);
 
         self.listings.insert(
-            &listing_id
-                & Listing {
-                    owner_id: owner_id.clone(),
-                    approval_id,
-                    nft_contract_id: nft_contract_id.clone(),
-                    nft_token_id: nft_token_id.clone(),
-                    ft_contract_id: ft_contract_id.clone(),
-                    price: price.into(),
-                    lease_start_time,
-                    lease_end_time,
-                },
+            &listing_id,
+            &Listing {
+                owner_id: owner_id.clone(),
+                approval_id,
+                nft_contract_id: nft_contract_id.clone(),
+                nft_token_id: nft_token_id.clone(),
+                ft_contract_id: ft_contract_id.clone(),
+                price: price.into(),
+                lease_start_time,
+                lease_end_time,
+            },
         );
 
         // Update the listings by owner id index
@@ -196,6 +196,10 @@ impl Contract {
     }
 
     fn internal_remove_listing(&mut self, listing_id: ListingId) {
+        todo!()
+    }
+
+    fn assert_owner(&self) {
         todo!()
     }
 }
