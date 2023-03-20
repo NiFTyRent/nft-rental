@@ -1,14 +1,21 @@
 use crate::*;
 /// approval callbacks from NFT Contracts
+
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ListingJson {
-    pub price: U128,
-    pub ft_contract_id: AccountId,
-    pub lease_start_time: U64,
-    pub lease_end_time: U64,
+    ft_contract_id: AccountId,
+    lease_start_ts_nano: U64,
+    lease_end_ts_nano: U64,
+    price: U128,
 }
 
+/**
+ * Trait to be used as the call back from NFT contract.
+ * When a lender trys to create a listing, she calls nft_approve attaching a message.
+ * NFT contract will fire a XCC to this marketplace to invoke this function.
+ * This will triger creating a listing.
+*/
 trait NonFungibleTokenApprovalsReceiver {
     fn nft_on_approve(
         &mut self,
@@ -29,44 +36,47 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         approval_id: u64,
         msg: String,
     ) {
-        // enforce cross contract call and owner_id is signer
-
+        // enforce cross contract call
         let nft_contract_id = env::predecessor_account_id();
-        let signer_id = env::signer_account_id();
         assert_ne!(
             env::current_account_id(),
             nft_contract_id,
             "nft_on_approve should only be called via XCC"
         );
+
+        // enforce owner_id is signer
+        let signer_id = env::signer_account_id();
         assert_eq!(owner_id, signer_id, "owner_id should be signer_id");
 
+        // enforce nft contract is allowed
         assert!(
             self.allowed_nft_contract_ids.contains(&nft_contract_id),
-            "nft_contract_id is not approved"
+            "nft_contract_id is not allowed!"
         );
 
-        let ListingJson {
-            price,
-            ft_contract_id,
-            lease_start_time,
-            lease_end_time,
-        } = near_sdk::serde_json::from_str(&msg).expect("Invalid ListingJson");
+        let listing_json: ListingJson =
+            near_sdk::serde_json::from_str(&msg).expect("Invalid Listing Json!");
 
+        // enforce ft contract is allowed
+        assert!(
+            self.allowed_ft_contract_ids
+                .contains(&listing_json.ft_contract_id),
+            "ft_contract_id is not allowed!"
+        );
+
+        // TODO(syu): Do we need this step?
         self.internal_delete_market_data(&nft_contract_id, &token_id);
 
-        if self.allowed_ft_contract_ids.contains(&ft_contract_id) != true {
-            env::panic_str(&"ft_contract_id not allowed");
-        }
-
+        // Record a listing
         self.internal_insert_listing(
             owner_id,
             approval_id,
             nft_contract_id,
             token_id,
-            ft_contract_id,
-            price,
-            lease_start_time.0,
-            lease_end_time.0,
+            listing_json.ft_contract_id,
+            listing_json.price,
+            listing_json.lease_start_ts_nano.0,
+            listing_json.lease_end_ts_nano.0,
         );
     }
 }

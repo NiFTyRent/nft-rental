@@ -1,7 +1,8 @@
-use near_contract_standards::non_fungible_token::{TokenId, Token};
+use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{
     assert_one_yocto,
     borsh::{self, BorshDeserialize, BorshSerialize},
+    bs58,
     collections::{LookupMap, UnorderedMap, UnorderedSet},
     env,
     json_types::{U128, U64},
@@ -14,8 +15,7 @@ use near_sdk::{
 mod ft_callbacks;
 mod nft_callbacks;
 
-// TODO(libo): use a differnt id type, since same NFT could be listed for leased for different time period.
-type ListingId = (AccountId, TokenId);
+type ListingId = String;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -28,8 +28,20 @@ pub struct Listing {
     pub nft_token_id: TokenId,
     pub ft_contract_id: AccountId,
     pub price: U128,
-    pub lease_start_time: u64,
-    pub lease_end_time: u64,
+    pub lease_start_ts_nano: u64,
+    pub lease_end_ts_nano: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ListingJson {
+    contract_addr: AccountId,
+    token_id: TokenId,
+    borrower_id: AccountId,
+    ft_contract_addr: AccountId,
+    price: U128,
+    lease_start_ts_nano: u64,
+    lease_end_ts_nano: u64,
 }
 
 #[near_bindgen]
@@ -83,6 +95,7 @@ impl Contract {
 
     // ------------------ Admin Functions -----------------
 
+    // TODO(syu): Do we need treasury?
     pub fn set_treasury(&mut self, treasury_id: AccountId) {
         assert_one_yocto();
         self.assert_owner();
@@ -135,10 +148,14 @@ impl Contract {
         nft_token_id: TokenId,
         ft_contract_id: AccountId,
         price: U128,
-        lease_start_time: u64,
-        lease_end_time: u64,
+        lease_start_ts_nano: u64,
+        lease_end_ts_nano: u64,
     ) {
-        let listing_id: ListingId = (nft_contract_id.clone(), nft_token_id.clone());
+        // create listing_id
+        let seed = near_sdk::env::random_seed();
+        let listing_id = bs58::encode(seed)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
 
         self.listings.insert(
             &listing_id,
@@ -149,8 +166,8 @@ impl Contract {
                 nft_token_id: nft_token_id.clone(),
                 ft_contract_id: ft_contract_id.clone(),
                 price: price.into(),
-                lease_start_time,
-                lease_end_time,
+                lease_start_ts_nano,
+                lease_end_ts_nano,
             },
         );
 
@@ -187,8 +204,8 @@ impl Contract {
                     "nft_token_id": nft_token_id,
                     "ft_contract_id": ft_contract_id,
                     "price": price,
-                    "lease_start_time": lease_start_time,
-                    "lease_end_time": lease_end_time,
+                    "lease_start_ts_nano": lease_start_ts_nano,
+                    "lease_end_ts_nano": lease_end_ts_nano,
                 }
             })
             .to_string(),
@@ -198,9 +215,9 @@ impl Contract {
     fn internal_remove_listing(&mut self, listing_id: ListingId) {
         todo!()
     }
-    
-    fn internal_delete_market_data(&mut self, nft_contract_id: &AccountId, token_id:&TokenId){
-        todo!() 
+
+    fn internal_delete_market_data(&mut self, nft_contract_id: &AccountId, token_id: &TokenId) {
+        todo!()
     }
 
     fn assert_owner(&self) {
