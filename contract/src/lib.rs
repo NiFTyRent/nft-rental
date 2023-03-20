@@ -84,11 +84,11 @@ pub struct LeaseCondition {
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
     pub approval_id: u64,            // Approval from owner to lease
-    pub start_ts_nano: u64,          // The timestamp in nano to start the lease, i.e. the current user will be the borrower
-    pub end_ts_nano: u64,            // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
-    pub price: U128,                 // Proposed lease price
-    pub payout: Option<Payout>,      // Payout info (e.g. for Royalty split)
-    pub state: LeaseState,           // Current lease state
+    pub start_ts_nano: u64, // The timestamp in nano to start the lease, i.e. the current user will be the borrower
+    pub end_ts_nano: u64, // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
+    pub price: U128,      // Proposed lease price
+    pub payout: Option<Payout>, // Payout info (e.g. for Royalty split)
+    pub state: LeaseState, // Current lease state
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -334,7 +334,6 @@ impl Contract {
         return results;
     }
 
-
     #[private]
     pub fn get_lease_by_contract_and_token(
         &self,
@@ -387,14 +386,16 @@ impl Contract {
         // The current user of an active lease is the borrower, otherwise it is the lender
 
         let lease_condition_option = self.get_lease_by_contract_and_token(contract_id, token_id);
-        
+
         assert!(
             !lease_condition_option.is_none(),
             "Cannot find a lease of this contract and token!"
         );
 
         let lease_condition = lease_condition_option.unwrap();
-        if lease_condition.state == LeaseState::Active && lease_condition.start_ts_nano < env::block_timestamp() {
+        if lease_condition.state == LeaseState::Active
+            && lease_condition.start_ts_nano < env::block_timestamp()
+        {
             return Some(lease_condition.borrower_id);
         } else {
             return Some(lease_condition.lender_id);
@@ -1373,7 +1374,7 @@ mod tests {
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
-        
+
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .block_timestamp(10)
@@ -1405,7 +1406,8 @@ mod tests {
         contract.internal_insert_lease(&key, &lease_condition);
 
         let result_owner = contract
-            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id).unwrap();
+            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id)
+            .unwrap();
         assert!(result_owner == expected_lender_id);
     }
 
@@ -1431,7 +1433,8 @@ mod tests {
         contract.internal_insert_lease(&key, &lease_condition);
 
         let result_owner = contract
-            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id).unwrap();
+            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id)
+            .unwrap();
         assert!(result_owner == expected_lender_id);
     }
 
