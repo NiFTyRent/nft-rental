@@ -761,6 +761,52 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
     }
 }
 
+/**
+ * Trait that will handle the receival of the  leasing NFT from marketplace contract
+ * When the Marketplace calls nft_transfer_call on NFT contract, the NFT contract 
+ * will invoke this function.
+*/
+trait NonFungibleTokenTransferReceiver {
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
+        msg: String,
+    );
+}
+
+#[near_bindgen]
+impl NonFungibleTokenTransferReceiver for Contract {
+
+    /**
+     * 1. check NFT transfer is successful
+     * 2. create proxy payouts if not supported
+     * 3. create a draft lease
+    */
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
+        msg: String,
+    ){
+        // enforce cross contract call
+        let nft_contract_id = env::predecessor_account_id();
+        assert_ne!(
+            env::current_account_id(),
+            nft_contract_id,
+            "nft_on_transfer should only be called via XCC"
+        );
+
+        // enforce sender_id is marketplace contract
+        // add marketplace contract address in Contract struc
+        
+        todo!()
+    }
+}
+
+
 /*
     The trait for receiving FT payment
     Depending on the FT contract implementation, it may need the users to register to deposit.
