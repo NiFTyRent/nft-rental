@@ -1355,7 +1355,7 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
         .json()?;
 
     assert_eq!(lender.id().to_string(), user_id_before_start);
-    println!("      ✅ The current user of this token is still the borrower");
+    println!("      ✅ The current user of this token is still the lender");
 
     worker.fast_forward(20).await?;
     let user_id_afrter_start: String = borrower
@@ -1369,7 +1369,7 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
     .json()?;
 
     assert_eq!(borrower.id().to_string(), user_id_afrter_start);
-    println!("      ✅ The current user of this token is lender");
+    println!("      ✅ The current user of this token is borrower");
 
 
     Ok(())
