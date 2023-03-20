@@ -18,8 +18,8 @@ import logoUrl from "/assets/logo.svg";
 const navigation = [
   { name: "Home", href: "/app", icon: HomeIcon, current: false },
   {
-    name: "Lend my NFT",
-    href: "/app/lendings/new",
+    name: "My NFT",
+    href: "/app/nfts",
     icon: SparklesIcon,
     current: false,
   },
@@ -35,7 +35,7 @@ const navigation = [
     icon: ShoppingBagIcon,
     current: false,
   },
-  { name: "Reports", href: "#", icon: ChartBarIcon, current: false },
+  { name: "Marketplace", href: "#", icon: ChartBarIcon, current: false },
 ];
 
 export default function App() {
