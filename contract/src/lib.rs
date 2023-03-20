@@ -1376,7 +1376,6 @@ mod tests {
         
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
-            .predecessor_account_id(lease_condition.lender_id.clone())
             .block_timestamp(10)
             .build());
 

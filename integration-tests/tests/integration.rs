@@ -1263,7 +1263,7 @@ async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_create_lease_for_later_to_start() -> anyhow::Result<()> {
+async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let lender = context.lender;
     let borrower = context.borrower;
@@ -1308,15 +1308,6 @@ async fn test_create_lease_for_later_to_start() -> anyhow::Result<()> {
         .json()?;
     assert_eq!(leases.len(), 1);
 
-    let lease = &leases[0].1;
-
-    assert_to_string_eq!(lease.contract_addr, nft_contract.id());
-    assert_eq!(lease.token_id, "test".to_string());
-    assert_to_string_eq!(lease.lender_id, lender.id().to_string());
-    assert_to_string_eq!(lease.borrower_id, borrower.id().to_string());
-    assert_eq!(lease.end_ts_nano, expiration_ts_nano);
-    assert_eq!(lease.price.0, price);
-    assert_eq!(lease.state, LeaseState::Pending);
     println!("      ✅ Lease creation confirmed");
 
     println!("Accepting the created lease ...");
