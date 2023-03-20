@@ -5,15 +5,20 @@ use near_sdk::{
     bs58,
     collections::{LookupMap, UnorderedMap, UnorderedSet},
     env,
+    ext_contract,
     json_types::{U128, U64},
     near_bindgen,
     serde::{Deserialize, Serialize},
     serde_json::json,
-    AccountId, BorshStorageKey, CryptoHash, PanicOnDefault,
+    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
 };
 
 mod ft_callbacks;
 mod nft_callbacks;
+mod externals;
+
+pub const TGAS: u64 = 1_000_000_000_000;
+
 
 type ListingId = String;
 
