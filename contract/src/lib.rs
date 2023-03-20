@@ -63,7 +63,8 @@ pub struct LeaseJson {
     token_id: TokenId,
     borrower_id: AccountId,
     ft_contract_addr: AccountId,
-    expiration: u64, // TODO: duration
+    start_ts_nano: u64,
+    end_ts_nano: u64,
     price: U128,
 }
 
@@ -83,7 +84,8 @@ pub struct LeaseCondition {
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
     pub approval_id: u64,            // Approval from owner to lease
-    pub expiration: u64,             // TODO: duration
+    pub start_ts_nano: u64,          // The timestamp in nano to start the lease, i.e. the current user will be the borrower
+    pub end_ts_nano: u64,            // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
     pub price: U128,                 // Proposed lease price
     pub payout: Option<Payout>,      // Payout info (e.g. for Royalty split)
     pub state: LeaseState,           // Current lease state
@@ -212,7 +214,7 @@ impl Contract {
 
         // 1. check expire time
         assert!(
-            lease_condition.expiration < env::block_timestamp(),
+            lease_condition.end_ts_nano < env::block_timestamp(),
             "Lease has not expired yet!"
         );
         // 2. check state == active
@@ -392,8 +394,7 @@ impl Contract {
         );
 
         let lease_condition = lease_condition_option.unwrap();
-
-        if lease_condition.state == LeaseState::Active {
+        if lease_condition.state == LeaseState::Active && lease_condition.start_ts_nano < env::block_timestamp() {
             return Some(lease_condition.borrower_id);
         } else {
             return Some(lease_condition.lender_id);
@@ -445,7 +446,8 @@ impl Contract {
         owner_id: AccountId,
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
-        expiration: u64,
+        start_ts_nano: u64,
+        end_ts_nano: u64,
         price: U128,
         approval_id: u64,
     ) {
@@ -489,7 +491,8 @@ impl Contract {
             token_id: token_id,
             borrower_id: borrower_id,
             ft_contract_addr: ft_contract_addr,
-            expiration: expiration,
+            start_ts_nano: start_ts_nano,
+            end_ts_nano: end_ts_nano,
             price: price,
             payout: optional_payout,
             state: LeaseState::Pending,
@@ -746,7 +749,8 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
                         owner_id,
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
-                        lease_json.expiration,
+                        lease_json.start_ts_nano,
+                        lease_json.end_ts_nano,
                         lease_json.price,
                         approval_id,
                     ),
@@ -1050,7 +1054,7 @@ mod tests {
 
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
-        lease_condition.expiration = 1000;
+        lease_condition.end_ts_nano = 1000;
 
         let key = "test_key".to_string();
         contract.lease_map.insert(&key, &lease_condition);
@@ -1058,7 +1062,7 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.lender_id.clone())
-            .block_timestamp(lease_condition.expiration - 1)
+            .block_timestamp(lease_condition.end_ts_nano - 1)
             .build());
 
         contract.claim_back(key);
@@ -1077,7 +1081,7 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(5).into()) // non-owner, non-lender
-            .block_timestamp(lease_condition.expiration + 1)
+            .block_timestamp(lease_condition.end_ts_nano + 1)
             .build());
 
         contract.claim_back(key);
@@ -1096,7 +1100,7 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.lender_id.clone())
-            .block_timestamp(lease_condition.expiration + 1)
+            .block_timestamp(lease_condition.end_ts_nano + 1)
             .build());
 
         contract.claim_back(key);
@@ -1114,7 +1118,7 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.lender_id.clone())
-            .block_timestamp(lease_condition.expiration + 1)
+            .block_timestamp(lease_condition.end_ts_nano + 1)
             .build());
 
         let non_existing_key = "dummy_key".to_string();
@@ -1133,7 +1137,7 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition.lender_id.clone())
-            .block_timestamp(lease_condition.expiration + 1)
+            .block_timestamp(lease_condition.end_ts_nano + 1)
             .build());
 
         contract.claim_back(key);
@@ -1177,6 +1181,7 @@ mod tests {
             owner_id.clone(),
             borrower_id.clone(),
             ft_contract_addr,
+            0,
             1000,
             price,
             1,
@@ -1190,7 +1195,7 @@ mod tests {
         assert_eq!(owner_id, lease_condition.lender_id);
         assert_eq!(borrower_id, lease_condition.borrower_id);
         assert_eq!(5, lease_condition.price.0);
-        assert_eq!(1000, lease_condition.expiration);
+        assert_eq!(1000, lease_condition.end_ts_nano);
         assert_eq!(Some(payout), lease_condition.payout);
     }
 
@@ -1226,6 +1231,7 @@ mod tests {
             owner_id.clone(),
             borrower_id.clone(),
             ft_contract_addr,
+            0,
             1000,
             price,
             1,
@@ -1289,6 +1295,7 @@ mod tests {
             owner_id.clone(),
             borrower_id.clone(),
             ft_contract_addr,
+            0,
             1000,
             price,
             1,
@@ -1366,6 +1373,11 @@ mod tests {
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
+        
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .block_timestamp(10)
+            .build());
 
         let result_owner = contract
             .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id)
@@ -1388,6 +1400,32 @@ mod tests {
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
         lease_condition.borrower_id = expected_borrower_id.clone();
+
+        let key = "test_key".to_string();
+        contract.internal_insert_lease(&key, &lease_condition);
+
+        let result_owner = contract
+            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id).unwrap();
+        assert!(result_owner == expected_lender_id);
+    }
+
+    #[test]
+    fn test_get_current_user_by_contract_and_token_success_lease_not_start() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let expected_contract_address: AccountId = accounts(4).into();
+        let expected_token_id = "test_token".to_string();
+        let expected_lender_id: AccountId = accounts(2).into();
+        let expected_borrower_id: AccountId = accounts(3).into();
+
+        lease_condition.state = LeaseState::Pending;
+        lease_condition.contract_addr = expected_contract_address.clone();
+        lease_condition.token_id = expected_token_id.clone();
+        lease_condition.lender_id = expected_lender_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
+        // 2333/01/01 00:00
+        lease_condition.start_ts_nano = 11455171200000000000;
 
         let key = "test_key".to_string();
         contract.internal_insert_lease(&key, &lease_condition);
@@ -1497,7 +1535,7 @@ mod tests {
         testing_env!(VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition_1.lender_id.clone())
-            .block_timestamp(lease_condition_1.expiration + 1)
+            .block_timestamp(lease_condition_1.end_ts_nano + 1)
             .build());
 
         let result = contract.leases_by_borrower(expected_borrower_id.clone());
@@ -1529,7 +1567,7 @@ mod tests {
         testing_env!(builder
             .current_account_id(accounts(0))
             .predecessor_account_id(lease_condition_1.lender_id.clone())
-            .block_timestamp(lease_condition_1.expiration + 1)
+            .block_timestamp(lease_condition_1.end_ts_nano + 1)
             .build());
 
         let result = contract.leases_by_owner(expected_owner_id.clone());
@@ -1813,7 +1851,8 @@ mod tests {
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
         let ft_contract_addr: AccountId = accounts(5).into();
-        let expiration = 1000;
+        let start_ts_nano = 1;
+        let end_ts_nano = 1000;
         let price = U128::from(5);
 
         create_lease_condition(
@@ -1823,7 +1862,8 @@ mod tests {
             borrower.clone(),
             ft_contract_addr.clone(),
             approval_id,
-            expiration.clone(),
+            start_ts_nano.clone(),
+            end_ts_nano.clone(),
             price,
             None,
             LeaseState::Pending,
@@ -1843,7 +1883,8 @@ mod tests {
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
         approval_id: u64,
-        expiration: u64,
+        start_ts_nano: u64,
+        end_ts_nano: u64,
         price: U128,
         payout: Option<Payout>,
         state: LeaseState,
@@ -1855,7 +1896,8 @@ mod tests {
             borrower_id,
             ft_contract_addr,
             approval_id,
-            expiration,
+            start_ts_nano,
+            end_ts_nano,
             price,
             payout,
             state,
