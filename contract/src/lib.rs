@@ -395,6 +395,7 @@ impl Contract {
         let lease_condition = lease_condition_option.unwrap();
         if lease_condition.state == LeaseState::Active
             && lease_condition.start_ts_nano < env::block_timestamp()
+            && lease_condition.end_ts_nano > env::block_timestamp()
         {
             return Some(lease_condition.borrower_id);
         } else {
@@ -1410,6 +1411,37 @@ mod tests {
             .unwrap();
         assert!(result_owner == expected_lender_id);
     }
+
+    #[test]
+    fn test_get_current_user_by_contract_and_token_success_after_lease_expires() {
+        let mut contract = Contract::new(accounts(1).into());
+        let mut lease_condition = create_lease_condition_default();
+
+        let expected_contract_address: AccountId = accounts(4).into();
+        let expected_token_id = "test_token".to_string();
+        let expected_borrower_id: AccountId = accounts(3).into();
+        let expected_lender_id: AccountId = accounts(2).into();
+
+        lease_condition.state = LeaseState::Active;
+        lease_condition.contract_addr = expected_contract_address.clone();
+        lease_condition.token_id = expected_token_id.clone();
+        lease_condition.lender_id = expected_lender_id.clone();
+        lease_condition.borrower_id = expected_borrower_id.clone();
+
+        let key = "test_key".to_string();
+        contract.internal_insert_lease(&key, &lease_condition);
+
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .block_timestamp(1000)
+            .build());
+
+        let result_owner = contract
+            .get_current_user_by_contract_and_token(expected_contract_address, expected_token_id)
+            .unwrap();
+        assert!(result_owner == expected_lender_id);
+    }
+
 
     #[test]
     fn test_get_current_user_by_contract_and_token_success_lease_not_start() {
