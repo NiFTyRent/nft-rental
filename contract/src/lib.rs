@@ -104,11 +104,6 @@ pub struct LeaseCondition {
     pub price: U128,      // Proposed lease price
     pub payout: Option<Payout>, // Payout info (e.g. for Royalty split)
     pub state: LeaseState, // Current lease state
-    pub start_ts_nano: u64, // The timestamp in nano to start the lease, i.e. the current user will be the borrower
-    pub end_ts_nano: u64, // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
-    pub price: U128,      // Proposed lease price
-    pub payout: Option<Payout>, // Payout info (e.g. for Royalty split)
-    pub state: LeaseState, // Current lease state
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
