@@ -1358,7 +1358,7 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
     println!("      ✅ The current user of this token is still the lender");
 
     worker.fast_forward(20).await?;
-    let user_id_afrter_start: String = borrower
+    let user_id_after_start: String = borrower
     .call(contract.id(), "get_current_user_by_contract_and_token")
     .args_json(json!({
         "contract_id": nft_contract.id(),
@@ -1368,9 +1368,23 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
     .await?
     .json()?;
 
-    assert_eq!(borrower.id().to_string(), user_id_afrter_start);
+    assert_eq!(borrower.id().to_string(), user_id_after_start);
     println!("      ✅ The current user of this token is borrower");
 
+
+    worker.fast_forward(120).await?;
+    let user_id_after_end: String = borrower
+    .call(contract.id(), "get_current_user_by_contract_and_token")
+    .args_json(json!({
+        "contract_id": nft_contract.id(),
+        "token_id": token_id,
+    }))
+    .transact()
+    .await?
+    .json()?;
+
+    assert_eq!(lender.id().to_string(), user_id_after_end);
+    println!("      ✅ The current user of this token is borrower");
 
     Ok(())
 }
