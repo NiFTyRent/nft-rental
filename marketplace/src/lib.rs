@@ -143,6 +143,12 @@ impl Contract {
     }
 
     // ------------------ External RPCs -----------------
+    /**
+     * This method will handle the transfer of rent to Core rental contract, 
+     * depending on the leasing nft transfer result.
+     * Rent will only be transfered to Core, if leasing nft has been transferred correctly.
+     * Otherwise, no rent transfer. 
+    */
     #[private]
     pub fn transfer_rent_after_nft_transfer(
         &mut self,
@@ -155,7 +161,8 @@ impl Contract {
             "NFT transfer failed. Abort rent transfer!"
         );
 
-        // Trasnfer rent to Core contract
+        // Trasnfer rent to Core contract.
+        // TODO(syu):do we need to check the target lease got created successfully? This will need to call ft_on_transfer(). Also a map between listing_id and lease_id
         ext_ft::ext(ft_contract_id.clone())
             .with_attached_deposit(1)
             .with_static_gas(Gas(10 * TGAS))

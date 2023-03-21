@@ -81,7 +81,6 @@ pub struct LeaseJsonV2 {
     start_ts_nano: u64,
     end_ts_nano: u64,
     price: U128,
-    listing_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -518,7 +517,7 @@ impl Contract {
             end_ts_nano: end_ts_nano,
             price: price,
             payout: optional_payout,
-            state: LeaseState::Pending,   // TODO(syu): lease state pending is no longer needed
+            state: LeaseState::Pending,   // TODO(syu): Pending is no longer needed after introducing Marketplace
         };
 
         let seed = near_sdk::env::random_seed();
@@ -783,7 +782,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
 }
 
 /**
- * Trait that will handle the receival of the  leasing NFT from marketplace contract
+ * Trait that will handle the receival of the leasing NFT.
  * When the Marketplace calls nft_transfer_call on NFT contract, the NFT contract
  * will invoke this function.
 */
@@ -802,7 +801,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
     /**
      * 1. Check NFT transfer is successful
      * 2. Create proxy payouts if not supported
-     * 3. Create a draft lease
+     * 3. Create a lease
      */
     fn nft_on_transfer(
         &mut self,
@@ -853,6 +852,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
     }
 }
 
+// TODO(syu): ft_on_transfer is no longer needed after using marketplace. 
 /*
     The trait for receiving FT payment
     Depending on the FT contract implementation, it may need the users to register to deposit.

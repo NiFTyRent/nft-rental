@@ -9,7 +9,7 @@ pub struct ListingAcceptanceJson {
     listing_id: String,
 }
 
-/// The trait for receiving FT payment
+/// The trait for receiving rent payment and trigering listing acceptance.
 pub trait FungibleTokenReceiver {
     fn ft_on_transfer(
         &mut self,
@@ -24,9 +24,9 @@ pub trait FungibleTokenReceiver {
  * 1. Borrower(Sender) calls `ft_transfer_call` on FT contract
  * 2. FT contract transfers `amount` tokens from Borrower to Marketplace(reciever)
  * 3. FT contract calls `ft_on_transfer` on Marketplace contract
- * 4. Marketplace contract makes XCC (nft_transfer_call) to transfer the leasing NFT to Core contract
- *    & transfer ft token to Core contract
- * 5. Marketplace contract resolves the promise returned from Core ands return Promise accordingly
+ * 4.1 Marketplace contract makes XCC (nft_transfer_call) to transfer the leasing NFT to Core contract
+ * 4.2 Marketplace contract makes XCC (ft_transfer) to transfer rent to Core contract
+ * 5. Marketplace contract resolves the promise returned from Core and returns Promise accordingly
 */
 #[near_bindgen]
 impl FungibleTokenReceiver for Contract {
@@ -38,7 +38,7 @@ impl FungibleTokenReceiver for Contract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        // enforce cross contract call
+        // Enforce cross contract call
         let ft_contract_id = env::predecessor_account_id();
         assert_ne!(
             ft_contract_id,
@@ -46,6 +46,7 @@ impl FungibleTokenReceiver for Contract {
             "ft_on_transfer should only be called via XCC"
         );
 
+        // Get the target listing ID
         let listing_acceptance_json: ListingAcceptanceJson =
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease listing");
 
@@ -65,15 +66,14 @@ impl FungibleTokenReceiver for Contract {
         );
 
         // Transfer both the to be rented NFT and the rent payment (FT) to the rental contract.
-        // And the rental contract will active the lease.
-        // When it returns successfully, remove the listing.
-        // 1. Marketplace transfers the NFT to Core contract
-        // 2. Marketplace transfers rent(FT) to Core contract
-        // 3. Core contract create an active lease after receiving both NFT and FT
-        //      & returns success Promise after lease activation
-        // 4. Marketplace reolves the Promise return accordingly
+        // The rental contract will activate the lease.
+        // When it returns successfully, remove the listing in marketplace 
+        // 1. Marketplace transfers the NFT to Core contract 
+        //    1.1 Core contract will create the lease
+        // 2. Marketplace transfers rent to Core contract
+        // 3. Marketplace reolves the result from first two steps and returns accordingly
 
-        // msg to be passed in nft_transfer_call
+        // msg to be passed in nft_transfer_call for a lease creation
         let msg_lease_json = json!({
             "contract_addr": listing.nft_contract_id.clone(),
             "token_id": listing.nft_token_id.clone(),
@@ -84,11 +84,10 @@ impl FungibleTokenReceiver for Contract {
             "start_ts_nano": listing.lease_start_ts_nano.clone(),
             "end_ts_nano": listing.lease_end_ts_nano.clone(),
             "price": listing.price.clone(),
-            "listing_id": listing_acceptance_json.listing_id.clone(),
         })
         .to_string();
 
-        // Transfer leasing nft to Core contract
+        // Transfer the leasing nft to Core contract
         ext_nft::ext(listing.nft_contract_id.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
@@ -100,7 +99,7 @@ impl FungibleTokenReceiver for Contract {
                 None,                              // memo
             )
             .then(
-                // Trasnfer rent to Core contract, after resolving the returned promise
+                // Trasnfer the rent to Core contract, after resolving the returned promise
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(Gas(10 * TGAS))
                     .with_attached_deposit(1)
@@ -112,5 +111,7 @@ impl FungibleTokenReceiver for Contract {
             )
             .as_return()
             .into()
+
+        // TODO(syu): remove the listing after both steps succeed
     }
 }

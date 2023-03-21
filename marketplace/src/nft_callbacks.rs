@@ -11,8 +11,8 @@ pub struct ListingJson {
 }
 
 /**
- * Trait to be used as the call back from NFT contract.
- * When a lender trys to create a listing, she calls nft_approve attaching a message.
+ * Trait to be used as the call back from NFT contract for listing creation.
+ * When a lender trys to create a listing, she calls nft_approve attaching a msg of required info.
  * NFT contract will fire a XCC to this marketplace to invoke this function.
  * This will triger creating a listing.
 */
@@ -67,7 +67,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
         // TODO(syu): Do we need this step?
         self.internal_delete_market_data(&nft_contract_id, &token_id);
 
-        // Record a listing
+        // record a listing
         self.internal_insert_listing(
             owner_id,
             approval_id,
