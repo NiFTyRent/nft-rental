@@ -4,21 +4,20 @@ use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     bs58,
     collections::{LookupMap, UnorderedMap, UnorderedSet},
-    env,
-    ext_contract,
+    env, ext_contract, is_promise_success,
     json_types::{U128, U64},
-    near_bindgen,
+    log, near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,
     AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
 };
 
+mod externals;
 mod ft_callbacks;
 mod nft_callbacks;
-mod externals;
+use crate::externals::*;
 
 pub const TGAS: u64 = 1_000_000_000_000;
-
 
 type ListingId = String;
 
@@ -141,6 +140,34 @@ impl Contract {
 
     pub fn list_listings_by_nft_contract_id(&self, nft_contract_id: AccountId) -> Vec<Listing> {
         todo!();
+    }
+
+    // ------------------ External RPCs -----------------
+    #[private]
+    pub fn transfer_rent_after_nft_transfer(
+        &mut self,
+        ft_contract_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+    ) -> U128 {
+        require!(
+            is_promise_success(),
+            "NFT transfer failed. Abort rent transfer!"
+        );
+
+        // Trasnfer rent to Core contract
+        ext_ft::ext(ft_contract_id.clone())
+            .with_attached_deposit(1)
+            .with_static_gas(Gas(10 * TGAS))
+            .ft_transfer(
+                self.rental_contract_id.clone(), // receiver_id
+                amount,                          // amount
+                memo,                            // memo
+            );
+
+        // refund set to 0
+        let refund_ammount: U128 = U128::from(0);
+        return refund_ammount;
     }
 
     // ------------------ Internal Helpers -----------------
