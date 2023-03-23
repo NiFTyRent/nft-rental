@@ -45,7 +45,7 @@ pub struct Contract {
     pub treasury_id: AccountId,
     /// The rental proxy contract (i.e. the core contract) id this marketplace use.
     pub rental_contract_id: AccountId,
-    pub listing_map: UnorderedMap<ListingId, Listing>,
+    pub listing_by_id: UnorderedMap<ListingId, Listing>,
     /// Whitelist of FT contracts for rent payment.
     pub allowed_ft_contract_ids: UnorderedSet<AccountId>,
     // TODO(libo): Shops?
@@ -76,7 +76,7 @@ impl Contract {
             owner_id: owner_id.into(),
             treasury_id: treasury_id.into(),
             rental_contract_id,
-            listing_map: UnorderedMap::new(StorageKey::Listings),
+            listing_by_id: UnorderedMap::new(StorageKey::Listings),
             allowed_ft_contract_ids: UnorderedSet::new(StorageKey::FTTokenIds),
             allowed_nft_contract_ids: UnorderedSet::new(StorageKey::NFTContractIds),
             listing_ids_by_owner_id: LookupMap::new(StorageKey::ListingsByOwnerId),
@@ -188,7 +188,7 @@ impl Contract {
             .with_alphabet(bs58::Alphabet::BITCOIN)
             .into_string();
 
-        self.listing_map.insert(
+        self.listing_by_id.insert(
             &listing_id,
             &Listing {
                 owner_id: owner_id.clone(),
@@ -249,12 +249,12 @@ impl Contract {
     fn internal_remove_listing(&mut self, listing_id: ListingId) {
         // check if the target listing exist
         let listing = self
-            .listing_map
+            .listing_by_id
             .get(&listing_id)
             .expect("Input listing_id does not exist");
 
-        // remove listing map record
-        self.listing_map.remove(&listing_id);
+        // remove the record in listings_by_id index
+        self.listing_by_id.remove(&listing_id);
 
         // remove from index: listing_ids_by_owner_id
         let mut listing_id_set = self.listing_ids_by_owner_id.get(&listing.owner_id).unwrap();

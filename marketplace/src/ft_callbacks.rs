@@ -51,7 +51,7 @@ impl FungibleTokenReceiver for Contract {
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease listing");
 
         let listing: Listing = self
-            .listing_map
+            .listing_by_id
             .get(&listing_acceptance_json.listing_id)
             .unwrap();
 
