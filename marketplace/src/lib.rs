@@ -253,7 +253,7 @@ impl Contract {
             .get(&listing_id)
             .expect("Input listing_id does not exist");
 
-        // remove the record in listings_by_id index
+        // remove the record in listing_by_id index
         self.listing_by_id.remove(&listing_id);
 
         // remove from index: listing_ids_by_owner_id
