@@ -64,9 +64,6 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             "ft_contract_id is not allowed!"
         );
 
-        // TODO(syu): Do we need this step?
-        self.internal_delete_market_data(&nft_contract_id, &token_id);
-
         // record a listing
         self.internal_insert_listing(
             owner_id,
