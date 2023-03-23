@@ -6,7 +6,7 @@ use crate::*;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ListingAcceptanceJson {
-    listing_id: String,
+    listing_id: ListingId,
 }
 
 /// The trait for receiving rent payment and trigering listing acceptance.

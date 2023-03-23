@@ -244,10 +244,6 @@ impl Contract {
         todo!()
     }
 
-    fn internal_delete_market_data(&mut self, nft_contract_id: &AccountId, token_id: &TokenId) {
-        todo!()
-    }
-
     fn assert_owner(&self) {
         todo!()
     }
