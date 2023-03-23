@@ -68,7 +68,7 @@ pub struct LeaseJson {
     price: U128,
 }
 
-// todo(syu): update LeaseJson to LeaseJsonV2
+// TODO(syu): update LeaseJson to LeaseJsonV2
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseJsonV2 {
@@ -818,6 +818,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 
         // Enforce the leasing token is the same as the transferring token
+        assert_eq!(nft_contract_id, lease_json.contract_addr);
         assert_eq!(token_id, lease_json.token_id);
 
         // Create a lease after resolving payouts of the leasing token

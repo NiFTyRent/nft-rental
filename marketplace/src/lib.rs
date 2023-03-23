@@ -6,7 +6,7 @@ use near_sdk::{
     collections::{LookupMap, UnorderedMap, UnorderedSet},
     env, ext_contract, is_promise_success,
     json_types::{U128, U64},
-    log, near_bindgen, require,
+    near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,
     AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
@@ -34,18 +34,6 @@ pub struct Listing {
     pub price: U128,
     pub lease_start_ts_nano: u64,
     pub lease_end_ts_nano: u64,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct ListingJson {
-    contract_addr: AccountId,
-    token_id: TokenId,
-    borrower_id: AccountId,
-    ft_contract_addr: AccountId,
-    price: U128,
-    lease_start_ts_nano: u64,
-    lease_end_ts_nano: u64,
 }
 
 #[near_bindgen]
@@ -99,7 +87,7 @@ impl Contract {
 
     // ------------------ Admin Functions -----------------
 
-    // TODO(syu): Do we need treasury?
+    /// Set the treasury account to keep accured fees in marketplace
     pub fn set_treasury(&mut self, treasury_id: AccountId) {
         assert_one_yocto();
         self.assert_owner();
@@ -107,19 +95,19 @@ impl Contract {
     }
 
     #[payable]
-    pub fn add_approved_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
+    pub fn add_allowed_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
         insert_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
 
     #[payable]
-    pub fn remove_approved_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
+    pub fn remove_allowed_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
         remove_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
 
     #[payable]
-    pub fn add_approved_ft_contract_ids(&mut self, ft_contract_ids: Vec<AccountId>) {
+    pub fn add_allowed_ft_contract_ids(&mut self, ft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
         insert_accounts(ft_contract_ids, &mut self.allowed_ft_contract_ids);
     }
@@ -142,13 +130,14 @@ impl Contract {
         todo!();
     }
 
-    // ------------------ External RPCs -----------------
+    // ------------------ XCC RPCs -----------------
     /**
-     * This method will handle the transfer of rent to Core rental contract, 
+     * This method will handle the transfer of rent to Core rental contract,
      * depending on the leasing nft transfer result.
      * Rent will only be transfered to Core, if leasing nft has been transferred correctly.
-     * Otherwise, no rent transfer. 
-    */
+     * Otherwise, no rent transfer.
+     * This XCC can only be called by this contract itself. Thus made private.
+     */
     #[private]
     pub fn transfer_rent_after_nft_transfer(
         &mut self,
@@ -161,8 +150,8 @@ impl Contract {
             "NFT transfer failed. Abort rent transfer!"
         );
 
-        // Trasnfer rent to Core contract.
-        // TODO(syu):do we need to check the target lease got created successfully? This will need to call ft_on_transfer(). Also a map between listing_id and lease_id
+        // Trasnfer the rent to Core contract.
+        // TODO(syu): do we need to check the target lease got created successfully? This will need to call ft_on_transfer(). Also a map between listing_id and lease_id
         ext_ft::ext(ft_contract_id.clone())
             .with_attached_deposit(1)
             .with_static_gas(Gas(10 * TGAS))

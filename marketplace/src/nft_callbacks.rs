@@ -5,9 +5,9 @@ use crate::*;
 #[serde(crate = "near_sdk::serde")]
 pub struct ListingJson {
     ft_contract_id: AccountId,
+    price: U128,
     lease_start_ts_nano: U64,
     lease_end_ts_nano: U64,
-    price: U128,
 }
 
 /**

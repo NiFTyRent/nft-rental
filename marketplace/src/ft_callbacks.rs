@@ -66,12 +66,12 @@ impl FungibleTokenReceiver for Contract {
         );
 
         // Transfer both the to be rented NFT and the rent payment (FT) to the rental contract.
-        // The rental contract will activate the lease.
-        // When it returns successfully, remove the listing in marketplace 
+        // The Core rental contract will activate the lease.
+        // When Core returns successfully, remove the listing in marketplace
         // 1. Marketplace transfers the NFT to Core contract 
         //    1.1 Core contract will create the lease
         // 2. Marketplace transfers rent to Core contract
-        // 3. Marketplace reolves the result from first two steps and returns accordingly
+        // 3. Marketplace reolves the result from the above two steps and returns accordingly
 
         // msg to be passed in nft_transfer_call for a lease creation
         let msg_lease_json = json!({
@@ -106,7 +106,7 @@ impl FungibleTokenReceiver for Contract {
                     .transfer_rent_after_nft_transfer(
                         listing.ft_contract_id.clone(), // ft_contract_id
                         listing.price.clone(),          // amount
-                        None,                           //memo
+                        None,                           // memo
                     ),
             )
             .as_return()

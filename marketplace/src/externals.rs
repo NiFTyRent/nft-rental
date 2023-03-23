@@ -1,7 +1,7 @@
 use crate::*;
 use near_sdk::PromiseOrValue;
 
-/// NFT interface, for cross-contract calls
+/// NFT contract interface for XCC
 #[ext_contract(ext_nft)]
 pub trait NonFungibleToken {
     fn nft_transfer_call(
@@ -14,6 +14,7 @@ pub trait NonFungibleToken {
     );
 }
 
+/// FT contract interface for XCC
 #[ext_contract(ext_ft)]
 pub trait FungibleToken {
     fn ft_transfer(
@@ -24,7 +25,7 @@ pub trait FungibleToken {
     );
 }
 
-/// External interface of this marketplace contract
+/// Interface of this marketplace contract, for XCC by the contract itself.
 #[ext_contract(ext_self)]
 trait ExtSelf {
     fn transfer_rent_after_nft_transfer(
