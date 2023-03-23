@@ -1,21 +1,25 @@
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{
     assert_one_yocto,
-    borsh::{BorshDeserialize, BorshSerialize},
+    borsh::{self, BorshDeserialize, BorshSerialize},
+    bs58,
     collections::{LookupMap, UnorderedMap, UnorderedSet},
-    env,
+    env, ext_contract, is_promise_success,
     json_types::{U128, U64},
-    near_bindgen,
+    near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,
-    AccountId, CryptoHash,
+    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
 };
 
+mod externals;
 mod ft_callbacks;
 mod nft_callbacks;
+use crate::externals::*;
 
-// TODO(libo): use a differnt id type, since same NFT could be listed for leased for different time period.
-type ListingId = (AccountId, TokenId);
+pub const TGAS: u64 = 1_000_000_000_000;
+
+type ListingId = String;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -28,8 +32,8 @@ pub struct Listing {
     pub nft_token_id: TokenId,
     pub ft_contract_id: AccountId,
     pub price: U128,
-    pub lease_start_time: u64,
-    pub lease_end_time: u64,
+    pub lease_start_ts_nano: u64,
+    pub lease_end_ts_nano: u64,
 }
 
 #[near_bindgen]
@@ -83,6 +87,7 @@ impl Contract {
 
     // ------------------ Admin Functions -----------------
 
+    /// Set the treasury account to keep accured fees in marketplace
     pub fn set_treasury(&mut self, treasury_id: AccountId) {
         assert_one_yocto();
         self.assert_owner();
@@ -90,21 +95,21 @@ impl Contract {
     }
 
     #[payable]
-    pub fn add_approved_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
+    pub fn add_allowed_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
-        insert_accounts(nft_contract_ids, &mut self.approved_nft_contract_ids);
+        insert_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
 
     #[payable]
-    pub fn remove_approved_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
+    pub fn remove_allowed_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
-        remove_accounts(nft_contract_ids, &mut self.approved_nft_contract_ids);
+        remove_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
 
     #[payable]
-    pub fn add_approved_ft_contract_ids(&mut self, ft_contract_ids: Vec<AccountId>) {
+    pub fn add_allowed_ft_contract_ids(&mut self, ft_contract_ids: Vec<AccountId>) {
         self.assert_owner();
-        insert_accounts(ft_contract_ids, &mut self.approved_ft_contract_ids);
+        insert_accounts(ft_contract_ids, &mut self.allowed_ft_contract_ids);
     }
 
     // ------------------ View Functions -----------------
@@ -125,6 +130,42 @@ impl Contract {
         todo!();
     }
 
+    // ------------------ XCC RPCs -----------------
+    /**
+     * This method will handle the transfer of rent to Core rental contract,
+     * depending on the leasing nft transfer result.
+     * Rent will only be transfered to Core, if leasing nft has been transferred correctly.
+     * Otherwise, no rent transfer.
+     * This XCC can only be called by this contract itself. Thus made private.
+     */
+    #[private]
+    pub fn transfer_rent_after_nft_transfer(
+        &mut self,
+        ft_contract_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+    ) -> U128 {
+        require!(
+            is_promise_success(),
+            "NFT transfer failed. Abort rent transfer!"
+        );
+
+        // Trasnfer the rent to Core contract.
+        // TODO(syu): do we need to check the target lease got created successfully? This will need to call ft_on_transfer(). Also a map between listing_id and lease_id
+        ext_ft::ext(ft_contract_id.clone())
+            .with_attached_deposit(1)
+            .with_static_gas(Gas(10 * TGAS))
+            .ft_transfer(
+                self.rental_contract_id.clone(), // receiver_id
+                amount,                          // amount
+                memo,                            // memo
+            );
+
+        // refund set to 0
+        let refund_ammount: U128 = U128::from(0);
+        return refund_ammount;
+    }
+
     // ------------------ Internal Helpers -----------------
 
     fn internal_insert_listing(
@@ -135,23 +176,27 @@ impl Contract {
         nft_token_id: TokenId,
         ft_contract_id: AccountId,
         price: U128,
-        lease_start_time: u64,
-        lease_end_time: u64,
+        lease_start_ts_nano: u64,
+        lease_end_ts_nano: u64,
     ) {
-        let listing_id: ListingId = (nft_contract_id, nft_token_id);
+        // create listing_id
+        let seed = near_sdk::env::random_seed();
+        let listing_id = bs58::encode(seed)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
 
         self.listings.insert(
-            &listing_id
-                & Listing {
-                    owner_id: owner_id.clone(),
-                    approval_id,
-                    nft_contract_id: nft_contract_id.clone(),
-                    nft_token_id: nft_token_id.clone(),
-                    ft_contract_id: ft_contract_id.clone(),
-                    price: price.into(),
-                    lease_start_time,
-                    lease_end_time,
-                },
+            &listing_id,
+            &Listing {
+                owner_id: owner_id.clone(),
+                approval_id,
+                nft_contract_id: nft_contract_id.clone(),
+                nft_token_id: nft_token_id.clone(),
+                ft_contract_id: ft_contract_id.clone(),
+                price: price.into(),
+                lease_start_ts_nano,
+                lease_end_ts_nano,
+            },
         );
 
         // Update the listings by owner id index
@@ -187,8 +232,8 @@ impl Contract {
                     "nft_token_id": nft_token_id,
                     "ft_contract_id": ft_contract_id,
                     "price": price,
-                    "lease_start_time": lease_start_time,
-                    "lease_end_time": lease_end_time,
+                    "lease_start_ts_nano": lease_start_ts_nano,
+                    "lease_end_ts_nano": lease_end_ts_nano,
                 }
             })
             .to_string(),
@@ -196,6 +241,10 @@ impl Contract {
     }
 
     fn internal_remove_listing(&mut self, listing_id: ListingId) {
+        todo!()
+    }
+
+    fn assert_owner(&self) {
         todo!()
     }
 }

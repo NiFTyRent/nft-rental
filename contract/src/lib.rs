@@ -68,6 +68,21 @@ pub struct LeaseJson {
     price: U128,
 }
 
+// TODO(syu): update LeaseJson to LeaseJsonV2
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct LeaseJsonV2 {
+    contract_addr: AccountId,
+    token_id: TokenId,
+    lender_id: AccountId,
+    borrower_id: AccountId,
+    approval_id: u64,
+    ft_contract_addr: AccountId,
+    start_ts_nano: u64,
+    end_ts_nano: u64,
+    price: U128,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct NftOnTransferJson {
@@ -497,7 +512,7 @@ impl Contract {
             end_ts_nano: end_ts_nano,
             price: price,
             payout: optional_payout,
-            state: LeaseState::Pending,
+            state: LeaseState::Pending,   // TODO(syu): Pending is no longer needed after introducing Marketplace
         };
 
         let seed = near_sdk::env::random_seed();
@@ -761,6 +776,79 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
     }
 }
 
+/**
+ * Trait that will handle the receival of the leasing NFT.
+ * When the Marketplace calls nft_transfer_call on NFT contract, the NFT contract
+ * will invoke this function.
+*/
+trait NonFungibleTokenTransferReceiver {
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
+        msg: String,
+    );
+}
+
+#[near_bindgen]
+impl NonFungibleTokenTransferReceiver for Contract {
+    /**
+     * 1. Check NFT transfer is successful
+     * 2. Create proxy payouts if not supported
+     * 3. Create a lease
+     */
+    fn nft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
+        msg: String,
+    ) {
+        // Enforce cross contract call
+        let nft_contract_id = env::predecessor_account_id();
+        assert_ne!(
+            env::current_account_id(),
+            nft_contract_id,
+            "nft_on_transfer should only be called via XCC."
+        );
+
+        // TODO(syu): enforce sender_id is marketplace contract
+        let lease_json: LeaseJsonV2 =
+            near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
+
+        // Enforce the leasing token is the same as the transferring token
+        assert_eq!(nft_contract_id, lease_json.contract_addr);
+        assert_eq!(token_id, lease_json.token_id);
+
+        // Create a lease after resolving payouts of the leasing token
+        ext_nft::ext(lease_json.contract_addr.clone())
+            .nft_payout(
+                lease_json.token_id.clone(),    // token_id
+                U128::from(lease_json.price.0), // price
+                Some(MAX_LEN_PAYOUT),           // max_len_payout
+            )
+            .then(
+                ext_self::ext(env::current_account_id())
+                    .with_attached_deposit(0)
+                    .with_static_gas(GAS_FOR_ROYALTIES)
+                    .create_lease_with_payout(
+                        lease_json.contract_addr,
+                        lease_json.token_id,
+                        lease_json.lender_id,
+                        lease_json.borrower_id,
+                        lease_json.ft_contract_addr,
+                        lease_json.start_ts_nano,
+                        lease_json.end_ts_nano,
+                        lease_json.price,
+                        lease_json.approval_id, // TODO(syu): remove approval id from lease condition. No longer needed by Core.
+                    ),
+            )
+            .as_return();
+    }
+}
+
+// TODO(syu): ft_on_transfer is no longer needed after using marketplace. 
 /*
     The trait for receiving FT payment
     Depending on the FT contract implementation, it may need the users to register to deposit.
