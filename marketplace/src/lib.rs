@@ -286,7 +286,16 @@ impl Contract {
         env::log_str(
             &json!({
                 "type": "remove_listing",
-                "listing_id": listing_id,
+                "params": {
+                    "owner_id": listing.owner_id,
+                    "approval_id": listing.approval_id,
+                    "nft_contract_id": listing.nft_contract_id,
+                    "nft_token_id": listing.nft_token_id,
+                    "ft_contract_id": listing.ft_contract_id,
+                    "price": listing.price,
+                    "lease_start_ts_nano": listing.lease_start_ts_nano,
+                    "lease_end_ts_nano": listing.lease_end_ts_nano,
+                }
             })
             .to_string(),
         );

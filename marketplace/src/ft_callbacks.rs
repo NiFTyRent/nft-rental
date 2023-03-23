@@ -95,11 +95,12 @@ impl FungibleTokenReceiver for Contract {
                 self.rental_contract_id.clone(),   // receiver_id
                 listing.nft_token_id.clone(),      // token_id
                 msg_lease_json,                    // msg
-                Some(listing.approval_id.clone()), //approval_id
+                Some(listing.approval_id.clone()), // approval_id
                 None,                              // memo
             )
             .then(
                 // Trasnfer the rent to Core contract, after resolving the returned promise
+                // listing will also be removed when both transfers succeeded
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(Gas(10 * TGAS))
                     .with_attached_deposit(1)
@@ -113,6 +114,5 @@ impl FungibleTokenReceiver for Contract {
             .as_return()
             .into()
 
-        // TODO(syu): remove the listing after both steps succeed
     }
 }
