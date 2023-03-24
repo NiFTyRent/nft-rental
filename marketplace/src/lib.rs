@@ -45,16 +45,15 @@ pub struct Contract {
     pub treasury_id: AccountId,
     /// The rental proxy contract (i.e. the core contract) id this marketplace use.
     pub rental_contract_id: AccountId,
-    pub listings: UnorderedMap<ListingId, Listing>,
+    pub listing_by_id: UnorderedMap<ListingId, Listing>,
     /// Whitelist of FT contracts for rent payment.
     pub allowed_ft_contract_ids: UnorderedSet<AccountId>,
     // TODO(libo): Shops?
     pub allowed_nft_contract_ids: UnorderedSet<AccountId>,
 
-    // TODO: do we need it?
     /// Indices of listing for quick lookup.
-    pub listings_by_owner_id: LookupMap<AccountId, UnorderedSet<ListingId>>,
-    pub listings_by_nft_contract_id: LookupMap<AccountId, UnorderedSet<ListingId>>,
+    pub listing_ids_by_owner_id: LookupMap<AccountId, UnorderedSet<ListingId>>,
+    pub listing_ids_by_nft_contract_id: LookupMap<AccountId, UnorderedSet<ListingId>>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -77,11 +76,11 @@ impl Contract {
             owner_id: owner_id.into(),
             treasury_id: treasury_id.into(),
             rental_contract_id,
-            listings: UnorderedMap::new(StorageKey::Listings),
+            listing_by_id: UnorderedMap::new(StorageKey::Listings),
             allowed_ft_contract_ids: UnorderedSet::new(StorageKey::FTTokenIds),
             allowed_nft_contract_ids: UnorderedSet::new(StorageKey::NFTContractIds),
-            listings_by_owner_id: LookupMap::new(StorageKey::ListingsByOwnerId),
-            listings_by_nft_contract_id: LookupMap::new(StorageKey::ListingsByNftContractId),
+            listing_ids_by_owner_id: LookupMap::new(StorageKey::ListingsByOwnerId),
+            listing_ids_by_nft_contract_id: LookupMap::new(StorageKey::ListingsByNftContractId),
         }
     }
 
@@ -144,6 +143,7 @@ impl Contract {
         ft_contract_id: AccountId,
         amount: U128,
         memo: Option<String>,
+        listing_id: ListingId,
     ) -> U128 {
         require!(
             is_promise_success(),
@@ -160,6 +160,9 @@ impl Contract {
                 amount,                          // amount
                 memo,                            // memo
             );
+
+        // remove the listing when both nft transfer and rent transfer succeeded
+        self.internal_remove_listing(listing_id.clone());
 
         // refund set to 0
         let refund_ammount: U128 = U128::from(0);
@@ -185,7 +188,7 @@ impl Contract {
             .with_alphabet(bs58::Alphabet::BITCOIN)
             .into_string();
 
-        self.listings.insert(
+        self.listing_by_id.insert(
             &listing_id,
             &Listing {
                 owner_id: owner_id.clone(),
@@ -199,19 +202,22 @@ impl Contract {
             },
         );
 
-        // Update the listings by owner id index
-        let mut listing_ids_set = self.listings_by_owner_id.get(&owner_id).unwrap_or_else(|| {
-            UnorderedSet::new(StorageKey::ListingsByOwnerIdInner {
-                account_id_hash: hash_account_id(&owner_id),
-            })
-        });
+        // Update the index: listing_ids_by_owner_id
+        let mut listing_ids_set =
+            self.listing_ids_by_owner_id
+                .get(&owner_id)
+                .unwrap_or_else(|| {
+                    UnorderedSet::new(StorageKey::ListingsByOwnerIdInner {
+                        account_id_hash: hash_account_id(&owner_id),
+                    })
+                });
         listing_ids_set.insert(&listing_id);
-        self.listings_by_owner_id
+        self.listing_ids_by_owner_id
             .insert(&owner_id, &listing_ids_set);
 
-        // Update the listings by NFT contract id index
+        // Update the index: listing_ids_by_NFT_contract_id
         let mut listing_ids_set = self
-            .listings_by_nft_contract_id
+            .listing_ids_by_nft_contract_id
             .get(&nft_contract_id)
             .unwrap_or_else(|| {
                 UnorderedSet::new(StorageKey::ListingsByNftContractIdInner {
@@ -219,7 +225,7 @@ impl Contract {
                 })
             });
         listing_ids_set.insert(&listing_id);
-        self.listings_by_nft_contract_id
+        self.listing_ids_by_nft_contract_id
             .insert(&nft_contract_id, &listing_ids_set);
 
         env::log_str(
@@ -241,7 +247,58 @@ impl Contract {
     }
 
     fn internal_remove_listing(&mut self, listing_id: ListingId) {
-        todo!()
+        // check if the target listing exist
+        let listing = self
+            .listing_by_id
+            .get(&listing_id)
+            .expect("Input listing_id does not exist");
+
+        // remove the record in listing_by_id index
+        self.listing_by_id.remove(&listing_id);
+
+        // remove from index: listing_ids_by_owner_id
+        let mut listing_id_set = self.listing_ids_by_owner_id.get(&listing.owner_id).unwrap();
+        listing_id_set.remove(&listing_id);
+
+        if listing_id_set.is_empty() {
+            self.listing_ids_by_owner_id.remove(&listing.owner_id);
+        } else {
+            self.listing_ids_by_owner_id
+                .insert(&listing.owner_id, &listing_id_set);
+        }
+
+        // remove from index: listing_ids_by_NFT_contract_id
+        let mut listing_id_set = self
+            .listing_ids_by_nft_contract_id
+            .get(&listing.nft_contract_id)
+            .unwrap();
+        listing_id_set.remove(&listing_id);
+
+        if listing_id_set.is_empty() {
+            self.listing_ids_by_nft_contract_id
+                .remove(&listing.nft_contract_id);
+        } else {
+            self.listing_ids_by_owner_id
+                .insert(&listing.nft_contract_id, &listing_id_set);
+        }
+
+        // log the listing removal
+        env::log_str(
+            &json!({
+                "type": "remove_listing",
+                "params": {
+                    "owner_id": listing.owner_id,
+                    "approval_id": listing.approval_id,
+                    "nft_contract_id": listing.nft_contract_id,
+                    "nft_token_id": listing.nft_token_id,
+                    "ft_contract_id": listing.ft_contract_id,
+                    "price": listing.price,
+                    "lease_start_ts_nano": listing.lease_start_ts_nano,
+                    "lease_end_ts_nano": listing.lease_end_ts_nano,
+                }
+            })
+            .to_string(),
+        );
     }
 
     fn assert_owner(&self) {

@@ -63,9 +63,9 @@ pub struct LeaseJson {
     token_id: TokenId,
     borrower_id: AccountId,
     ft_contract_addr: AccountId,
+    price: U128,
     start_ts_nano: u64,
     end_ts_nano: u64,
-    price: U128,
 }
 
 // TODO(syu): update LeaseJson to LeaseJsonV2
@@ -717,7 +717,7 @@ impl Contract {
         self.lease_map.insert(&lease_id, &lease_condition); // insert data back to persis the value
     }
 }
-
+// TODO(syu): nft_on_approve is no longer needed after introduing marketplace. Remove it.
 // TODO: move nft callback function to separate file e.g. nft_callbacks.rs
 /**
     trait that will be used as the callback from the NFT contract. When nft_approve is

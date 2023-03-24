@@ -51,7 +51,7 @@ impl FungibleTokenReceiver for Contract {
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease listing");
 
         let listing: Listing = self
-            .listings
+            .listing_by_id
             .get(&listing_acceptance_json.listing_id)
             .unwrap();
 
@@ -81,9 +81,9 @@ impl FungibleTokenReceiver for Contract {
             "borrower_id": sender_id.clone(),
             "approval_id": listing.approval_id.clone(),
             "ft_contract_addr": listing.ft_contract_id.clone(),
+            "price": listing.price.clone(),
             "start_ts_nano": listing.lease_start_ts_nano.clone(),
             "end_ts_nano": listing.lease_end_ts_nano.clone(),
-            "price": listing.price.clone(),
         })
         .to_string();
 
@@ -95,11 +95,12 @@ impl FungibleTokenReceiver for Contract {
                 self.rental_contract_id.clone(),   // receiver_id
                 listing.nft_token_id.clone(),      // token_id
                 msg_lease_json,                    // msg
-                Some(listing.approval_id.clone()), //approval_id
+                Some(listing.approval_id.clone()), // approval_id
                 None,                              // memo
             )
             .then(
                 // Trasnfer the rent to Core contract, after resolving the returned promise
+                // listing will also be removed when both transfers succeeded
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(Gas(10 * TGAS))
                     .with_attached_deposit(1)
@@ -107,11 +108,11 @@ impl FungibleTokenReceiver for Contract {
                         listing.ft_contract_id.clone(), // ft_contract_id
                         listing.price.clone(),          // amount
                         None,                           // memo
+                        listing_acceptance_json.listing_id,
                     ),
             )
             .as_return()
             .into()
 
-        // TODO(syu): remove the listing after both steps succeed
     }
 }
