@@ -33,6 +33,7 @@ pub const PAYOUT_DIFF_TORLANCE_YACTO: u128 = 1;
 pub const MAX_LEN_PAYOUT: u32 = 50;
 
 pub type LeaseId = String;
+pub type MarketplaceListingId = String;  // marketplace_contract_addr + listing_id
 pub type PayoutHashMap = HashMap<AccountId, U128>;
 
 /// A mapping of NEAR accounts to the amount each should be paid out, in
@@ -50,10 +51,8 @@ pub struct Payout {
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub enum LeaseState {
-    Pending,
+    PendingOnRent,
     Active,
-    // TODO(libo): Expired is not ever been used. Clean it up.
-    Expired,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -81,6 +80,7 @@ pub struct LeaseJsonV2 {
     start_ts_nano: u64,
     end_ts_nano: u64,
     price: U128,
+    listing_id:MarketplaceListingId,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -132,6 +132,9 @@ pub struct Contract {
     // Allowlist of the contract addresses of the FT for the rent payment currency.
     // It's ok to load all allowed FT addresses into memory at once, since it's won't be long.
     allowed_ft_contract_addrs: Vec<AccountId>,
+
+    // <(marketplace_contract, listing_id), lease_id>
+    lease_id_by_marketplace_contract_and_listing_id: LookupMap<(AccountId, MarketplaceListingId), LeaseId>,,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -145,6 +148,7 @@ enum StorageKey {
     ActiveLeaseIdsByOwner,
     ActiveLeaseIdsByOwnerInner { account_id_hash: CryptoHash },
     ActiveLeaseIds,
+    LeaseIdByMarketplaceContractAndListingId,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -169,6 +173,8 @@ impl Contract {
             active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
             allowed_ft_contract_addrs: Vec::new(),
+
+            lease_id_by_marketplace_contract_and_listing_id: LookupMap::new(StorageKey::LeaseIdByMarketplaceContractAndListingId),
         }
     }
 
@@ -467,6 +473,8 @@ impl Contract {
         end_ts_nano: u64,
         price: U128,
         approval_id: u64,
+        marketplace_account: AccountId,
+        marketplace_listing_id: MarketplaceListingId,
     ) {
         // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
         let optional_payout;
@@ -512,7 +520,7 @@ impl Contract {
             end_ts_nano: end_ts_nano,
             price: price,
             payout: optional_payout,
-            state: LeaseState::Pending,   // TODO(syu): Pending is no longer needed after introducing Marketplace
+            state: LeaseState::PendingOnRent,
         };
 
         let seed = near_sdk::env::random_seed();
@@ -520,7 +528,7 @@ impl Contract {
             .with_alphabet(bs58::Alphabet::BITCOIN)
             .into_string();
 
-        self.internal_insert_lease(&lease_id, &lease_condition);
+        self.internal_insert_lease(&lease_id, &lease_condition, &marketplace_account, &marketplace_listing_id);
     }
 
     // helper method to remove records of a lease
@@ -567,6 +575,10 @@ impl Contract {
         self.lease_id_by_contract_addr_and_token_id
             .remove(&(lease_condition.contract_addr, lease_condition.token_id));
 
+        // TODO(syu): remove from index lease_id_by_marketplace_contract_and_listing_id
+        self.lease_id_by_marketplace_contract_and_listing_id
+            .remove(&(lease_condition.contract_addr, lease_condition.token_id));
+
         // Clean up NFT related fields
         // update active leases set
         self.active_lease_ids.remove(&lease_id);
@@ -590,7 +602,13 @@ impl Contract {
     }
 
     // helper method to insert a new lease and update all indices
-    fn internal_insert_lease(&mut self, lease_id: &LeaseId, lease_condition: &LeaseCondition) {
+    fn internal_insert_lease(
+        &mut self, 
+        lease_id: &LeaseId, 
+        lease_condition: &LeaseCondition, 
+        marketplace_account: &AccountId,
+        marketplace_listing_id: &MarketplaceListingId
+    ) {
         // insert into lease map
         self.lease_map.insert(&lease_id, &lease_condition);
 
@@ -638,6 +656,16 @@ impl Contract {
             ),
             &lease_id,
         );
+
+        // update index: lease_id_by_market_listing_id
+        self.lease_id_by_marketplace_listing_id.insert(
+            &(
+                marketplace_account.clone(),
+                marketplace_listing_id.clone(),
+            ),
+            &lease_id,
+        );
+
     }
 
     /// This function updates only the lender info in an active lease
@@ -842,13 +870,15 @@ impl NonFungibleTokenTransferReceiver for Contract {
                         lease_json.end_ts_nano,
                         lease_json.price,
                         lease_json.approval_id, // TODO(syu): remove approval id from lease condition. No longer needed by Core.
+                        env::signer_account_id().clone(), // marketplace account
+                        lease_json.listing_id,  // markeplace listing_id
                     ),
             )
             .as_return();
     }
 }
 
-// TODO(syu): ft_on_transfer is no longer needed after using marketplace. 
+// TODO(syu): ft_on_transfer is no longer needed after using marketplace.
 /*
     The trait for receiving FT payment
     Depending on the FT contract implementation, it may need the users to register to deposit.
@@ -877,6 +907,10 @@ impl FungibleTokenReceiver for Contract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
+        // TODO(syu): take rent for listing id
+        // find the matching lease ID
+        // update the lease state to from PendingOnRent to active
+
         //the lease conditions come from the msg field
         let lease_acceptance_json: LeaseAcceptanceJson =
             near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
@@ -907,7 +941,7 @@ impl FungibleTokenReceiver for Contract {
         );
         assert_eq!(
             lease_condition.state,
-            LeaseState::Pending,
+            LeaseState::PendingOnRent,
             "This lease is not pending on acceptance!"
         );
 
@@ -1134,7 +1168,7 @@ mod tests {
 
         let lease_condition_result = contract.lease_map.get(&key).unwrap();
         assert_eq!(lease_condition_result.payout, None);
-        assert_eq!(lease_condition_result.state, LeaseState::Pending);
+        assert_eq!(lease_condition_result.state, LeaseState::PendingOnRent);
     }
 
     #[test]
@@ -1182,7 +1216,7 @@ mod tests {
     fn test_claim_back_inactive_lease() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         let key = "test_key".to_string();
 
         contract.lease_map.insert(&key, &lease_condition);
@@ -1434,7 +1468,7 @@ mod tests {
         let expected_token_id = "test_token".to_string();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.borrower_id = expected_borrower_id.clone();
@@ -1485,7 +1519,7 @@ mod tests {
         let expected_lender_id: AccountId = accounts(2).into();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
@@ -1530,7 +1564,6 @@ mod tests {
         assert!(result_owner == expected_lender_id);
     }
 
-
     #[test]
     fn test_get_current_user_by_contract_and_token_success_lease_not_start() {
         let mut contract = Contract::new(accounts(1).into());
@@ -1541,7 +1574,7 @@ mod tests {
         let expected_lender_id: AccountId = accounts(2).into();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
@@ -1927,7 +1960,7 @@ mod tests {
     fn test_internal_update_active_lease_lender_fails_not_an_active_lease() {
         let mut contract = Contract::new(accounts(0).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
 
         let lease_key = "test_key".to_string();
         contract.internal_insert_lease(&lease_key, &lease_condition);
@@ -1989,7 +2022,7 @@ mod tests {
             end_ts_nano.clone(),
             price,
             None,
-            LeaseState::Pending,
+            LeaseState::PendingOnRent,
         )
     }
 

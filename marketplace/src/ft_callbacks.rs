@@ -84,6 +84,7 @@ impl FungibleTokenReceiver for Contract {
             "price": listing.price.clone(),
             "start_ts_nano": listing.lease_start_ts_nano.clone(),
             "end_ts_nano": listing.lease_end_ts_nano.clone(),
+            "listing_id": listing_acceptance_json.listing_id.clone(),
         })
         .to_string();
 
