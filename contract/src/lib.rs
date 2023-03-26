@@ -208,7 +208,6 @@ impl Contract {
 
     #[private]
     pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128 {
-
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         let new_lease_condition = LeaseCondition {
             state: LeaseState::Active,
@@ -938,88 +937,38 @@ impl FungibleTokenReceiver for Contract {
             ft_contract_id,
             "ft_on_transfer should only be called via XCC."
         );
-        //the lease conditions come from the msg field
+        // Get the listing id from the msg field
         let rent_acceptance_json: RentAcceptanceJson =
             near_sdk::serde_json::from_str(&msg).expect("Not valid listing id data!");
 
-        // extract the targeting lease
+        // extract the target lease
         let marketplace_account = env::signer_account_id();
 
         let lease_id = self
             .lease_id_by_marketplace_contract_and_listing_id
-            .get(&(marketplace_account, rent_acceptance_json.listing_id.clone()));
-        assert!(
-            lease_id.is_none(),
-            "The targeting lease id does not exist!"
-        );
+            .get(&(marketplace_account, rent_acceptance_json.listing_id));
+        assert!(lease_id.is_none(), "The targeting lease id does not exist!");
 
         let lease_condition = self.lease_map.get(&lease_id.unwrap()).unwrap();
-        
+
         // update the lease state accordingly
         assert_eq!(
             lease_condition.state,
             LeaseState::PendingOnRent,
             "This lease is not pending on acceptance!"
         );
+        
+        // TODO(syu): move the record remove into activate_lease().
+        // remove the marketplace listing record. Since we no longer need the listing info after Lease activated
+        self.lease_id_by_marketplace_contract_and_listing_id
+            .remove(&(marketplace_account, rent_acceptance_json.listing_id));
+
         ext_self::ext(env::current_account_id())
             .with_attached_deposit(0)
             .with_static_gas(GAS_FOR_ROYALTIES)
             .activate_lease(lease_id.unwrap())
             .as_return()
             .into()
-
-        // // =====================================
-        // //the lease conditions come from the msg field
-        // let lease_acceptance_json: LeaseAcceptanceJson =
-        //     near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
-
-        // // Borrower can accept a pending lending. When this happened, the lease contract does the following:
-        // // 1. Retrieve the lease data from the lease_map
-        // // 2. Check if the tx sender is the borrower
-        // // 2. Check if the FT contract is designated by the lender
-        // // 3. Check if the deposit equals rent
-        // // 4. Transfer the NFT to the lease contract
-        // // 5. Update the lease state, when transfer succeeds
-
-        // // TODO: check if the FT contract is the designated one
-        // let lease_condition: LeaseCondition = self
-        //     .lease_map
-        //     .get(&lease_acceptance_json.lease_id.clone())
-        //     .unwrap();
-        // assert_eq!(lease_condition.borrower_id, sender_id, "Wrong borrower!");
-        // assert_eq!(
-        //     lease_condition.ft_contract_addr,
-        //     env::predecessor_account_id(),
-        //     "Wrong FT contract address!"
-        // );
-        // // TODO(libo): Allow surplus tokens transferred, refund the extra in the end.
-        // assert_eq!(
-        //     amount.0, lease_condition.price.0,
-        //     "Transferred amount doesn't match the asked rent!"
-        // );
-        // assert_eq!(
-        //     lease_condition.state,
-        //     LeaseState::PendingOnRent,
-        //     "This lease is not pending on acceptance!"
-        // );
-
-        // ext_nft::ext(lease_condition.contract_addr.clone())
-        //     .with_static_gas(Gas(10 * TGAS))
-        //     .with_attached_deposit(1)
-        //     .nft_transfer(
-        //         env::current_account_id(),                 // receiver_id
-        //         lease_condition.token_id.clone(),          // token_id
-        //         Some(lease_condition.approval_id.clone()), // approval_id
-        //         None,                                      // memo
-        //     )
-        //     .then(
-        //         ext_self::ext(env::current_account_id())
-        //             .with_attached_deposit(0)
-        //             .with_static_gas(GAS_FOR_ROYALTIES)
-        //             .activate_lease(lease_acceptance_json.lease_id.clone()),
-        //     )
-        //     .as_return()
-        //     .into()
     }
 }
 
