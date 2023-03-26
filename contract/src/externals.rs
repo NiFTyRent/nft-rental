@@ -18,7 +18,7 @@ trait ExtSelf {
         price: U128,
         approval_id: u64,
         marketplace_account: AccountId,
-        marketplace_listing_id: MarketplaceListingId,
+        marketplace_listing_id: ListingId,
 
     ) -> Promise;
 }

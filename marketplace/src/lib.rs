@@ -154,7 +154,7 @@ impl Contract {
         );
 
         // Trasnfer the rent to Core contract.
-        // TODO(syu): do we need to check the target lease got created successfully? This will need to call ft_on_transfer(). Also a map between listing_id and lease_id
+        // msg to be passed in ft_transfer_call, to specify the targeting listing
         let msg_rent_transfer_json = json!({
             "listing_id":listing_id.clone(),
         })
@@ -166,7 +166,7 @@ impl Contract {
                 self.rental_contract_id.clone(), // receiver_id
                 amount,                          // amount
                 memo,                            // memo
-                msg_rent_transfer_json,
+                msg_rent_transfer_json,          
             );
 
         // remove the listing when both nft transfer and rent transfer succeeded
