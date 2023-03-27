@@ -6,7 +6,22 @@ use crate::*;
 trait ExtSelf {
     fn activate_lease(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
+
+    // TODO(syu): Update to v2
     fn create_lease_with_payout(
+        &mut self,
+        contract_id: AccountId,
+        token_id: TokenId,
+        owner_id: AccountId,
+        borrower_id: AccountId,
+        ft_contract_addr: AccountId,
+        start_ts_nano: u64,
+        end_ts_nano: u64,
+        price: U128,
+        approval_id: u64,
+    ) -> Promise;
+
+    fn create_lease_with_payout_v2(
         &mut self,
         contract_id: AccountId,
         token_id: TokenId,
@@ -19,7 +34,6 @@ trait ExtSelf {
         approval_id: u64,
         marketplace_account: AccountId,
         marketplace_listing_id: ListingId,
-
     ) -> Promise;
 }
 
