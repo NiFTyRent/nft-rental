@@ -55,22 +55,22 @@ pub enum LeaseState {
     Active,
 }
 
-// #[derive(Serialize, Deserialize)]
-// #[serde(crate = "near_sdk::serde")]
-// pub struct LeaseJson {
-//     contract_addr: AccountId,
-//     token_id: TokenId,
-//     borrower_id: AccountId,
-//     ft_contract_addr: AccountId,
-//     price: U128,
-//     start_ts_nano: u64,
-//     end_ts_nano: u64,
-// }
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct LeaseJson {
+    contract_addr: AccountId,
+    token_id: TokenId,
+    borrower_id: AccountId,
+    ft_contract_addr: AccountId,
+    price: U128,
+    start_ts_nano: u64,
+    end_ts_nano: u64,
+}
 
 // TODO(syu): update LeaseJson to LeaseJsonV2
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct LeaseJson {
+pub struct LeaseJsonV2 {
     contract_addr: AccountId,
     token_id: TokenId,
     lender_id: AccountId,
@@ -133,7 +133,7 @@ pub struct Contract {
     // It's ok to load all allowed FT addresses into memory at once, since it's won't be long.
     allowed_ft_contract_addrs: Vec<AccountId>,
 
-    // <(marketplace_contract, listing_id), lease_id>
+    // Index to match a marketlisting to rental lease. Useful to point a rental transfer to trageting lease.
     // TODO(syu): add viewing method for this index
     lease_id_by_marketplace_contract_and_listing_id: LookupMap<(AccountId, ListingId), LeaseId>,
 }
@@ -803,7 +803,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
 
         // TODO(syu): enforce sender_id is marketplace contract.
 
-        let lease_json: LeaseJson =
+        let lease_json: LeaseJsonV2 =
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 
         // Enforce the leasing token is the same as the transferring token
@@ -839,7 +839,6 @@ impl NonFungibleTokenTransferReceiver for Contract {
     }
 }
 
-// TODO(syu): ft_on_transfer is no longer needed after using marketplace.
 /*
     The trait for receiving rent transfer from marketplace.
     Depending on the FT contract implementation, it may need the users to register to deposit.
@@ -862,11 +861,11 @@ pub trait FungibleTokenReceiver {
 
 /**
  * This method receives borrower's rent transferred by markeplace. It also trigers a lease activation
- * 1. Marketplace(Sender) calls `ft_transfer_call` on FT contract
- * 2. FT contract transfers `amount` tokens from marketplace to core rental contract (reciever)
- * 3. FT contract calls `ft_on_transfer` on core rental contract
- * 4. Rental contract updates lease state accordingly. Rent condition check should be performed on marketplace.
- * 5. Rental contract returns Promise accordingly
+ * 1. Marketplace(Sender) calls `ft_transfer_call` on FT contract.
+ * 2. FT contract transfers `amount` tokens from marketplace to core rental contract (reciever).
+ * 3. FT contract calls `ft_on_transfer` on core rental contract.
+ * 4. Rental contract update lease state accordingly. Rent condition checks have been performed on marketplace side.
+ * 5. Rental contract returns Promise accordingly.
 */
 impl FungibleTokenReceiver for Contract {
     #[payable]
