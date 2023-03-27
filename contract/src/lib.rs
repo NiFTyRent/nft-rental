@@ -1124,7 +1124,7 @@ impl FungibleTokenReceiverV2 for Contract {
             marketplace_account.clone(),
             rent_acceptance_json.listing_id.clone(),
         ));
-        assert!(lease_id.is_none(), "The targeting lease id does not exist!");
+        assert!(lease_id.is_some(), "The targeting lease id does not exist!");
 
         let lease_condition = self.lease_map.get(&lease_id.clone().unwrap()).unwrap();
 
