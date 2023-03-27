@@ -21,6 +21,7 @@
     "build_testnet:demo_web": "cd demo_nft_frontend && yarn build_testnet",
     "test": "yarn test:unit && yarn test:integration",
     "test:unit": "cd contract && cargo test",
+    "test:marketplace_unit": "cd marketplace && cargo test",
     "test:integration": "yarn build:contract && cd integration-tests && cargo build --all --target wasm32-unknown-unknown --release && cargo test --test integration -- --nocapture",
     "test:gas": "yarn build:contract && yarn build:demo_nft && cd integration-tests && cargo test --test gas_usage -- --nocapture",
     "deps-install": "yarn install && cd frontend && yarn install && cd ..",
