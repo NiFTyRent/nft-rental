@@ -4,10 +4,13 @@ use crate::*;
 // TODO(libo): explicitly implement this trait.
 #[ext_contract(ext_self)]
 trait ExtSelf {
+    // TODO(syu): Update to v2 after using marketplace
     fn activate_lease(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
+    fn activate_lease_v2(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
+
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
 
-    // TODO(syu): Update to v2
+    // TODO(syu): Update to v2 after using marketplace
     fn create_lease_with_payout(
         &mut self,
         contract_id: AccountId,
