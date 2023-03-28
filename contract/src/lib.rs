@@ -76,7 +76,7 @@ pub struct LeaseJsonV2 {
     nft_token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
-    approval_id: u64,    // TODO(syu): no longer needed after using marketplace. Remove it.
+    approval_id: u64, // TODO(syu): no longer needed after using marketplace. Remove it.
     ft_contract_addr: AccountId,
     start_ts_nano: u64,
     end_ts_nano: u64,
@@ -224,8 +224,7 @@ impl Contract {
         return unused_ammount;
     }
 
-    #[private]
-    pub fn activate_lease_v2(&mut self, lease_id: LeaseId) -> U128 {
+    fn activate_lease_v2(&mut self, lease_id: LeaseId) {
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         let new_lease_condition = LeaseCondition {
             state: LeaseState::Active,
@@ -234,10 +233,6 @@ impl Contract {
         self.lease_map.insert(&lease_id, &new_lease_condition);
 
         self.nft_mint(lease_id, new_lease_condition.lender_id.clone());
-
-        // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
-        let unused_ammount: U128 = U128::from(0);
-        return unused_ammount;
     }
 
     #[payable]
@@ -1029,12 +1024,7 @@ impl FungibleTokenReceiver for Contract {
 */
 #[ext_contract(ext_ft_receiver_v2)]
 pub trait FungibleTokenReceiverV2 {
-    fn ft_on_transfer_v2(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
+    fn ft_on_transfer_v2(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128;
 }
 
 /**
@@ -1048,12 +1038,7 @@ pub trait FungibleTokenReceiverV2 {
 #[near_bindgen]
 impl FungibleTokenReceiverV2 for Contract {
     #[payable]
-    fn ft_on_transfer_v2(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128> {
+    fn ft_on_transfer_v2(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
         // update the lease state to from PendingOnRent to active
 
         // Enforce cross contract call
@@ -1088,14 +1073,14 @@ impl FungibleTokenReceiverV2 for Contract {
             .get(&(
                 rent_acceptance_json.nft_contract_id,
                 rent_acceptance_json.nft_token_id,
-            )).expect("The targeting lease id does not exist!");
+            ))
+            .expect("The targeting lease id does not exist!");
 
-        ext_self::ext(env::current_account_id())
-            .with_attached_deposit(0)
-            .with_static_gas(GAS_FOR_ROYALTIES)
-            .activate_lease_v2(lease_id)
-            .as_return()
-            .into()
+        self.activate_lease_v2(lease_id);
+
+        // Specify the unused amount as required by NEP-141
+        let unused_ammount: U128 = U128::from(0);
+        return unused_ammount;
     }
 }
 
