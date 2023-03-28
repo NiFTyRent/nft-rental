@@ -87,7 +87,7 @@ pub struct LeaseJsonV2 {
 #[serde(crate = "near_sdk::serde")]
 pub struct NftOnTransferJson {
     nft_contract_id: AccountId,
-    nft_token_id: TokenId,
+    token_id: TokenId,
 }
 
 /// Struct for keeping track of the lease conditions

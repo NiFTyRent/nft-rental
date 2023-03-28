@@ -162,7 +162,7 @@ impl Contract {
             .expect("Listing Id for rent transfer does not exist!");
         let msg_rent_transfer_json = json!({
             "nft_contract_id":listing.nft_contract_id.clone(),
-            "nft_token_id": listing.token_id.clone(),
+            "token_id": listing.token_id.clone(),
         })
         .to_string();
 
@@ -172,7 +172,7 @@ impl Contract {
                 "type": "transfer_rent",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
-                    "nft_token_id": listing.token_id.clone(),
+                    "token_id": listing.token_id.clone(),
                     "ft_contract": listing.ft_contract_id.clone(),
                     "price": listing.price.clone(),
                 }
