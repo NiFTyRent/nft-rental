@@ -76,7 +76,7 @@ pub struct LeaseJsonV2 {
     token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
-    approval_id: u64,
+    approval_id: u64,    // TODO(syu): no longer needed after using marketplace. Remove it.
     ft_contract_addr: AccountId,
     start_ts_nano: u64,
     end_ts_nano: u64,
@@ -125,7 +125,7 @@ pub struct Contract {
     lease_map: UnorderedMap<LeaseId, LeaseCondition>,
     lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
     lease_ids_by_borrower: LookupMap<AccountId, UnorderedSet<LeaseId>>,
-    lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>,
+    lease_id_by_contract_addr_and_token_id: LookupMap<(AccountId, TokenId), LeaseId>, // <(NFT_contract, token_id), lease_id>
 
     active_lease_ids: UnorderedSet<LeaseId>, // This also records all existing LEASE token ids
     active_lease_ids_by_lender: LookupMap<AccountId, UnorderedSet<LeaseId>>,
@@ -935,7 +935,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                         lease_json.start_ts_nano,
                         lease_json.end_ts_nano,
                         lease_json.price,
-                        lease_json.approval_id, // TODO(syu): remove approval id from lease condition. No longer needed by Core.
+                        lease_json.approval_id,
                     ),
             )
             .as_return();
@@ -1049,7 +1049,7 @@ pub trait FungibleTokenReceiverV2 {
  * 1. Marketplace(Sender) calls `ft_transfer_call` on FT contract.
  * 2. FT contract transfers `amount` tokens from marketplace to core rental contract (reciever).
  * 3. FT contract calls `ft_on_transfer` on core rental contract.
- * 4. Rental contract update lease state accordingly. Rent condition checks have been performed on marketplace side.
+ * 4. Rental contract updates lease state accordingly. Rent condition checks have been performed on marketplace side.
  * 5. Rental contract returns Promise accordingly.
  */
 #[near_bindgen]
@@ -1061,7 +1061,6 @@ impl FungibleTokenReceiverV2 for Contract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        // find the matching lease ID
         // update the lease state to from PendingOnRent to active
 
         // Enforce cross contract call
@@ -1071,24 +1070,18 @@ impl FungibleTokenReceiverV2 for Contract {
             ft_contract_id,
             "ft_on_transfer should only be called via XCC."
         );
-        // Get the listing id from the msg field
+
+        // extract recived message
         let rent_acceptance_json: RentAcceptanceJson =
             near_sdk::serde_json::from_str(&msg).expect("Not valid listing id data!");
 
-        // extract the target lease
+        // find the targeting lease
         let lease_condition = self
             .get_lease_by_contract_and_token(
                 rent_acceptance_json.nft_contract_id.clone(),
                 rent_acceptance_json.nft_token_id.clone(),
             )
-            .expect("The targeting lease id does not exist!");
-
-        let lease_id = self
-            .lease_id_by_contract_addr_and_token_id
-            .get(&(
-                rent_acceptance_json.nft_contract_id,
-                rent_acceptance_json.nft_token_id,
-            )).expect("The targeting lease id does not exist!");
+            .expect("The targeting lease does not exist!");
 
         // update the lease state accordingly
         assert_eq!(
@@ -1096,6 +1089,13 @@ impl FungibleTokenReceiverV2 for Contract {
             LeaseState::PendingOnRent,
             "This lease is not pending on rent!"
         );
+
+        let lease_id = self
+            .lease_id_by_contract_addr_and_token_id
+            .get(&(
+                rent_acceptance_json.nft_contract_id,
+                rent_acceptance_json.nft_token_id,
+            )).expect("The targeting lease id does not exist!");
 
         ext_self::ext(env::current_account_id())
             .with_attached_deposit(0)

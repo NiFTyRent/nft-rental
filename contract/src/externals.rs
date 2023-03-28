@@ -34,7 +34,7 @@ trait ExtSelf {
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
-        approval_id: u64,
+        approval_id: u64,   // TODO(syu): Remove approval_id after using markeplace.
     ) -> Promise;
 }
 
