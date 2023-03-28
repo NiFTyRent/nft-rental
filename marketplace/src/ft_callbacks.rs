@@ -77,7 +77,7 @@ impl FungibleTokenReceiver for Contract {
         // msg to be passed in nft_transfer_call for a lease creation
         let msg_lease_json = json!({
             "nft_contract_addr": listing.nft_contract_id.clone(),
-            "token_id": listing.token_id.clone(),
+            "nft_token_id": listing.nft_token_id.clone(),
             "lender_id": listing.owner_id.clone(),
             "borrower_id": sender_id.clone(),
             "approval_id": listing.approval_id.clone(),
@@ -94,7 +94,7 @@ impl FungibleTokenReceiver for Contract {
                 "type": "transfer_leasing_nft",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
-                    "nft_token_id": listing.token_id.clone(),
+                    "nft_token_id": listing.nft_token_id.clone(),
                     "lender": listing.owner_id.clone(),
                     "borrower": sender_id.clone(),
                     "rental_contract": self.rental_contract_id.clone(),
@@ -109,7 +109,7 @@ impl FungibleTokenReceiver for Contract {
             .with_attached_deposit(1)
             .nft_transfer_call(
                 self.rental_contract_id.clone(),   // receiver_id
-                listing.token_id.clone(),          // token_id
+                listing.nft_token_id.clone(),      // nft_token_id
                 msg_lease_json,                    // msg
                 Some(listing.approval_id.clone()), // approval_id
                 None,                              // memo

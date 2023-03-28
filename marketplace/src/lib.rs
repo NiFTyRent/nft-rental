@@ -30,7 +30,7 @@ pub struct Listing {
     /// The approval id for transfering the NFT into rental contract's custody
     pub approval_id: u64,
     pub nft_contract_id: AccountId,
-    pub token_id: TokenId,
+    pub nft_token_id: TokenId,
     pub ft_contract_id: AccountId,
     pub price: U128,
     pub lease_start_ts_nano: u64,
@@ -162,7 +162,7 @@ impl Contract {
             .expect("Listing Id for rent transfer does not exist!");
         let msg_rent_transfer_json = json!({
             "nft_contract_id":listing.nft_contract_id.clone(),
-            "token_id": listing.token_id.clone(),
+            "nft_token_id": listing.nft_token_id.clone(),
         })
         .to_string();
 
@@ -172,7 +172,7 @@ impl Contract {
                 "type": "transfer_rent",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
-                    "token_id": listing.token_id.clone(),
+                    "nft_token_id": listing.nft_token_id.clone(),
                     "ft_contract": listing.ft_contract_id.clone(),
                     "price": listing.price.clone(),
                 }
@@ -220,7 +220,7 @@ impl Contract {
                 owner_id: owner_id.clone(),
                 approval_id,
                 nft_contract_id: nft_contract_id.clone(),
-                token_id: nft_token_id.clone(),
+                nft_token_id: nft_token_id.clone(),
                 ft_contract_id: ft_contract_id.clone(),
                 price: price.into(),
                 lease_start_ts_nano,
@@ -316,7 +316,7 @@ impl Contract {
                     "owner_id": listing.owner_id,
                     "approval_id": listing.approval_id,
                     "nft_contract_id": listing.nft_contract_id,
-                    "nft_token_id": listing.token_id,
+                    "nft_token_id": listing.nft_token_id,
                     "ft_contract_id": listing.ft_contract_id,
                     "price": listing.price,
                     "lease_start_ts_nano": listing.lease_start_ts_nano,
