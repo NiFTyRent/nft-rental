@@ -81,7 +81,7 @@ pub struct LeaseJsonV2 {
     start_ts_nano: u64,
     end_ts_nano: u64,
     price: U128,
-    listing_id: ListingId,
+    listing_id: ListingId,   // an opaque identifier for marketplace to specify the lease during rent transfer
 }
 
 #[derive(Serialize, Deserialize)]
@@ -641,7 +641,7 @@ impl Contract {
 
         // TODO(syu): move this step into internal_insert_lease(). Requries interface change
         // record the listing info by updating index: lease_id_by_market_listing_id
-        if marketplace_account.is_some() && marketplace_listing_id.is_none() {
+        if marketplace_account.is_some() && marketplace_listing_id.is_some() {
             self.lease_id_by_marketplace_contract_and_listing_id.insert(
                 &(
                     marketplace_account.clone().unwrap(),
@@ -1123,10 +1123,9 @@ impl FungibleTokenReceiverV2 for Contract {
         let lease_id = self.lease_id_by_marketplace_contract_and_listing_id.get(&(
             marketplace_account.clone(),
             rent_acceptance_json.listing_id.clone(),
-        ));
-        assert!(lease_id.is_some(), "The targeting lease id does not exist!");
+        )).expect("The targeting lease id does not exist!");
 
-        let lease_condition = self.lease_map.get(&lease_id.clone().unwrap()).unwrap();
+        let lease_condition = self.lease_map.get(&lease_id.clone()).unwrap();
 
         // update the lease state accordingly
         assert_eq!(
@@ -1143,7 +1142,7 @@ impl FungibleTokenReceiverV2 for Contract {
         ext_self::ext(env::current_account_id())
             .with_attached_deposit(0)
             .with_static_gas(GAS_FOR_ROYALTIES)
-            .activate_lease_v2(lease_id.unwrap())
+            .activate_lease_v2(lease_id)
             .as_return()
             .into()
     }
