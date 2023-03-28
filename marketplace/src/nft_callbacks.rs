@@ -44,29 +44,49 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             "nft_on_approve should only be called via XCC"
         );
 
-        // TODO(syu): Enfore the same nft token is not used in existing listings
-
-        // enforce owner_id is signer
+        // enforce owner_id is the signer
         let signer_id = env::signer_account_id();
         assert_eq!(owner_id, signer_id, "owner_id should be signer_id");
 
         // enforce nft contract is allowed
-        assert!(
+        require!(
             self.allowed_nft_contract_ids.contains(&nft_contract_id),
             "nft_contract_id is not allowed!"
         );
 
+        // enfore the token is not listed more than once
+        require!(
+            self.listing_by_id
+                .get(&(nft_contract_id.clone(), token_id.clone()))
+                .is_none(),
+            "One nft token cannot be listed more than once!!"
+        );
+
+        // extract listing details
         let listing_json: ListingJson =
             near_sdk::serde_json::from_str(&msg).expect("Invalid Listing Json!");
 
         // enforce ft contract is allowed
-        assert!(
+        require!(
             self.allowed_ft_contract_ids
                 .contains(&listing_json.ft_contract_id),
             "ft_contract_id is not allowed!"
         );
 
-        // record a listing
+        // log the request to create a listing
+        env::log_str(
+            &json!({
+                "type": "request_to_create_a_listing",
+                "params": {
+                    "lender": signer_id.clone(),
+                    "nft_contract_id": nft_contract_id.clone(),
+                    "nft_token_id": token_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
+        // create a listing
         self.internal_insert_listing(
             owner_id,
             approval_id,

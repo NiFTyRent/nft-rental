@@ -77,7 +77,7 @@ impl FungibleTokenReceiver for Contract {
         // msg to be passed in nft_transfer_call for a lease creation
         let msg_lease_json = json!({
             "nft_contract_addr": listing.nft_contract_id.clone(),
-            "nft_token_id": listing.nft_token_id.clone(),
+            "token_id": listing.token_id.clone(),
             "lender_id": listing.owner_id.clone(),
             "borrower_id": sender_id.clone(),
             "approval_id": listing.approval_id.clone(),
@@ -85,10 +85,23 @@ impl FungibleTokenReceiver for Contract {
             "price": listing.price.clone(),
             "start_ts_nano": listing.lease_start_ts_nano.clone(),
             "end_ts_nano": listing.lease_end_ts_nano.clone(),
-            // TODO(syu): remove the listing id after using (account_id, token_id) to match lease
-            "listing_id": listing_acceptance_json.listing_id.clone(), 
         })
         .to_string();
+
+        // log nft transfer
+        env::log_str(
+            &json!({
+                "type": "transfer_leasing_nft",
+                "params": {
+                    "nft_contract_id": listing.nft_contract_id.clone(),
+                    "nft_token_id": listing.token_id.clone(),
+                    "lender": listing.owner_id.clone(),
+                    "borrower": sender_id.clone(),
+                    "rental_contract": self.rental_contract_id.clone(),
+                }
+            })
+            .to_string(),
+        );
 
         // Transfer the leasing nft to Core contract
         ext_nft::ext(listing.nft_contract_id.clone())
@@ -96,7 +109,7 @@ impl FungibleTokenReceiver for Contract {
             .with_attached_deposit(1)
             .nft_transfer_call(
                 self.rental_contract_id.clone(),   // receiver_id
-                listing.nft_token_id.clone(),      // token_id
+                listing.token_id.clone(),          // token_id
                 msg_lease_json,                    // msg
                 Some(listing.approval_id.clone()), // approval_id
                 None,                              // memo

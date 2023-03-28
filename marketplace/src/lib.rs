@@ -2,7 +2,6 @@ use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{
     assert_one_yocto,
     borsh::{self, BorshDeserialize, BorshSerialize},
-    bs58,
     collections::{LookupMap, UnorderedMap, UnorderedSet},
     env, ext_contract, is_promise_success,
     json_types::{U128, U64},
@@ -19,8 +18,9 @@ use crate::externals::*;
 
 pub const TGAS: u64 = 1_000_000_000_000;
 
-// TODO(syu): update to (AccountId, TokenId) for (NFT Contract, NFT Token ID)
-type ListingId = String;
+// In the current design, one nft token can only have one active lease, even at different rental periods.
+// (NFT Contract, NFT Token ID). 
+type ListingId = (AccountId, TokenId);
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -30,7 +30,7 @@ pub struct Listing {
     /// The approval id for transfering the NFT into rental contract's custody
     pub approval_id: u64,
     pub nft_contract_id: AccountId,
-    pub nft_token_id: TokenId,
+    pub token_id: TokenId,
     pub ft_contract_id: AccountId,
     pub price: U128,
     pub lease_start_ts_nano: u64,
@@ -155,16 +155,31 @@ impl Contract {
         );
 
         // Trasnfer the rent to Core contract.
-        // msg to be passed in ft_transfer_call, to specify the targeting listing
+        // msg to be passed in ft_transfer_call. Used for specifying the targeting lease.
         let listing = self
             .listing_by_id
             .get(&listing_id)
             .expect("Listing Id for rent transfer does not exist!");
         let msg_rent_transfer_json = json!({
             "nft_contract_id":listing.nft_contract_id.clone(),
-            "nft_token_id": listing.nft_token_id.clone(),
+            "nft_token_id": listing.token_id.clone(),
         })
         .to_string();
+
+        // log rent transfer
+        env::log_str(
+            &json!({
+                "type": "transfer_rent",
+                "params": {
+                    "nft_contract_id": listing.nft_contract_id.clone(),
+                    "nft_token_id": listing.token_id.clone(),
+                    "ft_contract": listing.ft_contract_id.clone(),
+                    "price": listing.price.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         ext_ft::ext(ft_contract_id.clone())
             .with_attached_deposit(1)
             .with_static_gas(Gas(10 * TGAS))
@@ -197,10 +212,7 @@ impl Contract {
         lease_end_ts_nano: u64,
     ) {
         // create listing_id
-        let seed = near_sdk::env::random_seed();
-        let listing_id = bs58::encode(seed)
-            .with_alphabet(bs58::Alphabet::BITCOIN)
-            .into_string();
+        let listing_id = (nft_contract_id.clone(),nft_token_id.clone());
 
         self.listing_by_id.insert(
             &listing_id,
@@ -208,7 +220,7 @@ impl Contract {
                 owner_id: owner_id.clone(),
                 approval_id,
                 nft_contract_id: nft_contract_id.clone(),
-                nft_token_id: nft_token_id.clone(),
+                token_id: nft_token_id.clone(),
                 ft_contract_id: ft_contract_id.clone(),
                 price: price.into(),
                 lease_start_ts_nano,
@@ -304,7 +316,7 @@ impl Contract {
                     "owner_id": listing.owner_id,
                     "approval_id": listing.approval_id,
                     "nft_contract_id": listing.nft_contract_id,
-                    "nft_token_id": listing.nft_token_id,
+                    "nft_token_id": listing.token_id,
                     "ft_contract_id": listing.ft_contract_id,
                     "price": listing.price,
                     "lease_start_ts_nano": listing.lease_start_ts_nano,

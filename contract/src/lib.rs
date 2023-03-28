@@ -73,7 +73,7 @@ pub struct LeaseJson {
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseJsonV2 {
     nft_contract_addr: AccountId,
-    nft_token_id: TokenId,
+    token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
     approval_id: u64,
@@ -81,7 +81,6 @@ pub struct LeaseJsonV2 {
     start_ts_nano: u64,
     end_ts_nano: u64,
     price: U128,
-    listing_id: ListingId, // an opaque identifier for marketplace to specify the lease during rent transfer
 }
 
 #[derive(Serialize, Deserialize)]
@@ -914,12 +913,12 @@ impl NonFungibleTokenTransferReceiver for Contract {
 
         // Enforce the leasing token is the same as the transferring token
         assert_eq!(nft_contract_id, lease_json.nft_contract_addr);
-        assert_eq!(token_id, lease_json.nft_token_id);
+        assert_eq!(token_id, lease_json.token_id);
 
         // Create a lease after resolving payouts of the leasing token
         ext_nft::ext(lease_json.nft_contract_addr.clone())
             .nft_payout(
-                lease_json.nft_token_id.clone(), // token_id
+                lease_json.token_id.clone(), // token_id
                 U128::from(lease_json.price.0),  // price
                 Some(MAX_LEN_PAYOUT),            // max_len_payout
             )
@@ -929,7 +928,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                     .with_static_gas(GAS_FOR_ROYALTIES)
                     .create_lease_with_payout_v2(
                         lease_json.nft_contract_addr,
-                        lease_json.nft_token_id,
+                        lease_json.token_id,
                         lease_json.lender_id,
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
