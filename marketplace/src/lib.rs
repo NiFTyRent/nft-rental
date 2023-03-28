@@ -344,7 +344,6 @@ mod tests {
 
     #[test]
     fn test_new() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
         let owner_id:AccountId = accounts(1).into();
         let treasury_id:AccountId = accounts(2).into();
         let rental_contract_id:AccountId = accounts(3).into();
@@ -353,11 +352,13 @@ mod tests {
         assert_eq!(accounts(1), contract.owner_id);
         assert_eq!(accounts(2), contract.treasury_id);
         assert_eq!(accounts(3), contract.rental_contract_id);
+
+        assert_eq!(0, contract.list_allowed_ft_contract_ids().len());
+        assert_eq!(0, contract.list_allowed_nft_contract_ids().len());
     }
 
     #[test]
-    fn test_list_allowed_ft_contract_ids_success() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
+    fn test_list_allowed_ft_contract_ids_succeed() {
         let owner_id:AccountId = accounts(1).into();
         let treasury_id:AccountId = accounts(2).into();
         let rental_contract_id:AccountId = accounts(3).into();
@@ -369,19 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_allowed_ft_contract_ids_success_empty() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
-
-        let contract = Contract::new(owner_id, treasury_id, rental_contract_id);
-        assert_eq!(0, contract.list_allowed_ft_contract_ids().len());
-    }
-
-    #[test]
-    fn test_list_allowed_nft_contract_ids_success() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
+    fn test_list_allowed_nft_contract_ids_succeed() {
         let owner_id:AccountId = accounts(1).into();
         let treasury_id:AccountId = accounts(2).into();
         let rental_contract_id:AccountId = accounts(3).into();
@@ -393,19 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_allowed_nft_contract_ids_success_empty() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
-
-        let contract = Contract::new(owner_id, treasury_id, rental_contract_id);
-        assert_eq!(0, contract.list_allowed_nft_contract_ids().len());
-    }
-
-    #[test]
-    fn test_list_listings_by_owner_id_success() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
+    fn test_list_listings_by_owner_id_succeed() {
         let owner_id:AccountId = accounts(1).into();
         let treasury_id:AccountId = accounts(2).into();
         let rental_contract_id:AccountId = accounts(3).into();
@@ -433,7 +410,6 @@ mod tests {
 
     #[test]
     fn test_list_listings_by_owner_id_id_not_found() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
         let owner_id:AccountId = accounts(1).into();
         let treasury_id:AccountId = accounts(2).into();
         let rental_contract_id:AccountId = accounts(3).into();
@@ -458,8 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_listings_by_nft_contract_id_success() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
+    fn test_list_listings_by_nft_contract_id_succeed() {
         let owner_id:AccountId = accounts(1).into();
         let treasury_id:AccountId = accounts(2).into();
         let rental_contract_id:AccountId = accounts(3).into();
@@ -486,7 +461,6 @@ mod tests {
 
     #[test]
     fn test_list_listings_by_nft_contract_id_id_not_found() {
-        // owner_id: AccountId, treasury_id: AccountId, rental_contract_id: AccountId
         let owner_id:AccountId = accounts(1).into();
         let treasury_id:AccountId = accounts(2).into();
         let rental_contract_id:AccountId = accounts(3).into();
