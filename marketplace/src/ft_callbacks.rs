@@ -22,12 +22,12 @@ pub trait FungibleTokenReceiver {
 
 /**
  * This method will triger the acceptance of a listing.
- * 1. Borrower(Sender) calls `ft_transfer_call` on FT contract
- * 2. FT contract transfers `amount` tokens from Borrower to Marketplace(reciever)
- * 3. FT contract calls `ft_on_transfer` on Marketplace contract
- * 4.1 Marketplace contract makes XCC (nft_transfer_call) to transfer the leasing NFT to Core contract
- * 4.2 Marketplace contract makes XCC (ft_transfer) to transfer rent to Core contract
- * 5. Marketplace contract resolves the promise returned from Core and returns Promise accordingly
+ * 1. Borrower(Sender) calls `ft_transfer_call` on FT contract.
+ * 2. FT contract transfers `amount` tokens from Borrower to Marketplace(reciever).
+ * 3. FT contract calls `ft_on_transfer` on Marketplace contract.
+ * 4.1 Marketplace contract makes XCC (nft_transfer_call) to transfer the leasing NFT to Core contract.
+ * 4.2 Marketplace contract makes XCC (ft_transfer) to transfer rent to Core contract.
+ * 5. Marketplace contract resolves the promise returned from Core and returns Promise accordingly.
 */
 #[near_bindgen]
 impl FungibleTokenReceiver for Contract {
