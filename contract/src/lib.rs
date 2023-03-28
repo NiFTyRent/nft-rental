@@ -72,8 +72,8 @@ pub struct LeaseJson {
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseJsonV2 {
-    contract_addr: AccountId,
-    token_id: TokenId,
+    nft_contract_addr: AccountId,
+    nft_token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
     approval_id: u64,
@@ -81,13 +81,14 @@ pub struct LeaseJsonV2 {
     start_ts_nano: u64,
     end_ts_nano: u64,
     price: U128,
-    listing_id: ListingId,   // an opaque identifier for marketplace to specify the lease during rent transfer
+    listing_id: ListingId, // an opaque identifier for marketplace to specify the lease during rent transfer
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct NftOnTransferJson {
-    lease_id: String,
+    nft_contract_id: AccountId,
+    nft_token_id: TokenId,
 }
 
 /// Struct for keeping track of the lease conditions
@@ -133,9 +134,6 @@ pub struct Contract {
     // Allowlist of the contract addresses of the FT for the rent payment currency.
     // It's ok to load all allowed FT addresses into memory at once, since it's won't be long.
     allowed_ft_contract_addrs: Vec<AccountId>,
-
-    // Index to match a marketlisting to rental lease. Useful to point a rental transfer to trageting lease.
-    lease_id_by_marketplace_contract_and_listing_id: LookupMap<(AccountId, ListingId), LeaseId>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -149,7 +147,6 @@ enum StorageKey {
     ActiveLeaseIdsByOwner,
     ActiveLeaseIdsByOwnerInner { account_id_hash: CryptoHash },
     ActiveLeaseIds,
-    LeaseIdByMarketplaceContractAndListingId,
 }
 
 // TODO(syu): Update to RentAcceptanceJson
@@ -162,7 +159,8 @@ pub struct LeaseAcceptanceJson {
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct RentAcceptanceJson {
-    listing_id: String, // marketplace listing_id
+    nft_contract_id: AccountId,
+    nft_token_id: TokenId,
 }
 
 #[near_bindgen]
@@ -181,10 +179,6 @@ impl Contract {
             active_lease_ids_by_lender: LookupMap::new(StorageKey::ActiveLeaseIdsByOwner),
             active_lease_ids: UnorderedSet::new(StorageKey::ActiveLeaseIds),
             allowed_ft_contract_addrs: Vec::new(),
-
-            lease_id_by_marketplace_contract_and_listing_id: LookupMap::new(
-                StorageKey::LeaseIdByMarketplaceContractAndListingId,
-            ),
         }
     }
 
@@ -212,7 +206,7 @@ impl Contract {
 
         Self::new(prev.owner)
     }
-    
+
     // TODO(syu): Update to v2 after merging in marketplace
     #[private]
     pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128 {
@@ -399,24 +393,6 @@ impl Contract {
         }
     }
 
-    #[private]
-    // return the matching lease condition by the marketplace and listing_id
-    pub fn get_lease_by_marketplace_and_listing_id(
-        &self,
-        marketplace_account: AccountId,
-        listing_id: ListingId,
-    ) -> Option<LeaseCondition> {
-        let lease_id = self
-            .lease_id_by_marketplace_contract_and_listing_id
-            .get(&(marketplace_account, listing_id));
-
-        if lease_id.is_none() {
-            return None;
-        } else {
-            return Some(self.lease_map.get(&lease_id.unwrap()).unwrap());
-        }
-    }
-
     pub fn get_borrower_by_contract_and_token(
         &self,
         contract_id: AccountId,
@@ -561,7 +537,7 @@ impl Contract {
             end_ts_nano: end_ts_nano,
             price: price,
             payout: optional_payout,
-            state: LeaseState::Pending,   // TODO(syu): Pending is no longer needed after introducing Marketplace
+            state: LeaseState::Pending, // TODO(syu): Pending is no longer needed after introducing Marketplace
         };
 
         let seed = near_sdk::env::random_seed();
@@ -575,8 +551,8 @@ impl Contract {
     #[private]
     pub fn create_lease_with_payout_v2(
         &mut self,
-        contract_id: AccountId,
-        token_id: TokenId,
+        nft_contract_id: AccountId,
+        nft_token_id: TokenId,
         owner_id: AccountId,
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
@@ -584,8 +560,6 @@ impl Contract {
         end_ts_nano: u64,
         price: U128,
         approval_id: u64,
-        marketplace_account: Option<AccountId>,
-        marketplace_listing_id: Option<ListingId>,
     ) {
         // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
         let optional_payout;
@@ -623,8 +597,8 @@ impl Contract {
         let lease_condition: LeaseCondition = LeaseCondition {
             lender_id: owner_id.clone(),
             approval_id,
-            contract_addr: contract_id,
-            token_id: token_id,
+            contract_addr: nft_contract_id,
+            token_id: nft_token_id,
             borrower_id: borrower_id,
             ft_contract_addr: ft_contract_addr,
             start_ts_nano: start_ts_nano,
@@ -638,18 +612,6 @@ impl Contract {
         let lease_id = bs58::encode(seed)
             .with_alphabet(bs58::Alphabet::BITCOIN)
             .into_string();
-
-        // TODO(syu): move this step into internal_insert_lease(). Requries interface change
-        // record the listing info by updating index: lease_id_by_market_listing_id
-        if marketplace_account.is_some() && marketplace_listing_id.is_some() {
-            self.lease_id_by_marketplace_contract_and_listing_id.insert(
-                &(
-                    marketplace_account.clone().unwrap(),
-                    marketplace_listing_id.clone().unwrap(),
-                ),
-                &lease_id,
-            );
-        }
 
         self.internal_insert_lease(&lease_id, &lease_condition);
     }
@@ -908,7 +870,6 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
     }
 }
 
-
 /**
  * Trait that will handle the receival of the leasing NFT.
  * When the Marketplace calls nft_transfer_call on NFT contract, the NFT contract
@@ -952,23 +913,23 @@ impl NonFungibleTokenTransferReceiver for Contract {
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 
         // Enforce the leasing token is the same as the transferring token
-        assert_eq!(nft_contract_id, lease_json.contract_addr);
-        assert_eq!(token_id, lease_json.token_id);
+        assert_eq!(nft_contract_id, lease_json.nft_contract_addr);
+        assert_eq!(token_id, lease_json.nft_token_id);
 
         // Create a lease after resolving payouts of the leasing token
-        ext_nft::ext(lease_json.contract_addr.clone())
+        ext_nft::ext(lease_json.nft_contract_addr.clone())
             .nft_payout(
-                lease_json.token_id.clone(),    // token_id
-                U128::from(lease_json.price.0), // price
-                Some(MAX_LEN_PAYOUT),           // max_len_payout
+                lease_json.nft_token_id.clone(), // token_id
+                U128::from(lease_json.price.0),  // price
+                Some(MAX_LEN_PAYOUT),            // max_len_payout
             )
             .then(
                 ext_self::ext(env::current_account_id())
                     .with_attached_deposit(0)
                     .with_static_gas(GAS_FOR_ROYALTIES)
                     .create_lease_with_payout_v2(
-                        lease_json.contract_addr,
-                        lease_json.token_id,
+                        lease_json.nft_contract_addr,
+                        lease_json.nft_token_id,
                         lease_json.lender_id,
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
@@ -976,15 +937,13 @@ impl NonFungibleTokenTransferReceiver for Contract {
                         lease_json.end_ts_nano,
                         lease_json.price,
                         lease_json.approval_id, // TODO(syu): remove approval id from lease condition. No longer needed by Core.
-                        env::signer_account_id().clone(), // marketplace account
-                        lease_json.listing_id,  // markeplace listing_id
                     ),
             )
             .as_return();
     }
 }
 
-// TODO(syu): update to V2 after using marketplace. 
+// TODO(syu): update to V2 after using marketplace.
 /*
     The trait for receiving FT payment
     Depending on the FT contract implementation, it may need the users to register to deposit.
@@ -1085,7 +1044,6 @@ pub trait FungibleTokenReceiverV2 {
         msg: String,
     ) -> PromiseOrValue<U128>;
 }
-#[near_bindgen]
 
 /**
  * This method receives borrower's rent transferred by markeplace. It also trigers a lease activation
@@ -1094,7 +1052,8 @@ pub trait FungibleTokenReceiverV2 {
  * 3. FT contract calls `ft_on_transfer` on core rental contract.
  * 4. Rental contract update lease state accordingly. Rent condition checks have been performed on marketplace side.
  * 5. Rental contract returns Promise accordingly.
-*/
+ */
+#[near_bindgen]
 impl FungibleTokenReceiverV2 for Contract {
     #[payable]
     fn ft_on_transfer_v2(
@@ -1118,14 +1077,19 @@ impl FungibleTokenReceiverV2 for Contract {
             near_sdk::serde_json::from_str(&msg).expect("Not valid listing id data!");
 
         // extract the target lease
-        let marketplace_account = env::signer_account_id();
+        let lease_condition = self
+            .get_lease_by_contract_and_token(
+                rent_acceptance_json.nft_contract_id.clone(),
+                rent_acceptance_json.nft_token_id.clone(),
+            )
+            .expect("The targeting lease id does not exist!");
 
-        let lease_id = self.lease_id_by_marketplace_contract_and_listing_id.get(&(
-            marketplace_account.clone(),
-            rent_acceptance_json.listing_id.clone(),
-        )).expect("The targeting lease id does not exist!");
-
-        let lease_condition = self.lease_map.get(&lease_id.clone()).unwrap();
+        let lease_id = self
+            .lease_id_by_contract_addr_and_token_id
+            .get(&(
+                rent_acceptance_json.nft_contract_id,
+                rent_acceptance_json.nft_token_id,
+            )).expect("The targeting lease id does not exist!");
 
         // update the lease state accordingly
         assert_eq!(
@@ -1133,11 +1097,6 @@ impl FungibleTokenReceiverV2 for Contract {
             LeaseState::PendingOnRent,
             "This lease is not pending on rent!"
         );
-
-        // TODO(syu): move the listing removal step into activate_lease().
-        // remove the marketplace listing record. Since we no longer need the listing info after Lease activated
-        self.lease_id_by_marketplace_contract_and_listing_id
-            .remove(&(marketplace_account, rent_acceptance_json.listing_id));
 
         ext_self::ext(env::current_account_id())
             .with_attached_deposit(0)
@@ -1746,7 +1705,6 @@ mod tests {
             .unwrap();
         assert!(result_owner == expected_lender_id);
     }
-
 
     #[test]
     fn test_get_current_user_by_contract_and_token_success_lease_not_start() {

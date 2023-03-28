@@ -19,6 +19,7 @@ use crate::externals::*;
 
 pub const TGAS: u64 = 1_000_000_000_000;
 
+// TODO(syu): update to (AccountId, TokenId) for (NFT Contract, NFT Token ID)
 type ListingId = String;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -155,8 +156,13 @@ impl Contract {
 
         // Trasnfer the rent to Core contract.
         // msg to be passed in ft_transfer_call, to specify the targeting listing
+        let listing = self
+            .listing_by_id
+            .get(&listing_id)
+            .expect("Listing Id for rent transfer does not exist!");
         let msg_rent_transfer_json = json!({
-            "listing_id":listing_id.clone(),
+            "nft_contract_id":listing.nft_contract_id.clone(),
+            "nft_token_id": listing.nft_token_id.clone(),
         })
         .to_string();
         ext_ft::ext(ft_contract_id.clone())
@@ -166,7 +172,7 @@ impl Contract {
                 self.rental_contract_id.clone(), // receiver_id
                 amount,                          // amount
                 memo,                            // memo
-                msg_rent_transfer_json,          
+                msg_rent_transfer_json,
             );
 
         // remove the listing when both nft transfer and rent transfer succeeded

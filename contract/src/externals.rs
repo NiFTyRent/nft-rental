@@ -35,8 +35,6 @@ trait ExtSelf {
         end_ts_nano: u64,
         price: U128,
         approval_id: u64,
-        marketplace_account: AccountId,
-        marketplace_listing_id: ListingId,
     ) -> Promise;
 }
 

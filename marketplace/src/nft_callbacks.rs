@@ -44,6 +44,8 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             "nft_on_approve should only be called via XCC"
         );
 
+        // TODO(syu): Enfore the same nft token is not used in existing listings
+
         // enforce owner_id is signer
         let signer_id = env::signer_account_id();
         assert_eq!(owner_id, signer_id, "owner_id should be signer_id");
