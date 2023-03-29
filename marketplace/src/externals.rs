@@ -17,7 +17,13 @@ pub trait NonFungibleToken {
 /// FT contract interface for XCC
 #[ext_contract(ext_ft)]
 pub trait FungibleToken {
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
+    fn ft_transfer_call(
+        &mut self, 
+        receiver_id: AccountId, 
+        amount: U128, 
+        memo: Option<String>,
+        msg: String,
+    );
 }
 
 /// Interface of this marketplace contract, for XCC by the contract itself.

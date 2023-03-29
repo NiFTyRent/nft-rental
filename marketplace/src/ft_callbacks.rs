@@ -3,10 +3,11 @@ use near_sdk::PromiseOrValue;
 use crate::externals::*;
 use crate::*;
 
+/// Message to be passed in by borrower. The listing_id is available in the dApp's front end
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ListingAcceptanceJson {
-    listing_id: ListingId,
+    listing_id: ListingId, 
 }
 
 /// The trait for receiving rent payment and trigering listing acceptance.
@@ -21,12 +22,12 @@ pub trait FungibleTokenReceiver {
 
 /**
  * This method will triger the acceptance of a listing.
- * 1. Borrower(Sender) calls `ft_transfer_call` on FT contract
- * 2. FT contract transfers `amount` tokens from Borrower to Marketplace(reciever)
- * 3. FT contract calls `ft_on_transfer` on Marketplace contract
- * 4.1 Marketplace contract makes XCC (nft_transfer_call) to transfer the leasing NFT to Core contract
- * 4.2 Marketplace contract makes XCC (ft_transfer) to transfer rent to Core contract
- * 5. Marketplace contract resolves the promise returned from Core and returns Promise accordingly
+ * 1. Borrower(Sender) calls `ft_transfer_call` on FT contract.
+ * 2. FT contract transfers `amount` tokens from Borrower to Marketplace(reciever).
+ * 3. FT contract calls `ft_on_transfer` on Marketplace contract.
+ * 4.1 Marketplace contract makes XCC (nft_transfer_call) to transfer the leasing NFT to Core contract.
+ * 4.2 Marketplace contract makes XCC (ft_transfer) to transfer rent to Core contract.
+ * 5. Marketplace contract resolves the promise returned from Core and returns Promise accordingly.
 */
 #[near_bindgen]
 impl FungibleTokenReceiver for Contract {
@@ -75,8 +76,8 @@ impl FungibleTokenReceiver for Contract {
 
         // msg to be passed in nft_transfer_call for a lease creation
         let msg_lease_json = json!({
-            "contract_addr": listing.nft_contract_id.clone(),
-            "token_id": listing.nft_token_id.clone(),
+            "nft_contract_addr": listing.nft_contract_id.clone(),
+            "nft_token_id": listing.nft_token_id.clone(),
             "lender_id": listing.owner_id.clone(),
             "borrower_id": sender_id.clone(),
             "approval_id": listing.approval_id.clone(),
@@ -87,13 +88,28 @@ impl FungibleTokenReceiver for Contract {
         })
         .to_string();
 
+        // log nft transfer
+        env::log_str(
+            &json!({
+                "type": "transfer_leasing_nft",
+                "params": {
+                    "nft_contract_id": listing.nft_contract_id.clone(),
+                    "nft_token_id": listing.nft_token_id.clone(),
+                    "lender": listing.owner_id.clone(),
+                    "borrower": sender_id.clone(),
+                    "rental_contract": self.rental_contract_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         // Transfer the leasing nft to Core contract
         ext_nft::ext(listing.nft_contract_id.clone())
             .with_static_gas(Gas(10 * TGAS))
             .with_attached_deposit(1)
             .nft_transfer_call(
                 self.rental_contract_id.clone(),   // receiver_id
-                listing.nft_token_id.clone(),      // token_id
+                listing.nft_token_id.clone(),      // nft_token_id
                 msg_lease_json,                    // msg
                 Some(listing.approval_id.clone()), // approval_id
                 None,                              // memo
