@@ -1049,11 +1049,11 @@ impl FungibleTokenReceiverV2 for Contract {
             "ft_on_transfer should only be called via XCC."
         );
 
-        // extract recived message
+        // Extract recived message
         let rent_acceptance_json: RentAcceptanceJson =
             near_sdk::serde_json::from_str(&msg).expect("Not valid listing id data!");
 
-        // find the targeting lease
+        // Find the targeting lease
         let lease_condition = self
             .get_lease_by_contract_and_token(
                 rent_acceptance_json.nft_contract_id.clone(),
@@ -1061,7 +1061,13 @@ impl FungibleTokenReceiverV2 for Contract {
             )
             .expect("The targeting lease does not exist!");
 
-        // update the lease state accordingly
+        // Enforce the ft contract matches
+        assert_eq!(
+            ft_contract_id, lease_condition.ft_contract_addr, 
+            "Wrong FT contract address!"
+        );
+
+        // Update the lease state accordingly
         assert_eq!(
             lease_condition.state,
             LeaseState::PendingOnRent,
