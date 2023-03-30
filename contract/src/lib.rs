@@ -55,32 +55,18 @@ pub enum LeaseState {
     PendingOnRent,
     Active,
 }
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseJson {
-    contract_addr: AccountId,
-    token_id: TokenId,
-    borrower_id: AccountId,
-    ft_contract_addr: AccountId,
-    price: U128,
-    start_ts_nano: u64,
-    end_ts_nano: u64,
-}
-
-// TODO(syu): update LeaseJson to LeaseJsonV2
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct LeaseJsonV2 {
     nft_contract_addr: AccountId,
     nft_token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
     approval_id: u64, // TODO(syu): no longer needed after using marketplace. Remove it.
     ft_contract_addr: AccountId,
+    price: U128,
     start_ts_nano: u64,
     end_ts_nano: u64,
-    price: U128,
 }
 
 /// Struct for keeping track of the lease conditions
@@ -837,7 +823,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
 
         // TODO(syu): enforce sender_id is marketplace contract.
 
-        let lease_json: LeaseJsonV2 =
+        let lease_json: LeaseJson =
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 
         // Enforce the leasing token is the same as the transferring token
