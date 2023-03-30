@@ -78,7 +78,7 @@ pub struct LeaseCondition {
     pub lender_id: AccountId,        // Owner of the NFT
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
-    pub approval_id: u64,            // Approval from owner to lease
+    pub approval_id: u64,            // Approval from owner to lease. TODO(syu): No longer needed. Remove.
     pub start_ts_nano: u64, // The timestamp in nano to start the lease, i.e. the current user will be the borrower
     pub end_ts_nano: u64, // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
     pub price: U128,      // Proposed lease price
@@ -788,89 +788,6 @@ impl NonFungibleTokenTransferReceiver for Contract {
     }
 }
 
-// TODO(syu): update to V2 after using marketplace.
-/*
-    The trait for receiving FT payment
-    Depending on the FT contract implementation, it may need the users to register to deposit.
-    So far we do not check if all partis have registered thier account on the FT contract,
-        - Lender: he should make sure he has registered otherwise he will not receive the payment
-        - Borrower: he cannot accept the lease if he does not register
-        - Royalty payments: if any accounts in the royalty didn't register, they will not receive the payout. That
-                             part of payment will be kept in this smart contract
-*/
-#[ext_contract(ext_ft_receiver)]
-pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
-}
-#[near_bindgen]
-impl FungibleTokenReceiver for Contract {
-    /// where we add the sale because we know nft owner can only call nft_approve
-    #[payable]
-    fn ft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128> {
-        //the lease conditions come from the msg field
-        let lease_acceptance_json: LeaseAcceptanceJson =
-            near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
-
-        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
-        // 1. Retrieve the lease data from the lease_map
-        // 2. Check if the tx sender is the borrower
-        // 2. Check if the FT contract is designated by the lender
-        // 3. Check if the deposit equals rent
-        // 4. Transfer the NFT to the lease contract
-        // 5. Update the lease state, when transfer succeeds
-
-        // TODO: check if the FT contract is the designated one
-        let lease_condition: LeaseCondition = self
-            .lease_map
-            .get(&lease_acceptance_json.lease_id.clone())
-            .unwrap();
-        assert_eq!(lease_condition.borrower_id, sender_id, "Wrong borrower!");
-        assert_eq!(
-            lease_condition.ft_contract_addr,
-            env::predecessor_account_id(),
-            "Wrong FT contract address!"
-        );
-        // TODO(libo): Allow surplus tokens transferred, refund the extra in the end.
-        assert_eq!(
-            amount.0, lease_condition.price.0,
-            "Transferred amount doesn't match the asked rent!"
-        );
-        assert_eq!(
-            lease_condition.state,
-            LeaseState::Pending,
-            "This lease is not pending on acceptance!"
-        );
-
-        ext_nft::ext(lease_condition.contract_addr.clone())
-            .with_static_gas(Gas(10 * TGAS))
-            .with_attached_deposit(1)
-            .nft_transfer(
-                env::current_account_id(),                 // receiver_id
-                lease_condition.token_id.clone(),          // token_id
-                Some(lease_condition.approval_id.clone()), // approval_id
-                None,                                      // memo
-            )
-            .then(
-                ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
-                    .with_static_gas(GAS_FOR_ROYALTIES)
-                    .activate_lease(lease_acceptance_json.lease_id.clone()),
-            )
-            .as_return()
-            .into()
-    }
-}
-
 /*
     The trait for receiving rent transfer from marketplace.
     Depending on the FT contract implementation, it may need the users to register to deposit.
@@ -880,9 +797,9 @@ impl FungibleTokenReceiver for Contract {
         - Royalty payments: if any accounts in the royalty didn't register, they will not receive the payout. That
                              part of payment will be kept in this smart contract
 */
-#[ext_contract(ext_ft_receiver_v2)]
-pub trait FungibleTokenReceiverV2 {
-    fn ft_on_transfer_v2(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128;
+#[ext_contract(ext_ft_receiver)]
+pub trait FungibleTokenReceiver {
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128;
 }
 
 /**
@@ -894,9 +811,9 @@ pub trait FungibleTokenReceiverV2 {
  * 5. Rental contract returns Promise accordingly.
  */
 #[near_bindgen]
-impl FungibleTokenReceiverV2 for Contract {
+impl FungibleTokenReceiver for Contract {
     #[payable]
-    fn ft_on_transfer_v2(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
         // update the lease state to from PendingOnRent to active
 
         // Enforce cross contract call
