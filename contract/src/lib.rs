@@ -452,77 +452,8 @@ impl Contract {
         );
     }
 
-    // TODO(syu): Update to v2 for marketplace
-    #[private]
+   #[private]
     pub fn create_lease_with_payout(
-        &mut self,
-        contract_id: AccountId,
-        token_id: TokenId,
-        owner_id: AccountId,
-        borrower_id: AccountId,
-        ft_contract_addr: AccountId,
-        start_ts_nano: u64,
-        end_ts_nano: u64,
-        price: U128,
-        approval_id: u64,
-    ) {
-        // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
-        let optional_payout;
-        if is_promise_success() {
-            // If NFT has implemented the `nft_payout` interface
-            // then process the result and verify if sum of payout is close enough to the original price
-            optional_payout = promise_result_as_success().map(|value| {
-                let payout = serde_json::from_slice::<Payout>(&value).unwrap();
-                let payout_diff: u128 = price
-                    .0
-                    .checked_sub(
-                        payout
-                            .payout
-                            .values()
-                            .map(|v| v.0)
-                            .into_iter()
-                            .sum::<u128>(),
-                    )
-                    .unwrap();
-                assert!(
-                    payout_diff <= PAYOUT_DIFF_TORLANCE_YACTO,
-                    "The difference between the lease price and the sum of payout is too large"
-                );
-                payout
-            });
-        } else {
-            // If leased nft didn't provide payouts, we add a proxy payout record making original lender own all the rent.
-            // This will make claiming back using LEASE NFT easier.
-            optional_payout = Some(Payout {
-                payout: HashMap::from([(owner_id.clone(), U128::from(price.clone()))]),
-            });
-        }
-
-        // build lease condition from the parsed json
-        let lease_condition: LeaseCondition = LeaseCondition {
-            lender_id: owner_id.clone(),
-            approval_id,
-            contract_addr: contract_id,
-            token_id: token_id,
-            borrower_id: borrower_id,
-            ft_contract_addr: ft_contract_addr,
-            start_ts_nano: start_ts_nano,
-            end_ts_nano: end_ts_nano,
-            price: price,
-            payout: optional_payout,
-            state: LeaseState::Pending, // TODO(syu): Pending is no longer needed after introducing Marketplace
-        };
-
-        let seed = near_sdk::env::random_seed();
-        let lease_id = bs58::encode(seed)
-            .with_alphabet(bs58::Alphabet::BITCOIN)
-            .into_string();
-
-        self.internal_insert_lease(&lease_id, &lease_condition);
-    }
-
-    #[private]
-    pub fn create_lease_with_payout_v2(
         &mut self,
         nft_contract_id: AccountId,
         nft_token_id: TokenId,
@@ -841,7 +772,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                 ext_self::ext(env::current_account_id())
                     .with_attached_deposit(0)
                     .with_static_gas(GAS_FOR_ROYALTIES)
-                    .create_lease_with_payout_v2(
+                    .create_lease_with_payout(
                         lease_json.nft_contract_addr,
                         lease_json.nft_token_id,
                         lease_json.lender_id,
