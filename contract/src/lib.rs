@@ -797,65 +797,6 @@ impl Contract {
         self.lease_map.insert(&lease_id, &lease_condition); // insert data back to persis the value
     }
 }
-// TODO(syu): nft_on_approve is no longer needed after introduing marketplace. Remove it.
-// TODO: move nft callback function to separate file e.g. nft_callbacks.rs
-/**
-    trait that will be used as the callback from the NFT contract. When nft_approve is
-    called, it will fire a cross contract call to this marketplace and this is the function
-    that is invoked.
-*/
-trait NonFungibleTokenApprovalsReceiver {
-    fn nft_on_approve(
-        &mut self,
-        token_id: TokenId,
-        owner_id: AccountId,
-        approval_id: u64,
-        msg: String,
-    );
-}
-
-#[near_bindgen]
-impl NonFungibleTokenApprovalsReceiver for Contract {
-    /// where we add the sale because we know nft owner can only call nft_approve
-    #[payable]
-    fn nft_on_approve(
-        &mut self,
-        token_id: TokenId,
-        owner_id: AccountId,
-        approval_id: u64,
-        msg: String,
-    ) {
-        //the lease conditions come from the msg field
-        let lease_json: LeaseJson =
-            near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
-
-        assert_eq!(token_id, lease_json.token_id);
-
-        ext_nft::ext(lease_json.contract_addr.clone())
-            .nft_payout(
-                lease_json.token_id.clone(),    // token_id
-                U128::from(lease_json.price.0), // price
-                Some(MAX_LEN_PAYOUT),           // max_len_payout
-            )
-            .then(
-                ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
-                    .with_static_gas(GAS_FOR_ROYALTIES)
-                    .create_lease_with_payout(
-                        lease_json.contract_addr,
-                        lease_json.token_id,
-                        owner_id,
-                        lease_json.borrower_id,
-                        lease_json.ft_contract_addr,
-                        lease_json.start_ts_nano,
-                        lease_json.end_ts_nano,
-                        lease_json.price,
-                        approval_id,
-                    ),
-            )
-            .as_return();
-    }
-}
 
 /**
  * Trait that will handle the receival of the leasing NFT.
