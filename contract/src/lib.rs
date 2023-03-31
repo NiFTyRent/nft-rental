@@ -78,7 +78,7 @@ pub struct LeaseCondition {
     pub lender_id: AccountId,        // Owner of the NFT
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
-    pub approval_id: u64,            // Approval from owner to lease. TODO(syu): No longer needed. Remove.
+    pub approval_id: u64, // Approval from owner to lease. TODO(syu): No longer needed. Remove.
     pub start_ts_nano: u64, // The timestamp in nano to start the lease, i.e. the current user will be the borrower
     pub end_ts_nano: u64, // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
     pub price: U128,      // Proposed lease price
@@ -452,7 +452,7 @@ impl Contract {
         );
     }
 
-   #[private]
+    #[private]
     pub fn create_lease_with_payout(
         &mut self,
         nft_contract_id: AccountId,
@@ -838,7 +838,7 @@ impl FungibleTokenReceiver for Contract {
 
         // Enforce the ft contract matches
         assert_eq!(
-            ft_contract_id, lease_condition.ft_contract_addr, 
+            ft_contract_id, lease_condition.ft_contract_addr,
             "Wrong FT contract address!"
         );
 
@@ -916,16 +916,31 @@ mod tests {
         let key = "test_key".to_string();
         let wrong_ft_addr = accounts(0);
         contract.lease_map.insert(&key, &lease_condition);
+        // needed to find the targeting lease condition at ft_on_transfer
+        contract.lease_id_by_contract_addr_and_token_id.insert(
+            &(
+                lease_condition.contract_addr.clone(),
+                lease_condition.token_id.clone(),
+            ),
+            &key,
+        );
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(wrong_ft_addr.into())
             .build());
 
+        let msg_rent_transfer_json = json!({
+            "nft_contract_id": lease_condition.contract_addr.clone().to_string(),
+            "nft_token_id": lease_condition.token_id.clone().to_string(),
+        })
+        .to_string();
+
         contract.ft_on_transfer(
             lease_condition.borrower_id.clone(),
             U128::from(lease_condition.price),
-            json!({ "lease_id": key }).to_string(),
+            msg_rent_transfer_json,
         );
+
     }
 
     #[test]
