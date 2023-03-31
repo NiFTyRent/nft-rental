@@ -893,14 +893,13 @@ mod tests {
         assert!(UnorderedMap::is_empty(&contract.lease_map));
     }
 
-    #[test]
-    #[should_panic(expected = "Wrong borrower!")]
+    // TODO(syu): borrower check is done on marketside. Maybe update to check target lease exist, or remove this
     fn test_lending_accept_wrong_borrower() {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
+        let lease_id = "test_key".to_string();
 
-        contract.lease_map.insert(&key, &lease_condition);
+        contract.lease_map.insert(&lease_id, &lease_condition);
         let wrong_borrower: AccountId = accounts(4).into();
 
         testing_env!(VMContextBuilder::new()
@@ -910,7 +909,7 @@ mod tests {
         contract.ft_on_transfer(
             wrong_borrower.clone(),
             U128::from(lease_condition.price),
-            json!({ "lease_id": key }).to_string(),
+            json!({ "lease_id": lease_id }).to_string(),
         );
     }
 
