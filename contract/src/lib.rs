@@ -842,6 +842,12 @@ impl FungibleTokenReceiver for Contract {
             "Wrong FT contract address!"
         );
 
+        // Enforce the rent amount matches
+        assert_eq!(
+            amount.0, lease_condition.price.0,
+            "Transferred amount doesn't match the asked rent!"
+        );
+
         // Update the lease state accordingly
         assert_eq!(
             lease_condition.state,
@@ -913,10 +919,10 @@ mod tests {
     fn test_lending_accept_fail_wrong_ft_addr() {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
-        let lease_id = "test_key".to_string();
+        let lease_id = "test_lease_id".to_string();
         let wrong_ft_addr = accounts(0);
         contract.lease_map.insert(&lease_id, &lease_condition);
-        // needed to find the targeting lease condition at ft_on_transfer
+        // needed for finding the targeting lease_condition at ft_on_transfer
         contract.lease_id_by_contract_addr_and_token_id.insert(
             &(
                 lease_condition.contract_addr.clone(),
@@ -946,18 +952,33 @@ mod tests {
     #[should_panic(expected = "Transferred amount doesn't match the asked rent!")]
     fn test_lending_accept_fail_wrong_rent() {
         let mut contract = Contract::new(accounts(1).into());
-        let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
+        let mut lease_condition = create_lease_condition_default();
+        lease_condition.state = LeaseState::PendingOnRent;
+        let lease_id = "test_lease_id".to_string();
+        contract.lease_map.insert(&lease_id, &lease_condition);
+        // needed for finding the targeting lease_condition at ft_on_transfer
+        contract.lease_id_by_contract_addr_and_token_id.insert(
+            &(
+                lease_condition.contract_addr.clone(),
+                lease_condition.token_id.clone(),
+            ),
+            &lease_id,
+        );
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(lease_condition.ft_contract_addr.clone())
             .build());
 
+        let msg_rent_transfer_json = json!({
+            "nft_contract_id": lease_condition.contract_addr.clone().to_string(),
+            "nft_token_id": lease_condition.token_id.clone().to_string(),
+        })
+        .to_string();
+
         contract.ft_on_transfer(
             lease_condition.borrower_id.clone(),
             U128::from(lease_condition.price.0 - 1),
-            json!({ "lease_id": key }).to_string(),
+            msg_rent_transfer_json,
         );
     }
 
@@ -967,10 +988,9 @@ mod tests {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
-        let lease_id = "test_key".to_string();
+        let lease_id = "test_lease_id".to_string();
         contract.lease_map.insert(&lease_id, &lease_condition);
-
-        // needed to find the targeting lease condition at ft_on_transfer
+        // needed for finding the targeting lease_condition at ft_on_transfer
         contract.lease_id_by_contract_addr_and_token_id.insert(
             &(
                 lease_condition.contract_addr.clone(),
