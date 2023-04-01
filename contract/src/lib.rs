@@ -51,7 +51,6 @@ pub struct Payout {
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub enum LeaseState {
-    Pending, // TODO(syu): Remove after merging Marketplace
     PendingOnRent,
     Active,
 }
@@ -951,8 +950,7 @@ mod tests {
     #[should_panic(expected = "Transferred amount doesn't match the asked rent!")]
     fn test_lending_accept_fail_wrong_rent() {
         let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::PendingOnRent;
+        let lease_condition = create_lease_condition_default();
         let lease_id = "test_lease_id".to_string();
         contract.lease_map.insert(&lease_id, &lease_condition);
         // needed for finding the targeting lease_condition at ft_on_transfer
@@ -1018,9 +1016,7 @@ mod tests {
     #[test]
     fn test_lending_accept_success() {
         let mut contract = Contract::new(accounts(1).into());
-        let mut lease_condition = create_lease_condition_default();
-
-        lease_condition.state = LeaseState::PendingOnRent;
+        let lease_condition = create_lease_condition_default();
         let lease_id = "test_lease_id".to_string();
         contract.lease_map.insert(&lease_id, &lease_condition);
         // needed for finding the targeting lease_condition at ft_on_transfer
@@ -1132,7 +1128,7 @@ mod tests {
 
         let lease_condition_result = contract.lease_map.get(&key).unwrap();
         assert_eq!(lease_condition_result.payout, None);
-        assert_eq!(lease_condition_result.state, LeaseState::Pending);
+        assert_eq!(lease_condition_result.state, LeaseState::PendingOnRent);
     }
 
     #[test]
@@ -1180,7 +1176,7 @@ mod tests {
     fn test_claim_back_inactive_lease() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         let key = "test_key".to_string();
 
         contract.lease_map.insert(&key, &lease_condition);
@@ -1432,7 +1428,7 @@ mod tests {
         let expected_token_id = "test_token".to_string();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.borrower_id = expected_borrower_id.clone();
@@ -1483,7 +1479,7 @@ mod tests {
         let expected_lender_id: AccountId = accounts(2).into();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
@@ -1538,7 +1534,7 @@ mod tests {
         let expected_lender_id: AccountId = accounts(2).into();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
@@ -1924,7 +1920,7 @@ mod tests {
     fn test_internal_update_active_lease_lender_fails_not_an_active_lease() {
         let mut contract = Contract::new(accounts(0).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
 
         let lease_key = "test_key".to_string();
         contract.internal_insert_lease(&lease_key, &lease_condition);
@@ -1986,7 +1982,7 @@ mod tests {
             end_ts_nano.clone(),
             price,
             None,
-            LeaseState::Pending,
+            LeaseState::PendingOnRent,
         )
     }
 

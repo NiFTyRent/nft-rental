@@ -188,7 +188,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
     assert_to_string_eq!(lease.borrower_id, borrower.id().to_string());
     assert_eq!(lease.end_ts_nano, expiration_ts_nano);
     assert_eq!(lease.price.0, price);
-    assert_eq!(lease.state, LeaseState::Pending);
+    assert_eq!(lease.state, LeaseState::PendingOnRent);
     println!("      ✅ Lease creation confirmed");
 
     println!("Accepting the created lease ...");
@@ -639,7 +639,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .transact()
         .await?
         .json()?;
-    assert_eq!(updated_leases[0].1.state, LeaseState::Pending);
+    assert_eq!(updated_leases[0].1.state, LeaseState::PendingOnRent);
     println!("      ✅ Lease cannot be accepted by Bob, the state of the lease is still pending");
     Ok(())
 }
@@ -689,7 +689,7 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation() -> anyhow::Re
         .json()?;
     assert_eq!(leases.len(), 1);
     let lease = &leases[0].1;
-    assert_eq!(lease.state, LeaseState::Pending);
+    assert_eq!(lease.state, LeaseState::PendingOnRent);
     println!("      ✅ Lease created");
 
     println!("Accepting the created lease ...");
