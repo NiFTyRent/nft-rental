@@ -126,13 +126,6 @@ enum StorageKey {
     ActiveLeaseIds,
 }
 
-// TODO(syu): Update to RentAcceptanceJson
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct LeaseAcceptanceJson {
-    lease_id: String,
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct RentAcceptanceJson {
