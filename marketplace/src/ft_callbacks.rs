@@ -80,7 +80,6 @@ impl FungibleTokenReceiver for Contract {
             "nft_token_id": listing.nft_token_id.clone(),
             "lender_id": listing.owner_id.clone(),
             "borrower_id": sender_id.clone(),
-            "approval_id": listing.approval_id.clone(),
             "ft_contract_addr": listing.ft_contract_id.clone(),
             "price": listing.price.clone(),
             "start_ts_nano": listing.lease_start_ts_nano.clone(),

@@ -1,3 +1,4 @@
+use crate::utils::assert_aprox_eq;
 use anyhow::Ok;
 use near_contract_standards::non_fungible_token::{
     metadata::NFTContractMetadata, metadata::NFT_METADATA_SPEC, Token,
@@ -7,7 +8,6 @@ use near_units::parse_near;
 use nft_rental::{LeaseCondition, LeaseState};
 use serde_json::json;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
-use crate::utils::assert_aprox_eq;
 
 mod utils;
 
@@ -25,6 +25,9 @@ struct Context {
 
 const CONTRACT_CODE: &[u8] =
     include_bytes!("../../contract/target/wasm32-unknown-unknown/release/nft_rental.wasm");
+const MARKETPLACE_CONTRACT_CODE: &[u8] = include_bytes!(
+    "../../marketplace/target/wasm32-unknown-unknown/release/niftyrent_marketplace.wasm"
+);
 const NFT_PAYOUT_CODE: &[u8] =
     include_bytes!("../target/wasm32-unknown-unknown/release/test_nft_with_payout.wasm");
 const NFT_NO_PAYOUT_CODE: &[u8] =
@@ -34,6 +37,7 @@ const FT_CODE: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/
 async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     let worker = workspaces::sandbox().await?;
     let contract = worker.dev_deploy(CONTRACT_CODE).await?;
+    let marketplace_contract = worker.dev_deploy(MARKETPLACE_CONTRACT_CODE).await?;
     let nft_contract = worker.dev_deploy(nft_code).await?;
     let ft_contract = worker.dev_deploy(FT_CODE).await?;
 
@@ -59,6 +63,13 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
+    let marketplace_owner = account
+        .create_subaccount("marketplace_owner")
+        .initial_balance(parse_near!("30 N"))
+        .transact()
+        .await?
+        .into_result()?;
+
     account
         .call(contract.id(), "new")
         .args_json(json!({ "owner_id": account.id() }))
@@ -71,6 +82,14 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .transact()
         .await?
         .into_result()?;
+
+    marketplace_owner
+        .call(marketplace_contract.id(), "new")
+        .args_json(json!({ "owner_id": marketplace_owner.id() }))
+        .transact()
+        .await?
+        .into_result()?;
+
     account
         .call(nft_contract.id(), "nft_mint")
         .args_json(
@@ -118,6 +137,13 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
         .args_json(json!({ "account_id": nft_contract.id(), "balance": 10000000}))
+        .transact()
+        .await?
+        .into_result()?;
+
+    marketplace_owner
+        .call(ft_contract.id(), "unsafe_register_and_deposit")
+        .args_json(json!({ "account_id": marketplace_owner.id(), "balance": 10000000}))
         .transact()
         .await?
         .into_result()?;
@@ -1359,36 +1385,34 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
 
     worker.fast_forward(20).await?;
     let user_id_after_start: String = borrower
-    .call(contract.id(), "get_current_user_by_contract_and_token")
-    .args_json(json!({
-        "contract_id": nft_contract.id(),
-        "token_id": token_id,
-    }))
-    .transact()
-    .await?
-    .json()?;
+        .call(contract.id(), "get_current_user_by_contract_and_token")
+        .args_json(json!({
+            "contract_id": nft_contract.id(),
+            "token_id": token_id,
+        }))
+        .transact()
+        .await?
+        .json()?;
 
     assert_eq!(borrower.id().to_string(), user_id_after_start);
     println!("      ✅ The current user of this token is borrower");
 
-
     worker.fast_forward(120).await?;
     let user_id_after_end: String = borrower
-    .call(contract.id(), "get_current_user_by_contract_and_token")
-    .args_json(json!({
-        "contract_id": nft_contract.id(),
-        "token_id": token_id,
-    }))
-    .transact()
-    .await?
-    .json()?;
+        .call(contract.id(), "get_current_user_by_contract_and_token")
+        .args_json(json!({
+            "contract_id": nft_contract.id(),
+            "token_id": token_id,
+        }))
+        .transact()
+        .await?
+        .json()?;
 
     assert_eq!(lender.id().to_string(), user_id_after_end);
     println!("      ✅ The current user of this token is borrower");
 
     Ok(())
 }
-
 
 // TODO: claim_back - NFT transfer check
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
