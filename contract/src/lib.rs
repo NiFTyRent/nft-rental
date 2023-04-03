@@ -61,7 +61,6 @@ pub struct LeaseJson {
     nft_token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
-    approval_id: u64, // TODO(syu): no longer needed after using marketplace. Remove it.
     ft_contract_addr: AccountId,
     price: U128,
     start_ts_nano: u64,
@@ -77,7 +76,6 @@ pub struct LeaseCondition {
     pub lender_id: AccountId,        // Owner of the NFT
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
-    pub approval_id: u64, // Approval from owner to lease. TODO(syu): No longer needed. Remove.
     pub start_ts_nano: u64, // The timestamp in nano to start the lease, i.e. the current user will be the borrower
     pub end_ts_nano: u64, // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
     pub price: U128,      // Proposed lease price
@@ -430,7 +428,6 @@ impl Contract {
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
-        approval_id: u64,
     ) {
         // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
         let optional_payout;
@@ -467,7 +464,6 @@ impl Contract {
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
             lender_id: owner_id.clone(),
-            approval_id,
             contract_addr: nft_contract_id,
             token_id: nft_token_id,
             borrower_id: borrower_id,
@@ -748,7 +744,6 @@ impl NonFungibleTokenTransferReceiver for Contract {
                         lease_json.start_ts_nano,
                         lease_json.end_ts_nano,
                         lease_json.price,
-                        lease_json.approval_id,
                     ),
             )
             .as_return();
@@ -1236,7 +1231,6 @@ mod tests {
             0,
             1000,
             price,
-            1,
         );
 
         assert!(!contract.lease_map.is_empty());
@@ -1286,7 +1280,6 @@ mod tests {
             0,
             1000,
             price,
-            1,
         );
 
         let payout_expected = Payout {
@@ -1350,7 +1343,6 @@ mod tests {
             0,
             1000,
             price,
-            1,
         );
     }
 
@@ -1930,7 +1922,6 @@ mod tests {
     // Helper function to return a lease condition using default seting
     pub(crate) fn create_lease_condition_default() -> LeaseCondition {
         let token_id: TokenId = "test_token".to_string();
-        let approval_id = 1;
         let lender: AccountId = accounts(2).into();
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
@@ -1945,7 +1936,6 @@ mod tests {
             lender.clone(),
             borrower.clone(),
             ft_contract_addr.clone(),
-            approval_id,
             start_ts_nano.clone(),
             end_ts_nano.clone(),
             price,
@@ -1966,7 +1956,6 @@ mod tests {
         lender_id: AccountId,
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
-        approval_id: u64,
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
@@ -1979,7 +1968,6 @@ mod tests {
             lender_id,
             borrower_id,
             ft_contract_addr,
-            approval_id,
             start_ts_nano,
             end_ts_nano,
             price,
