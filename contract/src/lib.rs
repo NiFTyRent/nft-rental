@@ -176,33 +176,8 @@ impl Contract {
 
         Self::new(prev.owner)
     }
-
-    // TODO(syu): Update to v2 after merging in marketplace
-    #[private]
-    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128 {
-        require!(
-            is_promise_success(),
-            "NFT transfer failed, abort lease activation."
-        );
-        log!("Activating lease ({})", &lease_id);
-
-        // TODO: avoid re-fetch lease condition
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-
-        let new_lease_condition = LeaseCondition {
-            state: LeaseState::Active,
-            ..lease_condition
-        };
-        self.lease_map.insert(&lease_id, &new_lease_condition);
-
-        self.nft_mint(lease_id, new_lease_condition.lender_id.clone());
-
-        // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
-        let unused_ammount: U128 = U128::from(0);
-        return unused_ammount;
-    }
-
-    fn activate_lease_v2(&mut self, lease_id: LeaseId) {
+    
+    fn activate_lease(&mut self, lease_id: LeaseId) {
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         let new_lease_condition = LeaseCondition {
             state: LeaseState::Active,
@@ -855,7 +830,7 @@ impl FungibleTokenReceiver for Contract {
             ))
             .expect("The targeting lease id does not exist!");
 
-        self.activate_lease_v2(lease_id);
+        self.activate_lease(lease_id);
 
         // Specify the unused amount as required by NEP-141
         let unused_ammount: U128 = U128::from(0);
