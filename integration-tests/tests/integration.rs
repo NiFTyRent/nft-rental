@@ -17,7 +17,8 @@ struct Context {
     lender: Account,
     borrower: Account,
     lease_nft_receiver: Account,
-    contract: Contract,
+    rental_contract: Contract,
+    marketplace_contract: Contract,
     nft_contract: Contract,
     ft_contract: Contract,
     worker: Worker<Sandbox>,
@@ -36,19 +37,21 @@ const FT_CODE: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/
 
 async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     let worker = workspaces::sandbox().await?;
-    let contract = worker.dev_deploy(CONTRACT_CODE).await?;
+    let rental_contract = worker.dev_deploy(CONTRACT_CODE).await?;
     let marketplace_contract = worker.dev_deploy(MARKETPLACE_CONTRACT_CODE).await?;
     let nft_contract = worker.dev_deploy(nft_code).await?;
     let ft_contract = worker.dev_deploy(FT_CODE).await?;
 
     // create accounts
     let account = worker.dev_create_account().await?;
+
     let alice = account
         .create_subaccount("alice")
         .initial_balance(parse_near!("30 N"))
         .transact()
         .await?
         .into_result()?;
+
     let bob = account
         .create_subaccount("bob")
         .initial_balance(parse_near!("30 N"))
@@ -64,18 +67,38 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .into_result()?;
 
     let marketplace_owner = account
-        .create_subaccount("marketplace_owner")
+        .create_subaccount("markeplace_owner")
         .initial_balance(parse_near!("30 N"))
         .transact()
         .await?
         .into_result()?;
 
+    let treasury = account
+        .create_subaccount("treasury")
+        .initial_balance(parse_near!("30 N"))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // initialise contracts
     account
-        .call(contract.id(), "new")
+        .call(rental_contract.id(), "new")
         .args_json(json!({ "owner_id": account.id() }))
         .transact()
         .await?
         .into_result()?;
+
+    account
+        .call(marketplace_contract.id(), "new")
+        .args_json(json!({
+           "owner_id": marketplace_owner.id(),
+           "treasury_id": treasury.id(),
+           "rental_contract_id": account.id(),
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+
     account
         .call(nft_contract.id(), "new")
         .args_json(json!({ "owner_id": account.id() }))
@@ -83,13 +106,14 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
-    marketplace_owner
-        .call(marketplace_contract.id(), "new")
-        .args_json(json!({ "owner_id": marketplace_owner.id() }))
+    account
+        .call(ft_contract.id(), "new")
+        .args_json(json!({ "owner_id": ft_contract.id(), "total_supply": "10000000000" }))
         .transact()
         .await?
         .into_result()?;
 
+    // mint nfts for renting
     account
         .call(nft_contract.id(), "nft_mint")
         .args_json(
@@ -99,16 +123,11 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .transact()
         .await?
         .into_result()?;
-    account
-        .call(ft_contract.id(), "new")
-        .args_json(json!({ "owner_id": ft_contract.id(), "total_supply": "10000000000" }))
-        .transact()
-        .await?
-        .into_result()?;
 
+    // register accounts for ft_contract
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
-        .args_json(json!({ "account_id": contract.id(), "balance": 10000000}))
+        .args_json(json!({ "account_id": rental_contract.id(), "balance": 100000000}))
         .transact()
         .await?
         .into_result()?;
@@ -141,7 +160,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
-    marketplace_owner
+    account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
         .args_json(json!({ "account_id": marketplace_owner.id(), "balance": 10000000}))
         .transact()
@@ -152,7 +171,8 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         lender: alice,
         borrower: bob,
         lease_nft_receiver: charlie,
-        contract: contract,
+        rental_contract: rental_contract,
+        marketplace_contract: marketplace_contract,
         nft_contract: nft_contract,
         ft_contract: ft_contract,
         worker: worker,
@@ -164,7 +184,7 @@ async fn test_claim_back_with_payout_success() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let lender = context.lender;
     let borrower = context.borrower;
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let worker = context.worker;
@@ -326,7 +346,7 @@ async fn test_claim_back_without_payout_success() -> anyhow::Result<()> {
     let context = init(NFT_NO_PAYOUT_CODE).await?;
     let lender = context.lender;
     let borrower = context.borrower;
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let worker = context.worker;
@@ -444,7 +464,7 @@ async fn test_accept_leases_already_lent() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let lender = context.lender;
     let borrower = context.borrower;
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let worker = context.worker;
@@ -566,7 +586,7 @@ async fn test_accept_lease_fails_already_transferred() -> anyhow::Result<()> {
         .await?
         .into_result()?;
 
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let worker = context.worker;
@@ -675,7 +695,7 @@ async fn test_lender_receives_a_lease_nft_after_lease_activation() -> anyhow::Re
     let context = init(NFT_NO_PAYOUT_CODE).await?;
     let lender = context.lender;
     let borrower = context.borrower;
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let worker = context.worker;
@@ -848,7 +868,7 @@ async fn test_lease_nft_can_be_transferred_to_other_account() -> anyhow::Result<
     let borrower = context.borrower;
     let lease_nft_receiver = context.lease_nft_receiver;
 
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     // 2023/01/01 00:00:00
@@ -1007,7 +1027,7 @@ async fn test_claim_back_without_payout_using_lease_nft() -> anyhow::Result<()> 
     let borrower = context.borrower;
     let lease_nft_receiver = context.lease_nft_receiver;
 
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
 
@@ -1141,7 +1161,7 @@ async fn test_claim_back_with_payout_using_lease_nft() -> anyhow::Result<()> {
     let borrower = context.borrower;
     let lease_nft_receiver = context.lease_nft_receiver;
 
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     // 2023/01/01 00:00:00
@@ -1293,7 +1313,7 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let lender = context.lender;
     let borrower = context.borrower;
-    let contract = context.contract;
+    let contract = context.rental_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let worker = context.worker;
