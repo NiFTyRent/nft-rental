@@ -4,6 +4,7 @@ use near_contract_standards::non_fungible_token::{
     metadata::NFTContractMetadata, metadata::NFT_METADATA_SPEC, Token,
 };
 use near_sdk::json_types::U128;
+use near_sdk::log;
 use near_units::parse_near;
 use nft_rental::{LeaseCondition, LeaseState};
 use serde_json::json;
@@ -35,7 +36,9 @@ const NFT_NO_PAYOUT_CODE: &[u8] =
     include_bytes!("../target/wasm32-unknown-unknown/release/test_nft_without_payout.wasm");
 const FT_CODE: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/test_ft.wasm");
 
+// TODO(syu): init is used by all tests, making run time too long. Consider simplify init for some tests.
 async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
+
     let worker = workspaces::sandbox().await?;
     let rental_contract = worker.dev_deploy(CONTRACT_CODE).await?;
     let marketplace_contract = worker.dev_deploy(MARKETPLACE_CONTRACT_CODE).await?;
@@ -47,35 +50,35 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
 
     let alice = account
         .create_subaccount("alice")
-        .initial_balance(parse_near!("30 N"))
+        .initial_balance(parse_near!("10 N"))
         .transact()
         .await?
         .into_result()?;
 
     let bob = account
         .create_subaccount("bob")
-        .initial_balance(parse_near!("30 N"))
+        .initial_balance(parse_near!("10 N"))
         .transact()
         .await?
         .into_result()?;
 
     let charlie = account
         .create_subaccount("charlie")
-        .initial_balance(parse_near!("30 N"))
+        .initial_balance(parse_near!("10 N"))
         .transact()
         .await?
         .into_result()?;
 
     let marketplace_owner = account
-        .create_subaccount("markeplace_owner")
-        .initial_balance(parse_near!("30 N"))
+        .create_subaccount("marketplace_owner")
+        .initial_balance(parse_near!("10 N"))
         .transact()
         .await?
         .into_result()?;
 
     let treasury = account
         .create_subaccount("treasury")
-        .initial_balance(parse_near!("30 N"))
+        .initial_balance(parse_near!("1 N"))
         .transact()
         .await?
         .into_result()?;
@@ -124,7 +127,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
-    // register accounts for ft_contract
+    // register accounts for ft_contract and deposit
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
         .args_json(json!({ "account_id": rental_contract.id(), "balance": 100000000}))
