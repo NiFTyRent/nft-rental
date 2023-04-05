@@ -15,14 +15,15 @@ mod utils;
 const ONE_BLOCK_IN_NANO: u64 = 2000000000;
 
 struct Context {
-    lender: Account,
-    borrower: Account,
-    lease_nft_receiver: Account,
+    worker: Worker<Sandbox>,
     rental_contract: Contract,
     marketplace_contract: Contract,
     nft_contract: Contract,
     ft_contract: Contract,
-    worker: Worker<Sandbox>,
+    lender: Account,
+    borrower: Account,
+    lease_nft_receiver: Account,
+    markeplace_owner: Account,
 }
 
 const CONTRACT_CODE: &[u8] =
@@ -38,6 +39,7 @@ const FT_CODE: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/
 
 // TODO(syu): init is used by all tests, making run time too long. Consider simplify init for some tests.
 async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
+    log!("Initialising Test ...");
 
     let worker = workspaces::sandbox().await?;
     let rental_contract = worker.dev_deploy(CONTRACT_CODE).await?;
@@ -170,15 +172,35 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
+    // add allowed nft contracts and ft contracts for marketplace
+    log!("Set allowed NFT contracts for marketplace...");
+    log!(format!(
+        "allowed nft contracts list: {:?}",
+        serde_json::to_string(&vec![nft_contract.id()])?
+    ));
+    marketplace_owner
+        .call(marketplace_contract.id(), "add_allowed_nft_contract_ids")
+        .args_json(json!({
+            "nft_contract_ids": serde_json::to_string(&vec![nft_contract.id()])?,
+        }))
+        .deposit(parse_near!("1 N"))
+        .max_gas()
+        .transact()
+        .await?
+        .json()?;
+
+    log!("Set allowed FT contracts for marketplace...");
+
     Ok(Context {
-        lender: alice,
-        borrower: bob,
-        lease_nft_receiver: charlie,
+        worker: worker,
         rental_contract: rental_contract,
         marketplace_contract: marketplace_contract,
         nft_contract: nft_contract,
         ft_contract: ft_contract,
-        worker: worker,
+        lender: alice,
+        borrower: bob,
+        lease_nft_receiver: charlie,
+        markeplace_owner: marketplace_owner,
     })
 }
 
@@ -1436,6 +1458,61 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_create_a_lease_succeeds() -> anyhow::Result<()> {
+    let context = init(NFT_PAYOUT_CODE).await?;
+    let worker = context.worker;
+    let rental_contract = context.rental_contract;
+    let marketplace_contract = context.marketplace_contract;
+    let nft_contract = context.nft_contract;
+    let ft_contract = context.ft_contract;
+    let lender = context.lender;
+    let borrower = context.borrower;
+    let marketplace_owner = context.markeplace_owner;
+
+    let token_id = "test";
+    let price = 10000;
+    let latest_block = worker.view_block().await?;
+    let start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
+    let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 100;
+
+    log!("Creating a listing on maketplace...");
+    // lender
+    //     .call(nft_contract.id(), "nft_approve")
+    //     .args_json(json!({
+    //         "token_id": token_id,
+    //         "account_id": marketplace_contract.id(),
+    //         "msg": json!({
+    //             "ft_contract_addr": ft_contract.id(),
+    //             "price": price.to_string(),
+    //             "start_ts_nano": start_ts_nano,
+    //             "end_ts_nano": expiration_ts_nano,
+    //         }).to_string()
+    //     }))
+    //     // .deposit(1) //require deposit of exact 1 yocto near
+    //     .max_gas()
+    //     .transact()
+    //     .await?
+    //     .into_result()?;
+
+    log!("Confirming the created listing ...");
+    let leases: Vec<(String, LeaseCondition)> = marketplace_contract
+        .call("list_listings_by_owner_id")
+        .args_json(json!({"owner_id": lender.id()}))
+        .transact()
+        .await?
+        .json()?;
+    assert_eq!(leases.len(), 0);
+
+    log!("Borrower accepting the created listing ...");
+
+    log!("Confirm the lease is activated ...");
+
+    Ok(())
+}
+// TODO: accepting a listing should activate a lease
+// TODO: claim back a lease
 
 // TODO: claim_back - NFT transfer check
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
