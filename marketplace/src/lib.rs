@@ -328,7 +328,11 @@ impl Contract {
     }
 
     fn assert_owner(&self) {
-        todo!()
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner_id,
+            "NiFTyRent Markeplace: Owner only!"
+        )
     }
 }
 
@@ -507,4 +511,13 @@ mod tests {
         assert_eq!(0, res.len());
     }
 
+    // ===== Unit Test =====
+    // TODO: test_add_allowed_ft_contract_ids
+    // TODO: test_add_allowed_nft_contract_ids
+    // TODO: test_remove_allowed_ft_contract_ids
+    // TODO: test_remove_allowed_nft_contract_ids
+    // ===== Integration Test =====
+    // TODO: test_create_a_listing_with_payout
+    // TODO: test_create_a_listing_without_payout
+    // TODO: test_accept_a_listing
 }
