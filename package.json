@@ -12,7 +12,7 @@
     "deploy_testnet:demo_nft": "yarn build:demo_nft && cd demo_nft_contract && near deploy --wasmFile ./target/wasm32-unknown-unknown/release/tamagotchi.wasm --accountId tamagotchi-nft.testnet",
     "preview": "cd frontend && yarn vite preview",
     "preview:demo": "cd demo_nft_frontend && yarn vite preview",
-    "build": "yarn build:contract && yarn build:web",
+    "build": "yarn build:contract && yarn build:web && yarn build:marketplace",
     "build:web": "cd frontend && yarn build",
     "build_testnet:web": "cd frontend && yarn build_testnet",
     "build_mainnet:web": "cd frontend && yarn build_mainnet",
