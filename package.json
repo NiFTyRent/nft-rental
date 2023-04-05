@@ -17,6 +17,7 @@
     "build_testnet:web": "cd frontend && yarn build_testnet",
     "build_mainnet:web": "cd frontend && yarn build_mainnet",
     "build:contract": "cd contract && rustup target add wasm32-unknown-unknown && cargo build --all --target wasm32-unknown-unknown --release",
+    "build:marketplace": "cd marketplace && rustup target add wasm32-unknown-unknown && cargo build --all --target wasm32-unknown-unknown --release",
     "build:demo_nft": "cd demo_nft_contract && rustup target add wasm32-unknown-unknown && cargo build --all --target wasm32-unknown-unknown --release",
     "build_testnet:demo_web": "cd demo_nft_frontend && yarn build_testnet",
     "test": "yarn test:unit && yarn test:integration && yarn test:marketplace_unit",
