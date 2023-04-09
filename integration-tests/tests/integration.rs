@@ -4,7 +4,7 @@ use near_contract_standards::non_fungible_token::{
     metadata::NFTContractMetadata, metadata::NFT_METADATA_SPEC, Token,
 };
 use near_sdk::json_types::U128;
-use near_sdk::log;
+use near_sdk::{log, AccountId};
 use near_units::parse_near;
 use nft_rental::{LeaseCondition, LeaseState};
 use serde_json::json;
@@ -172,24 +172,42 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
-    // add allowed nft contracts and ft contracts for marketplace
+    // add allowed nft contracts for marketplace
     log!("Set allowed NFT contracts for marketplace...");
+    let allowed_nft_contracts_ids_expected = vec![nft_contract.id().as_str()];
     log!(format!(
-        "allowed nft contracts list: {:?}",
-        serde_json::to_string(&vec![nft_contract.id()])?
+        "allowing nft contracts list: {:?}",
+        json!({
+            "nft_contract_ids": allowed_nft_contracts_ids_expected,
+        })
     ));
-    marketplace_owner
+
+    let result = marketplace_owner
         .call(marketplace_contract.id(), "add_allowed_nft_contract_ids")
         .args_json(json!({
-            "nft_contract_ids": serde_json::to_string(&vec![nft_contract.id()])?,
+            "nft_contract_ids": allowed_nft_contracts_ids_expected,
         }))
         .deposit(parse_near!("1 N"))
         .max_gas()
         .transact()
+        .await?;
+    assert!(result.is_success());
+
+    // view the allowed nft contracts
+    let allowed_nft_contracts_real: Vec<AccountId> = marketplace_owner
+        .call(marketplace_contract.id(), "list_allowed_nft_contract_ids")
+        .max_gas()
+        .transact()
         .await?
         .json()?;
+    log!(format!(
+        "Returned allowed nft contracts list: {:?}",
+        allowed_nft_contracts_real
+    ));
+    assert_eq!(allowed_nft_contracts_real.len(), 1);
+    assert_eq!(allowed_nft_contracts_ids_expected[0], allowed_nft_contracts_real[0].as_str());
 
-    log!("Set allowed FT contracts for marketplace...");
+    // add allowed ft contracts for marketplace
 
     Ok(Context {
         worker: worker,
@@ -1497,12 +1515,15 @@ async fn test_create_a_lease_succeeds() -> anyhow::Result<()> {
     //     .into_result()?;
 
     log!("Confirming the created listing ...");
-    let leases: Vec<(String, LeaseCondition)> = marketplace_contract
+    let result = marketplace_contract
         .call("list_listings_by_owner_id")
         .args_json(json!({"owner_id": lender.id()}))
         .transact()
-        .await?
-        .json()?;
+        .await?;
+    // log!(format!("outcome:{:?}", result.outcome()));
+
+    assert!(result.is_success());
+    let leases: Vec<(String, LeaseCondition)> = result.json()?;
     assert_eq!(leases.len(), 0);
 
     log!("Borrower accepting the created listing ...");

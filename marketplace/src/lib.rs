@@ -3,12 +3,12 @@ use near_sdk::{
     assert_one_yocto,
     borsh::{self, BorshDeserialize, BorshSerialize},
     collections::{LookupMap, UnorderedMap, UnorderedSet},
-    env, ext_contract, is_promise_success,
+    env::{self, log, log_str}, ext_contract, is_promise_success,
     json_types::{U128, U64},
     near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,
-    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
+    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault, log,
 };
 
 mod externals;
@@ -96,6 +96,10 @@ impl Contract {
 
     #[payable]
     pub fn add_allowed_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
+        // let parsed_ids: Vec<AccountId> = nft_contract_ids.iter().map(|id| {
+        //     id.clone().parse().unwrap()
+        // }).collect();
+
         self.assert_owner();
         insert_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
