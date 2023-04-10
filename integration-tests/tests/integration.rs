@@ -3,10 +3,11 @@ use anyhow::Ok;
 use near_contract_standards::non_fungible_token::{
     metadata::NFTContractMetadata, metadata::NFT_METADATA_SPEC, Token,
 };
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{U128, U64};
 use near_sdk::{log, AccountId};
 use near_units::parse_near;
-use nft_rental::{LeaseCondition, LeaseState};
+use nft_rental::{LeaseCondition, LeaseState, ListingId};
+use niftyrent_marketplace::Listing;
 use serde_json::json;
 use workspaces::{network::Sandbox, Account, Contract, Worker};
 
@@ -172,15 +173,9 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
-    // add allowed nft contracts for marketplace
-    log!("Set allowed NFT contracts for marketplace...");
+    // marketplace - add allowed nft contracts
+    log!("Adding allowed NFT contracts for marketplace...");
     let allowed_nft_contracts_ids_expected = vec![nft_contract.id().as_str()];
-    log!(format!(
-        "allowing nft contracts list: {:?}",
-        json!({
-            "nft_contract_ids": allowed_nft_contracts_ids_expected,
-        })
-    ));
 
     let result = marketplace_owner
         .call(marketplace_contract.id(), "add_allowed_nft_contract_ids")
@@ -200,14 +195,43 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .transact()
         .await?
         .json()?;
-    log!(format!(
-        "Returned allowed nft contracts list: {:?}",
-        allowed_nft_contracts_real
-    ));
-    assert_eq!(allowed_nft_contracts_real.len(), 1);
-    assert_eq!(allowed_nft_contracts_ids_expected[0], allowed_nft_contracts_real[0].as_str());
 
-    // add allowed ft contracts for marketplace
+    assert_eq!(allowed_nft_contracts_real.len(), 1);
+    assert_eq!(
+        allowed_nft_contracts_ids_expected[0],
+        allowed_nft_contracts_real[0].as_str()
+    );
+    log!("      ✅ Confirmed allowed NFT contracts for marketplace");
+
+    // marketplace - add allowed ft contracts
+    log!("Adding allowed FT contracts for marketplace...");
+    let allowed_ft_contracts_ids_expected = vec![ft_contract.id().as_str()];
+
+    let result = marketplace_owner
+        .call(marketplace_contract.id(), "add_allowed_ft_contract_ids")
+        .args_json(json!({
+            "ft_contract_ids": allowed_ft_contracts_ids_expected,
+        }))
+        .deposit(parse_near!("1 N"))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(result.is_success());
+
+    // view the allowed nft contracts
+    let allowed_ft_contracts_real: Vec<AccountId> = marketplace_owner
+        .call(marketplace_contract.id(), "list_allowed_ft_contract_ids")
+        .max_gas()
+        .transact()
+        .await?
+        .json()?;
+
+    assert_eq!(allowed_ft_contracts_real.len(), 1);
+    assert_eq!(
+        allowed_ft_contracts_ids_expected[0],
+        allowed_ft_contracts_real[0].as_str()
+    );
+    log!("      ✅ Confirmed allowed FT contracts for marketplace");
 
     Ok(Context {
         worker: worker,
@@ -1477,6 +1501,8 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
     Ok(())
 }
 
+// ========= Marketplace Test =========
+
 #[tokio::test]
 async fn test_create_a_lease_succeeds() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
@@ -1490,41 +1516,45 @@ async fn test_create_a_lease_succeeds() -> anyhow::Result<()> {
     let marketplace_owner = context.markeplace_owner;
 
     let token_id = "test";
-    let price = 10000;
+    let price: u128 = 10000;
     let latest_block = worker.view_block().await?;
-    let start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
-    let expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 100;
+    let lease_start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
+    let lease_expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 100;
 
     log!("Creating a listing on maketplace...");
-    // lender
-    //     .call(nft_contract.id(), "nft_approve")
-    //     .args_json(json!({
-    //         "token_id": token_id,
-    //         "account_id": marketplace_contract.id(),
-    //         "msg": json!({
-    //             "ft_contract_addr": ft_contract.id(),
-    //             "price": price.to_string(),
-    //             "start_ts_nano": start_ts_nano,
-    //             "end_ts_nano": expiration_ts_nano,
-    //         }).to_string()
-    //     }))
-    //     // .deposit(1) //require deposit of exact 1 yocto near
-    //     .max_gas()
-    //     .transact()
-    //     .await?
-    //     .into_result()?;
+    lender
+        .call(nft_contract.id(), "nft_approve")
+        .args_json(json!({
+            "token_id": token_id,
+            "account_id": marketplace_contract.id(),
+            "msg": json!({
+                "ft_contract_id": ft_contract.id(),
+                "price": price.to_string(),
+                "lease_start_ts_nano": lease_start_ts_nano,
+                "lease_end_ts_nano": lease_expiration_ts_nano,
+            }).to_string()
+        }))
+        .deposit(parse_near!("0.1 N"))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
 
-    log!("Confirming the created listing ...");
-    let result = marketplace_contract
+    log!("   Confirming the created listing ...");
+    let listings: Vec<Listing> = marketplace_contract
         .call("list_listings_by_owner_id")
         .args_json(json!({"owner_id": lender.id()}))
         .transact()
-        .await?;
-    // log!(format!("outcome:{:?}", result.outcome()));
+        .await?
+        .json()?;
+    assert_eq!(listings.len(), 1);
 
-    assert!(result.is_success());
-    let leases: Vec<(String, LeaseCondition)> = result.json()?;
-    assert_eq!(leases.len(), 0);
+    let new_listing = &listings[0];
+    assert_eq!(new_listing.owner_id.as_str(), lender.id().as_str());
+    assert_eq!(new_listing.price.0, price);
+    assert_eq!(new_listing.lease_start_ts_nano, lease_start_ts_nano);
+    assert_eq!(new_listing.lease_end_ts_nano, lease_expiration_ts_nano);
+    log!("      ✅ Confirmed the created listing");
 
     log!("Borrower accepting the created listing ...");
 
