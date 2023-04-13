@@ -10,7 +10,7 @@ use near_sdk::{
     CryptoHash,
 };
 use near_sdk::{
-    env, log, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
+    env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
     PromiseOrValue,
 };
 
