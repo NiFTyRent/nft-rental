@@ -3,10 +3,10 @@ use near_sdk::{
     assert_one_yocto,
     borsh::{self, BorshDeserialize, BorshSerialize},
     collections::{LookupMap, UnorderedMap, UnorderedSet},
-    env::{self, log_str},
+    env::{self},
     ext_contract, is_promise_success,
-    json_types::{U128, U64},
-    log, near_bindgen, require,
+    json_types::{U128},
+    near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,
     AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
@@ -318,7 +318,7 @@ impl Contract {
             self.listing_ids_by_nft_contract_id
                 .remove(&listing.nft_contract_id);
         } else {
-            self.listing_ids_by_owner_id
+            self.listing_ids_by_nft_contract_id
                 .insert(&listing.nft_contract_id, &listing_id_set);
         }
 
