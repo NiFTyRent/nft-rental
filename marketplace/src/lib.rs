@@ -327,7 +327,7 @@ impl Contract {
         // log the listing removal
         env::log_str(
             &json!({
-                "type": "remove_listing",
+                "type": "NiFYyRent Marketplace: remove listing",
                 "params": {
                     "owner_id": listing.owner_id,
                     "approval_id": listing.approval_id,

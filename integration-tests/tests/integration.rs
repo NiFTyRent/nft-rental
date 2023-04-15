@@ -134,6 +134,13 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     // register accounts for ft_contract and deposit
     account
         .call(ft_contract.id(), "unsafe_register_and_deposit")
+        .args_json(json!({ "account_id": account.id(), "balance": 100000000}))
+        .transact()
+        .await?
+        .into_result()?;
+
+    account
+        .call(ft_contract.id(), "unsafe_register_and_deposit")
         .args_json(json!({ "account_id": rental_contract.id(), "balance": 100000000}))
         .transact()
         .await?
@@ -1657,10 +1664,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
     log!("* Borrower: {}", borrower.id());
     log!("* Rental contract id: {}", rental_contract.id());
     log!("* Marketplace contract id: {}", marketplace_contract.id());
-    log!(
-        "* Rental contract owner id: {}",
-        rental_contract_owner.id()
-    );
+    log!("* Rental contract owner id: {}", rental_contract_owner.id());
     log!(
         "* Marketplace contract owner id: {}",
         marketplace_owner.id()
