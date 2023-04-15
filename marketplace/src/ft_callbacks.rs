@@ -90,7 +90,7 @@ impl FungibleTokenReceiver for Contract {
         // log nft transfer
         env::log_str(
             &json!({
-                "type": "transfer_leasing_nft",
+                "type": "NiFTyRent Marketplace: transfer_leasing_nft",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
                     "nft_token_id": listing.nft_token_id.clone(),
@@ -118,7 +118,6 @@ impl FungibleTokenReceiver for Contract {
                 // listing will also be removed when both transfers succeeded
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(Gas(10 * TGAS))
-                    .with_attached_deposit(1)
                     .transfer_rent_after_nft_transfer(
                         listing.ft_contract_id.clone(), // ft_contract_id
                         listing.price.clone(),          // amount
