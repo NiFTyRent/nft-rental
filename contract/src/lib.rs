@@ -7,11 +7,10 @@ use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     bs58, ext_contract, is_promise_success, promise_result_as_success, require, serde_json,
-    CryptoHash,
+    serde_json::json, CryptoHash,
 };
 use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
-    PromiseOrValue,
+    env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue,
 };
 
 mod externals;
@@ -174,7 +173,7 @@ impl Contract {
 
         Self::new(prev.owner)
     }
-    
+
     fn activate_lease(&mut self, lease_id: LeaseId) {
         let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
         let new_lease_condition = LeaseCondition {
@@ -724,6 +723,20 @@ impl NonFungibleTokenTransferReceiver for Contract {
         assert_eq!(nft_contract_id, lease_json.nft_contract_addr);
         assert_eq!(token_id, lease_json.nft_token_id);
 
+        // log nft transfer
+        env::log_str(
+            &json!({
+                "type": "NiFTyRent Rental: Creating a lease",
+                "params": {
+                    "nft_contract_id": nft_contract_id.clone(),
+                    "nft_token_id": token_id.clone(),
+                    "lender": lease_json.lender_id.clone(),
+                    "borrower": lease_json.borrower_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         // Create a lease after resolving payouts of the leasing token
         ext_nft::ext(lease_json.nft_contract_addr.clone())
             .nft_payout(
@@ -824,6 +837,17 @@ impl FungibleTokenReceiver for Contract {
                 rent_acceptance_json.nft_token_id,
             ))
             .expect("The targeting lease id does not exist!");
+
+        // log activate lease once rent is received
+        env::log_str(
+            &json!({
+                "type": "NiFTyRent Rental: Activate lease after receiving rent",
+                "params": {
+                    "lease_id": lease_id.clone(),
+                }
+            })
+            .to_string(),
+        );
 
         self.activate_lease(lease_id);
 

@@ -154,6 +154,8 @@ impl Contract {
      * Rent will only be transfered to Core, if leasing nft has been transferred correctly.
      * Otherwise, no rent transfer.
      * This XCC can only be called by this contract itself. Thus made private.
+     *
+     * TODO(syu): is this method payable?
      */
     #[private]
     pub fn transfer_rent_after_nft_transfer(
@@ -183,7 +185,7 @@ impl Contract {
         // log rent transfer
         env::log_str(
             &json!({
-                "type": "transfer_rent",
+                "type": "NiFTyRent Marketplace: transfer_rent",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
                     "nft_token_id": listing.nft_token_id.clone(),
