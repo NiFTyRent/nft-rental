@@ -18,13 +18,14 @@ const ONE_BLOCK_IN_NANO: u64 = 2000000000;
 struct Context {
     worker: Worker<Sandbox>,
     rental_contract: Contract,
+    rental_contract_owner: Account,
     marketplace_contract: Contract,
+    markeplace_owner: Account,
     nft_contract: Contract,
     ft_contract: Contract,
     lender: Account,
     borrower: Account,
     lease_nft_receiver: Account,
-    markeplace_owner: Account,
 }
 
 const CONTRACT_CODE: &[u8] =
@@ -243,6 +244,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     Ok(Context {
         worker: worker,
         rental_contract: rental_contract,
+        rental_contract_owner: account,
         marketplace_contract: marketplace_contract,
         nft_contract: nft_contract,
         ft_contract: ft_contract,
@@ -1571,6 +1573,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let worker = context.worker;
     let rental_contract = context.rental_contract;
+    let rental_contract_owner = context.rental_contract_owner;
     let marketplace_contract = context.marketplace_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
@@ -1652,10 +1655,14 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
     log!("*** DEBUG INFO ***");
     log!("* Lender: {}", lender.id());
     log!("* Borrower: {}", borrower.id());
-    log!("* Marketplace contract id: {}", marketplace_contract.id());
     log!("* Rental contract id: {}", rental_contract.id());
+    log!("* Marketplace contract id: {}", marketplace_contract.id());
     log!(
-        "* Marketplace contract Owner id: {}",
+        "* Rental contract owner id: {}",
+        rental_contract_owner.id()
+    );
+    log!(
+        "* Marketplace contract owner id: {}",
         marketplace_owner.id()
     );
     log!(
@@ -1686,7 +1693,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         .call(ft_contract.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": marketplace_contract.id(),
-            "amount": (price-10).to_string(),
+            "amount": price.to_string(),
             "memo": "",
             "msg": json!({
                 "listing_id": listing_id,
@@ -1697,7 +1704,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    log!("ft_transfer_call result logs: {:?}", result.logs());
+    log!("\n>ft_transfer_call outcomes: {:?}", result.outcomes());
     assert!(result.is_success());
 
     log!("Confirming the activated listing has been removed ...");
@@ -1707,7 +1714,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         .transact()
         .await?
         .json()?;
-    println!("number of listings: {}", listings.len());
+
     assert_eq!(listings.len(), 0);
     log!("      ✅ The activated listing has been removed");
 
@@ -1771,8 +1778,8 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         .json()?;
 
     log!("nft token owner after accepting lease: {}", token.owner_id);
-    // assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
-    // log!("      ✅ Lease token has been transferred from lender to rental contract");
+    assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
+    log!("      ✅ Lease token has been transferred from lender to rental contract");
 
     log!("Confirming the lease is activated ...");
 
