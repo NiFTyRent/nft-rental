@@ -100,7 +100,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .args_json(json!({
            "owner_id": marketplace_owner.id(),
            "treasury_id": treasury.id(),
-           "rental_contract_id": account.id(),
+           "rental_contract_id": rental_contract.id(),
         }))
         .transact()
         .await?
