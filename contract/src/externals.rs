@@ -9,8 +9,8 @@ trait ExtSelf {
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
     fn create_lease_with_payout(
         &mut self,
-        contract_id: AccountId,
-        token_id: TokenId,
+        nft_contract_id: AccountId,
+        nft_token_id: TokenId,
         owner_id: AccountId,
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
