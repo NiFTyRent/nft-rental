@@ -328,7 +328,11 @@ impl Contract {
     }
 
     fn assert_owner(&self) {
-        assert_eq!(env::predecessor_account_id(), self.owner_id);
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner_id,
+            "This function can only be called by the owner!"
+        )
     }
 }
 
