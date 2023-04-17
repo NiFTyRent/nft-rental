@@ -56,7 +56,7 @@ pub enum LeaseState {
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseJson {
-    nft_contract_addr: AccountId,
+    nft_contract_id: AccountId,
     nft_token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
@@ -428,6 +428,19 @@ impl Contract {
         end_ts_nano: u64,
         price: U128,
     ) {
+        env::log_str(
+            &json!({
+                "type": "[DEBUG] NiFTyRent Rental: processing payput for nft token.",
+                "params": {
+                    "nft_contract_id": nft_contract_id.clone(),
+                    "nft_token_id": nft_token_id.clone(),
+                    "lender": owner_id.clone(),
+                    "borrower": borrower_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
         let optional_payout;
         if is_promise_success() {
@@ -460,16 +473,30 @@ impl Contract {
             });
         }
 
+        // log lease creation
+        env::log_str(
+            &json!({
+                "type": "NiFTyRent Rental: Creating a lease",
+                "params": {
+                    "nft_contract_id": nft_contract_id.clone(),
+                    "nft_token_id": nft_token_id.clone(),
+                    "lender": owner_id.clone(),
+                    "borrower": borrower_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
-            lender_id: owner_id.clone(),
             contract_addr: nft_contract_id,
             token_id: nft_token_id,
+            lender_id: owner_id.clone(),
             borrower_id: borrower_id,
             ft_contract_addr: ft_contract_addr,
+            price: price,
             start_ts_nano: start_ts_nano,
             end_ts_nano: end_ts_nano,
-            price: price,
             payout: optional_payout,
             state: LeaseState::PendingOnRent,
         };
@@ -720,25 +747,23 @@ impl NonFungibleTokenTransferReceiver for Contract {
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 
         // Enforce the leasing token is the same as the transferring token
-        assert_eq!(nft_contract_id, lease_json.nft_contract_addr);
+        assert_eq!(nft_contract_id, lease_json.nft_contract_id);
         assert_eq!(token_id, lease_json.nft_token_id);
 
         // log nft transfer
         env::log_str(
             &json!({
-                "type": "NiFTyRent Rental: Creating a lease",
+                "type": "[DEBUG] NiFTyRent Rental: Checking payout for leasing NFT.",
                 "params": {
                     "nft_contract_id": nft_contract_id.clone(),
                     "nft_token_id": token_id.clone(),
-                    "lender": lease_json.lender_id.clone(),
-                    "borrower": lease_json.borrower_id.clone(),
                 }
             })
             .to_string(),
         );
 
         // Create a lease after resolving payouts of the leasing token
-        ext_nft::ext(lease_json.nft_contract_addr.clone())
+        ext_nft::ext(lease_json.nft_contract_id.clone())
             .nft_payout(
                 lease_json.nft_token_id.clone(), // token_id
                 U128::from(lease_json.price.0),  // price
@@ -746,10 +771,9 @@ impl NonFungibleTokenTransferReceiver for Contract {
             )
             .then(
                 ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
                     .with_static_gas(GAS_FOR_ROYALTIES)
                     .create_lease_with_payout(
-                        lease_json.nft_contract_addr,
+                        lease_json.nft_contract_id,
                         lease_json.nft_token_id,
                         lease_json.lender_id,
                         lease_json.borrower_id,

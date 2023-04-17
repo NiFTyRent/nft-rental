@@ -1662,6 +1662,8 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
     log!("*** DEBUG INFO ***");
     log!("* Lender: {}", lender.id());
     log!("* Borrower: {}", borrower.id());
+    log!("* NFT Contract id: {}", nft_contract.id());
+    log!("* FT Contract id: {}", ft_contract.id());
     log!("* Rental contract id: {}", rental_contract.id());
     log!("* Marketplace contract id: {}", marketplace_contract.id());
     log!("* Rental contract owner id: {}", rental_contract_owner.id());
