@@ -154,8 +154,6 @@ impl Contract {
      * Rent will only be transfered to Core, if leasing nft has been transferred correctly.
      * Otherwise, no rent transfer.
      * This XCC can only be called by this contract itself. Thus made private.
-     *
-     * TODO(syu): is this method payable?
      */
     #[private]
     pub fn transfer_rent_after_nft_transfer(
@@ -165,6 +163,9 @@ impl Contract {
         memo: Option<String>,
         listing_id: ListingId,
     ) -> U128 {
+        
+        // TODO(syu): Add check from the previous XCC promise result. If failed result, stop earlier
+        
         require!(
             is_promise_success(),
             "NFT transfer failed. Abort rent transfer!"

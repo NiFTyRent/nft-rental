@@ -7,7 +7,7 @@ use crate::*;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ListingAcceptanceJson {
-    listing_id: ListingId, 
+    listing_id: ListingId,
 }
 
 /// The trait for receiving rent payment and trigering listing acceptance.
@@ -39,6 +39,8 @@ impl FungibleTokenReceiver for Contract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
+        // TODO(syu): check if ft transfer can be reverted back to borrower, if transaction failed.
+
         // Enforce cross contract call
         let ft_contract_id = env::predecessor_account_id();
         assert_ne!(
@@ -69,14 +71,14 @@ impl FungibleTokenReceiver for Contract {
         // Transfer both the to be rented NFT and the rent payment (FT) to the rental contract.
         // The Core rental contract will activate the lease.
         // When Core returns successfully, remove the listing in marketplace
-        // 1. Marketplace transfers the NFT to Core contract 
+        // 1. Marketplace transfers the NFT to Core contract
         //    1.1 Core contract will create the lease
         // 2. Marketplace transfers rent to Core contract
         // 3. Marketplace reolves the result from the above two steps and returns accordingly
 
         // msg to be passed in nft_transfer_call for a lease creation
         let msg_lease_json = json!({
-            "nft_contract_addr": listing.nft_contract_id.clone(),
+            "nft_contract_id": listing.nft_contract_id.clone(),
             "nft_token_id": listing.nft_token_id.clone(),
             "lender_id": listing.owner_id.clone(),
             "borrower_id": sender_id.clone(),
@@ -90,7 +92,7 @@ impl FungibleTokenReceiver for Contract {
         // log nft transfer
         env::log_str(
             &json!({
-                "type": "NiFTyRent Marketplace: transfer leasing nft",
+                "type": "NiFTyRent Marketplace: transfer leasing nft.",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
                     "nft_token_id": listing.nft_token_id.clone(),
@@ -127,6 +129,5 @@ impl FungibleTokenReceiver for Contract {
             )
             .as_return()
             .into()
-
     }
 }
