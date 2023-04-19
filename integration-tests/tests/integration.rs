@@ -1711,6 +1711,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         .await?;
 
     log!("\n>ft_transfer_call outcomes: {:?}", result.outcomes());
+
     assert!(result.is_success());
 
     log!("Confirming the activated listing has been removed ...");
@@ -1723,6 +1724,18 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
 
     assert_eq!(listings.len(), 0);
     log!("      ✅ The activated listing has been removed");
+
+    log!("Confirming the nft is transferred ...");
+    let token: Token = nft_contract
+        .view("nft_token")
+        .args_json(json!({
+            "token_id": token_id,
+        }))
+        .await?
+        .json()?;
+
+    assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
+    log!("      ✅ Lease token has been transferred from lender to rental contract");
 
     log!("Confirming the rent is paid ...");
     let balance_after_accepting_lease_lender: U128 = ft_contract
@@ -1773,21 +1786,36 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         balance_after_accepting_lease_rental_contract.0
     );
     log!("*** END ***");
-
-    log!("Confirming the nft is transferred ...");
-    let token: Token = nft_contract
-        .view("nft_token")
-        .args_json(json!({
-            "token_id": token_id,
-        }))
-        .await?
-        .json()?;
-
-    log!("nft token owner after accepting lease: {}", token.owner_id);
-    assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
-    log!("      ✅ Lease token has been transferred from lender to rental contract");
+    assert_eq!(
+        price,
+        balance_before_accepting_lease_borrower.0 - balance_after_accepting_lease_borrower.0
+    );
+    assert_eq!(
+        price,
+        balance_after_accepting_lease_rental_contract.0
+            - balance_before_accepting_lease_rental_contract.0
+    );
+    log!("      ✅ Lease rent has been recived by rental contract from borrower");
 
     log!("Confirming the lease is activated ...");
+    let leases: Vec<(String, LeaseCondition)> = rental_contract
+        .call("leases_by_borrower")
+        .args_json(json!({
+            "account_id": borrower.id().clone(),
+        }))
+        .transact()
+        .await?
+        .json()?;
+    assert_eq!(leases.len(), 1);
+
+    let lease = &leases[0].1;
+    assert_eq!(lease.contract_addr.as_str(), nft_contract.id().as_str());
+    assert_eq!(lease.token_id, token_id);
+    assert_eq!(lease.lender_id.as_str(), lender.id().as_str());
+    assert_eq!(lease.borrower_id.as_str(), borrower.id().as_str());
+    assert_eq!(lease.price.0, price);
+    assert_eq!(lease.state, LeaseState::Active);
+    log!("      ✅ Lease activation is confired");
 
     Ok(())
 }

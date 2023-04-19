@@ -182,6 +182,19 @@ impl Contract {
         };
         self.lease_map.insert(&lease_id, &new_lease_condition);
 
+        env::log_str(
+            &json!({
+                "type": "NiFTyRent Rental: A lease has been activated",
+                "params": {
+                    "lease_id": lease_id.clone(),
+                    "lease_state": new_lease_condition.state,
+                    "nft_contract": new_lease_condition.contract_addr.clone(),
+                    "nft_token_id": new_lease_condition.token_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         self.nft_mint(lease_id, new_lease_condition.lender_id.clone());
     }
 
@@ -494,8 +507,7 @@ impl Contract {
 
         self.internal_insert_lease(&lease_id, &lease_condition);
 
-        // TODO(syu): check how to handle true return
-        // return false to indicte no revert nft transfer
+        // return false to indict no revert nft transfer
         return false;
     }
 
@@ -868,18 +880,6 @@ impl FungibleTokenReceiver for Contract {
                 rent_acceptance_json.nft_token_id,
             ))
             .expect("The targeting lease id does not exist!");
-
-        // log activate lease once rent is received
-        // TODO(syu): add lease state
-        env::log_str(
-            &json!({
-                "type": "NiFTyRent Rental: Activate lease after receiving rent",
-                "params": {
-                    "lease_id": lease_id.clone(),
-                }
-            })
-            .to_string(),
-        );
 
         self.activate_lease(lease_id);
 
