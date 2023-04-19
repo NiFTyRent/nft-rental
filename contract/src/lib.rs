@@ -7,10 +7,10 @@ use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     bs58, ext_contract, is_promise_success, promise_result_as_success, require, serde_json,
-    serde_json::json, CryptoHash,
+    serde_json::json, CryptoHash, PromiseOrValue,
 };
 use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise, PromiseOrValue,
+    env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
 
 mod externals;
@@ -427,7 +427,7 @@ impl Contract {
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
-    ) {
+    ) -> bool {
         env::log_str(
             &json!({
                 "type": "[DEBUG] NiFTyRent Rental: processing payput for nft token.",
@@ -473,20 +473,6 @@ impl Contract {
             });
         }
 
-        // log lease creation
-        env::log_str(
-            &json!({
-                "type": "NiFTyRent Rental: Creating a lease",
-                "params": {
-                    "nft_contract_id": nft_contract_id.clone(),
-                    "nft_token_id": nft_token_id.clone(),
-                    "lender": owner_id.clone(),
-                    "borrower": borrower_id.clone(),
-                }
-            })
-            .to_string(),
-        );
-
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
             contract_addr: nft_contract_id,
@@ -507,6 +493,10 @@ impl Contract {
             .into_string();
 
         self.internal_insert_lease(&lease_id, &lease_condition);
+
+        // TODO(syu): check how to handle true return
+        // return false to indicte no revert nft transfer
+        return false;
     }
 
     // helper method to remove records of a lease
@@ -624,6 +614,23 @@ impl Contract {
             ),
             &lease_id,
         );
+
+        // log lease insertion
+        env::log_str(
+            &json!({
+                "type": "[INFO] NiFTyRent Rental: A new lease has been inserted.",
+                "params": {
+                    "lease_id": lease_id.clone(),
+                    "nft_contract_id": lease_condition.contract_addr.clone(),
+                    "nft_token_id": lease_condition.token_id.clone(),
+                    "lender": lease_condition.lender_id.clone(),
+                    "borrower": lease_condition.borrower_id.clone(),
+                    "lease_state": lease_condition.state,
+                }
+            })
+            .to_string(),
+        );
+
     }
 
     /// This function updates only the lender info in an active lease
@@ -716,7 +723,7 @@ trait NonFungibleTokenTransferReceiver {
         previous_owner_id: AccountId,
         token_id: TokenId,
         msg: String,
-    );
+    ) -> PromiseOrValue<bool>;
 }
 
 #[near_bindgen]
@@ -732,7 +739,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
         previous_owner_id: AccountId,
         token_id: TokenId,
         msg: String,
-    ) {
+    ) -> PromiseOrValue<bool> {
         // Enforce cross contract call
         let nft_contract_id = env::predecessor_account_id();
         assert_ne!(
@@ -783,7 +790,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                         lease_json.price,
                     ),
             )
-            .as_return();
+            .into()
     }
 }
 
@@ -863,6 +870,7 @@ impl FungibleTokenReceiver for Contract {
             .expect("The targeting lease id does not exist!");
 
         // log activate lease once rent is received
+        // TODO(syu): add lease state
         env::log_str(
             &json!({
                 "type": "NiFTyRent Rental: Activate lease after receiving rent",

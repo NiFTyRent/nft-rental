@@ -17,7 +17,7 @@ trait ExtSelf {
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
-    ) -> Promise;
+    ) -> bool;
 }
 
 /// NFT interface, for cross-contract calls
