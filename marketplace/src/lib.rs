@@ -163,9 +163,8 @@ impl Contract {
         memo: Option<String>,
         listing_id: ListingId,
     ) -> U128 {
-        
         // TODO(syu): Add check from the previous XCC promise result. If failed result, stop earlier
-        
+
         require!(
             is_promise_success(),
             "NFT transfer failed. Abort rent transfer!"
@@ -454,7 +453,7 @@ mod tests {
             nft_contract_id,
             nft_token_id,
             ft_contract_id,
-            price,
+            price.0,
             lease_start_ts_nano,
             lease_end_ts_nano,
         );
@@ -489,7 +488,7 @@ mod tests {
             nft_contract_id,
             nft_token_id,
             ft_contract_id,
-            price,
+            price.0,
             lease_start_ts_nano,
             lease_end_ts_nano,
         );
@@ -523,7 +522,7 @@ mod tests {
             nft_contract_id.clone(),
             nft_token_id,
             ft_contract_id,
-            price,
+            price.0,
             lease_start_ts_nano,
             lease_end_ts_nano,
         );
@@ -558,7 +557,7 @@ mod tests {
             nft_contract_id,
             nft_token_id,
             ft_contract_id,
-            price,
+            price.0,
             lease_start_ts_nano,
             lease_end_ts_nano,
         );
