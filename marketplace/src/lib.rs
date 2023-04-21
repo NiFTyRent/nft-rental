@@ -580,7 +580,5 @@ mod tests {
     // TODO: test_remove_allowed_ft_contract_ids
     // TODO: test_remove_allowed_nft_contract_ids
     // ===== Integration Test =====
-    // TODO: test_create_a_listing_with_payout
     // TODO: test_create_a_listing_without_payout
-    // TODO: test_accept_a_listing
 }

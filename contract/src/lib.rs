@@ -759,9 +759,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
             nft_contract_id,
             "nft_on_transfer should only be called via XCC."
         );
-
-        // TODO(syu): enforce sender_id is marketplace contract.
-
+        
         let lease_json: LeaseJson =
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 

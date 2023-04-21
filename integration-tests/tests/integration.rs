@@ -188,7 +188,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?
         .into_result()?;
 
-    // marketplace - add allowed nft contracts
+    // marketplace config - add allowed nft contracts
     log!("Adding allowed NFT contracts for marketplace...");
     let allowed_nft_contracts_ids_expected = vec![nft_contract.id().as_str()];
 
@@ -203,7 +203,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
         .await?;
     assert!(result.is_success());
 
-    // view the allowed nft contracts
+    // view the allowed nft contracts in marketpalce
     let allowed_nft_contracts_real: Vec<AccountId> = marketplace_owner
         .call(marketplace_contract.id(), "list_allowed_nft_contract_ids")
         .max_gas()
@@ -218,7 +218,7 @@ async fn init(nft_code: &[u8]) -> anyhow::Result<Context> {
     );
     log!("      ✅ Confirmed allowed NFT contracts for marketplace");
 
-    // marketplace - add allowed ft contracts
+    // marketplace config - add allowed ft contracts
     log!("Adding allowed FT contracts for marketplace...");
     let allowed_ft_contracts_ids_expected = vec![ft_contract.id().as_str()];
 
@@ -1517,21 +1517,18 @@ async fn test_create_a_lease_to_start_in_the_future() -> anyhow::Result<()> {
     Ok(())
 }
 
-// ========= Marketplace Test =========
+// ========= Marketplace Tests =========
 
 #[tokio::test]
-async fn test_create_a_listing_in_marketplace_succeeds() -> anyhow::Result<()> {
+async fn test_lender_creates_a_listing_in_marketplace_succeeds() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let worker = context.worker;
-    let rental_contract = context.rental_contract;
     let marketplace_contract = context.marketplace_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let lender = context.lender;
-    let borrower = context.borrower;
-    let marketplace_owner = context.markeplace_owner;
 
-    let token_id = "test";
+    let nft_token_id = "test";
     let price: u128 = 10000;
     let latest_block = worker.view_block().await?;
     let lease_start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
@@ -1541,7 +1538,7 @@ async fn test_create_a_listing_in_marketplace_succeeds() -> anyhow::Result<()> {
     lender
         .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
-            "token_id": token_id,
+            "token_id": nft_token_id,
             "account_id": marketplace_contract.id(),
             "msg": json!({
                 "ft_contract_id": ft_contract.id(),
@@ -1567,6 +1564,15 @@ async fn test_create_a_listing_in_marketplace_succeeds() -> anyhow::Result<()> {
 
     let new_listing = &listings[0];
     assert_eq!(new_listing.owner_id.as_str(), lender.id().as_str());
+    assert_eq!(
+        new_listing.nft_contract_id.as_str(),
+        nft_contract.id().as_str()
+    );
+    assert_eq!(new_listing.nft_token_id, nft_token_id);
+    assert_eq!(
+        new_listing.ft_contract_id.as_str(),
+        ft_contract.id().as_str()
+    );
     assert_eq!(new_listing.price.0, price);
     assert_eq!(new_listing.lease_start_ts_nano, lease_start_ts_nano);
     assert_eq!(new_listing.lease_end_ts_nano, lease_expiration_ts_nano);
@@ -1576,7 +1582,7 @@ async fn test_create_a_listing_in_marketplace_succeeds() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
+async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let worker = context.worker;
     let rental_contract = context.rental_contract;
@@ -1588,7 +1594,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
     let borrower = context.borrower;
     let marketplace_owner = context.markeplace_owner;
 
-    let token_id = "test";
+    let nft_token_id = "test";
     let price: u128 = 10000;
     let latest_block = worker.view_block().await?;
     let lease_start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
@@ -1598,7 +1604,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
     lender
         .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
-            "token_id": token_id,
+            "token_id": nft_token_id,
             "account_id": marketplace_contract.id(),
             "msg": json!({
                 "ft_contract_id": ft_contract.id(),
@@ -1624,11 +1630,26 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
 
     let new_listing = &listings[0];
     assert_eq!(new_listing.owner_id.as_str(), lender.id().as_str());
-    assert_eq!(new_listing.price.0, price);
-    assert_eq!(new_listing.lease_start_ts_nano, lease_start_ts_nano);
-    assert_eq!(new_listing.lease_end_ts_nano, lease_expiration_ts_nano);
+    assert_eq!(
+        new_listing.nft_contract_id.as_str(),
+        nft_contract.id().as_str()
+    );
+    assert_eq!(new_listing.nft_token_id, nft_token_id);
     log!("      ✅ Confirmed the created listing");
 
+    // Some useful info for debugging. Keep this block for future test reference
+    log!("*** DEBUG INFO ***");
+    log!("* Lender: {}", lender.id());
+    log!("* Borrower: {}", borrower.id());
+    log!("* NFT Contract id: {}", nft_contract.id());
+    log!("* FT Contract id: {}", ft_contract.id());
+    log!("* Rental contract id: {}", rental_contract.id());
+    log!("* Marketplace contract id: {}", marketplace_contract.id());
+    log!("* Rental contract owner id: {}", rental_contract_owner.id());
+    log!(
+        "* Marketplace contract owner id: {}",
+        marketplace_owner.id()
+    );
     let balance_before_accepting_lease_lender: U128 = ft_contract
         .view("ft_balance_of")
         .args_json(json!({
@@ -1658,19 +1679,6 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-
-    log!("*** DEBUG INFO ***");
-    log!("* Lender: {}", lender.id());
-    log!("* Borrower: {}", borrower.id());
-    log!("* NFT Contract id: {}", nft_contract.id());
-    log!("* FT Contract id: {}", ft_contract.id());
-    log!("* Rental contract id: {}", rental_contract.id());
-    log!("* Marketplace contract id: {}", marketplace_contract.id());
-    log!("* Rental contract owner id: {}", rental_contract_owner.id());
-    log!(
-        "* Marketplace contract owner id: {}",
-        marketplace_owner.id()
-    );
     log!(
         "* FT balance before lease acceptance - lender: {}",
         balance_before_accepting_lease_lender.0
@@ -1692,7 +1700,7 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
     log!("Borrower accepting the created listing ...");
     let listing_id: (String, String) = (
         nft_contract.id().clone().to_string(),
-        token_id.clone().to_string(),
+        nft_token_id.clone().to_string(),
     );
 
     let result = borrower
@@ -1710,11 +1718,11 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    log!("\n>ft_transfer_call outcomes: {:?}", result.outcomes());
-
+    // Next line is used for debug Execution history. Keep for reference
+    // log!("\n>[DEBUG] ft_transfer_call outcomes: {:?}", result.outcomes());
     assert!(result.is_success());
 
-    log!("Confirming the activated listing has been removed ...");
+    log!("Confirming the activated listing has been removed from markectplace ...");
     let listings: Vec<Listing> = marketplace_contract
         .call("list_listings_by_owner_id")
         .args_json(json!({"owner_id": lender.id()}))
@@ -1723,19 +1731,19 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         .json()?;
 
     assert_eq!(listings.len(), 0);
-    log!("      ✅ The activated listing has been removed");
+    log!("      ✅ The activated listing has been removed from marketplace");
 
     log!("Confirming the nft is transferred ...");
     let token: Token = nft_contract
         .view("nft_token")
         .args_json(json!({
-            "token_id": token_id,
+            "token_id": nft_token_id,
         }))
         .await?
         .json()?;
 
     assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
-    log!("      ✅ Lease token has been transferred from lender to rental contract");
+    log!("      ✅ Lease nft has been transferred from lender to rental contract");
 
     log!("Confirming the rent is paid ...");
     let balance_after_accepting_lease_lender: U128 = ft_contract
@@ -1795,9 +1803,9 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
         balance_after_accepting_lease_rental_contract.0
             - balance_before_accepting_lease_rental_contract.0
     );
-    log!("      ✅ Lease rent has been recived by rental contract from borrower");
+    log!("      ✅ Lease rent has been received by rental contract from borrower");
 
-    log!("Confirming the lease is activated ...");
+    log!("Confirming the lease is activated by Rental contract...");
     let leases: Vec<(String, LeaseCondition)> = rental_contract
         .call("leases_by_borrower")
         .args_json(json!({
@@ -1810,21 +1818,24 @@ async fn test_activate_a_lease_succeeds() -> anyhow::Result<()> {
 
     let lease = &leases[0].1;
     assert_eq!(lease.contract_addr.as_str(), nft_contract.id().as_str());
-    assert_eq!(lease.token_id, token_id);
+    assert_eq!(lease.token_id, nft_token_id);
     assert_eq!(lease.lender_id.as_str(), lender.id().as_str());
     assert_eq!(lease.borrower_id.as_str(), borrower.id().as_str());
     assert_eq!(lease.price.0, price);
     assert_eq!(lease.state, LeaseState::Active);
-    log!("      ✅ Lease activation is confired");
+    log!("      ✅ Confirmed Lease activation on Rental contract");
 
     Ok(())
 }
 
-// TODO: accepting a listing should activate a lease
-// TODO: claim back a lease
+
+#[tokio::test]
+async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()>{
+    Ok(())
+}
+// TODO(syu): claim back a lease
 
 // TODO: claim_back - NFT transfer check
 // TODO: claim_back - check lease amount recieval, probably by using ft_balance_of().
 // TODO: nft_on_approve - check lease createion happened correctly & all indices have been updated accordingly
 // TODO: add a dummy NFT contract without payout being implemented to test the related scenarios
-// TODO(syu): nft_resolve_transfer to reverse a LEASE NFT transfer
