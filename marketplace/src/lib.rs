@@ -97,10 +97,6 @@ impl Contract {
 
     #[payable]
     pub fn add_allowed_nft_contract_ids(&mut self, nft_contract_ids: Vec<AccountId>) {
-        // let parsed_ids: Vec<AccountId> = nft_contract_ids.iter().map(|id| {
-        //     id.clone().parse().unwrap()
-        // }).collect();
-
         self.assert_owner();
         insert_accounts(nft_contract_ids, &mut self.allowed_nft_contract_ids);
     }
@@ -579,6 +575,4 @@ mod tests {
     // TODO: test_add_allowed_nft_contract_ids_fails_wrong_caller
     // TODO: test_remove_allowed_ft_contract_ids
     // TODO: test_remove_allowed_nft_contract_ids
-    // ===== Integration Test =====
-    // TODO: test_create_a_listing_without_payout
 }

@@ -184,7 +184,7 @@ impl Contract {
 
         env::log_str(
             &json!({
-                "type": "NiFTyRent Rental: A lease has been activated",
+                "type": "[INFO] NiFTyRent Rental: A lease has been activated",
                 "params": {
                     "lease_id": lease_id.clone(),
                     "lease_state": new_lease_condition.state,
