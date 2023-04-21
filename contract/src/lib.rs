@@ -507,7 +507,7 @@ impl Contract {
 
         self.internal_insert_lease(&lease_id, &lease_condition);
 
-        // return false to indict no revert nft transfer
+        // return false to indict no need to revert the nft transfer
         return false;
     }
 
@@ -792,7 +792,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                     .create_lease_with_payout(
                         lease_json.nft_contract_id,
                         lease_json.nft_token_id,
-                        lease_json.lender_id,  // use lender here, as the token owner has been transfered to Rental
+                        lease_json.lender_id,  // use lender here, as the token owner has been updated to Rental contract
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
                         lease_json.start_ts_nano,
@@ -937,7 +937,7 @@ mod tests {
         let lease_id = "test_lease_id".to_string();
         let wrong_ft_addr = accounts(0);
         contract.lease_map.insert(&lease_id, &lease_condition);
-        // needed for finding the targeting lease_condition at ft_on_transfer
+        // needed for finding the target lease_condition at ft_on_transfer
         contract.lease_id_by_contract_addr_and_token_id.insert(
             &(
                 lease_condition.contract_addr.clone(),
@@ -970,7 +970,7 @@ mod tests {
         let lease_condition = create_lease_condition_default();
         let lease_id = "test_lease_id".to_string();
         contract.lease_map.insert(&lease_id, &lease_condition);
-        // needed for finding the targeting lease_condition at ft_on_transfer
+        // needed for finding the target lease_condition at ft_on_transfer
         contract.lease_id_by_contract_addr_and_token_id.insert(
             &(
                 lease_condition.contract_addr.clone(),
@@ -1004,7 +1004,7 @@ mod tests {
         lease_condition.state = LeaseState::Active;
         let lease_id = "test_lease_id".to_string();
         contract.lease_map.insert(&lease_id, &lease_condition);
-        // needed for finding the targeting lease_condition at ft_on_transfer
+        // needed for finding the target lease_condition at ft_on_transfer
         contract.lease_id_by_contract_addr_and_token_id.insert(
             &(
                 lease_condition.contract_addr.clone(),
@@ -1036,7 +1036,7 @@ mod tests {
         let lease_condition = create_lease_condition_default();
         let lease_id = "test_lease_id".to_string();
         contract.lease_map.insert(&lease_id, &lease_condition);
-        // needed for finding the targeting lease_condition at ft_on_transfer
+        // needed for finding the target lease_condition at ft_on_transfer
         contract.lease_id_by_contract_addr_and_token_id.insert(
             &(
                 lease_condition.contract_addr.clone(),
