@@ -5,11 +5,11 @@ use near_sdk::{
     collections::{LookupMap, UnorderedMap, UnorderedSet},
     env::{self},
     ext_contract, is_promise_success,
-    json_types::{U128},
+    json_types::U128,
     near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,
-    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
+    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault, PromiseResult,
 };
 
 mod externals;
@@ -163,12 +163,22 @@ impl Contract {
         memo: Option<String>,
         listing_id: ListingId,
     ) -> U128 {
-        // TODO(syu): Add check from the previous XCC promise result. If failed result, stop earlier
-
+        // previoux XCC should be successful
         require!(
             is_promise_success(),
             "NFT transfer failed. Abort rent transfer!"
         );
+
+        // previoux XCC, nft_transfer_call, should not result in reverting the transfer
+        // expected status: SuccessValue(`true`)
+        if let PromiseResult::Successful(value) = env::promise_result(0) {
+            if let Ok(token_transfered) = near_sdk::serde_json::from_slice::<bool>(&value) {
+                require!(
+                    token_transfered, // true to
+                    "NFT transfer wasn't successful. Abort rent transfer!"
+                );
+            }
+        }
 
         // Trasnfer the rent to Core contract.
         // msg to be passed in ft_transfer_call. Used for specifying the targeting lease.
@@ -185,7 +195,7 @@ impl Contract {
         // log rent transfer
         env::log_str(
             &json!({
-                "type": "NiFTyRent Marketplace: transfer_rent",
+                "type": "[INFO] NiFTyRent Marketplace: transfer rent",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
                     "nft_token_id": listing.nft_token_id.clone(),
@@ -327,16 +337,12 @@ impl Contract {
         // log the listing removal
         env::log_str(
             &json!({
-                "type": "NiFYyRent Marketplace: remove listing",
+                "type": "[INFO] NiFTyRent Marketplace: remove listing",
                 "params": {
+                    "listing_id": &listing_id,
                     "owner_id": listing.owner_id,
-                    "approval_id": listing.approval_id,
                     "nft_contract_id": listing.nft_contract_id,
                     "nft_token_id": listing.nft_token_id,
-                    "ft_contract_id": listing.ft_contract_id,
-                    "price": listing.price,
-                    "lease_start_ts_nano": listing.lease_start_ts_nano,
-                    "lease_end_ts_nano": listing.lease_end_ts_nano,
                 }
             })
             .to_string(),
