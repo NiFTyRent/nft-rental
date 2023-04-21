@@ -353,7 +353,7 @@ impl Contract {
         assert_eq!(
             env::predecessor_account_id(),
             self.owner_id,
-            "NiFTyRent Markeplace: Owner only!"
+            "This function can only be called by the owner!"
         )
     }
 }
