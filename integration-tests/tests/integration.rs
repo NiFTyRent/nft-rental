@@ -1722,7 +1722,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     // log!("\n>[DEBUG] ft_transfer_call outcomes: {:?}", result.outcomes());
     assert!(result.is_success());
 
-    log!("Confirming the activated listing has been removed from markectplace ...");
+    log!("      Confirming the activated listing has been removed from markectplace ...");
     let listings: Vec<Listing> = marketplace_contract
         .call("list_listings_by_owner_id")
         .args_json(json!({"owner_id": lender.id()}))
@@ -1733,7 +1733,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     assert_eq!(listings.len(), 0);
     log!("      ✅ The activated listing has been removed from marketplace");
 
-    log!("Confirming the nft is transferred ...");
+    log!("      Confirming the nft is transferred ...");
     let token: Token = nft_contract
         .view("nft_token")
         .args_json(json!({
@@ -1745,7 +1745,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
     log!("      ✅ Lease nft has been transferred from lender to rental contract");
 
-    log!("Confirming the rent is paid ...");
+    log!("     Confirming the rent is paid ...");
     let balance_after_accepting_lease_lender: U128 = ft_contract
         .view("ft_balance_of")
         .args_json(json!({
@@ -1805,7 +1805,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     );
     log!("      ✅ Lease rent has been received by rental contract from borrower");
 
-    log!("Confirming the lease is activated by Rental contract...");
+    log!("      Confirming the lease is activated by Rental contract...");
     let leases: Vec<(String, LeaseCondition)> = rental_contract
         .call("leases_by_borrower")
         .args_json(json!({
@@ -1833,13 +1833,11 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
     let context = init(NFT_PAYOUT_CODE).await?;
     let worker = context.worker;
     let rental_contract = context.rental_contract;
-    let rental_contract_owner = context.rental_contract_owner;
     let marketplace_contract = context.marketplace_contract;
     let nft_contract = context.nft_contract;
     let ft_contract = context.ft_contract;
     let lender = context.lender;
     let borrower = context.borrower;
-    let marketplace_owner = context.markeplace_owner;
 
     let nft_token_id = "test";
     let price: u128 = 10000;
@@ -1884,13 +1882,6 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
     assert_eq!(new_listing.nft_token_id, nft_token_id);
     log!("      ✅ Confirmed the created listing");
 
-    let balance_before_accepting_lease_lender: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": lender.id(),
-        }))
-        .await?
-        .json()?;
     let balance_before_accepting_lease_borrower: U128 = ft_contract
         .view("ft_balance_of")
         .args_json(json!({
@@ -1899,13 +1890,6 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let balance_before_accepting_lease_marketplace_contract: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": marketplace_contract.id(),
-        }))
-        .await?
-        .json()?;
     let balance_before_accepting_lease_rental_contract: U128 = ft_contract
         .view("ft_balance_of")
         .args_json(json!({
@@ -1960,13 +1944,6 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
     log!("      ✅ Lease nft has been transferred from lender to rental contract");
 
     log!("      Confirming the rent is paid ...");
-    let balance_after_accepting_lease_lender: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": lender.id(),
-        }))
-        .await?
-        .json()?;
     let balance_after_accepting_lease_borrower: U128 = ft_contract
         .view("ft_balance_of")
         .args_json(json!({
@@ -1975,13 +1952,6 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let balance_after_accepting_lease_marketplace_contract: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": marketplace_contract.id(),
-        }))
-        .await?
-        .json()?;
     let balance_after_accepting_lease_rental_contract: U128 = ft_contract
         .view("ft_balance_of")
         .args_json(json!({
