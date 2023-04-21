@@ -792,7 +792,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                     .create_lease_with_payout(
                         lease_json.nft_contract_id,
                         lease_json.nft_token_id,
-                        lease_json.lender_id,
+                        lease_json.lender_id,  // use lender here, as the token owner has been transfered to Rental
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
                         lease_json.start_ts_nano,
