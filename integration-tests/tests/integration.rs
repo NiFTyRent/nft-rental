@@ -1265,8 +1265,8 @@ async fn test_lender_creates_a_listing_in_marketplace_succeeds() -> anyhow::Resu
             "msg": json!({
                 "ft_contract_id": ft_contract.id(),
                 "price": price.to_string(),
-                "lease_start_ts_nano": lease_start_ts_nano,
-                "lease_end_ts_nano": lease_expiration_ts_nano,
+                "lease_start_ts_nano": lease_start_ts_nano.to_string(),
+                "lease_end_ts_nano": lease_expiration_ts_nano.to_string(),
             }).to_string()
         }))
         .deposit(parse_near!("0.1 N"))
@@ -1331,8 +1331,8 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
             "msg": json!({
                 "ft_contract_id": ft_contract.id(),
                 "price": price.to_string(),
-                "lease_start_ts_nano": lease_start_ts_nano,
-                "lease_end_ts_nano": lease_expiration_ts_nano,
+                "lease_start_ts_nano": lease_start_ts_nano.to_string(),
+                "lease_end_ts_nano": lease_expiration_ts_nano.to_string(),
             }).to_string()
         }))
         .deposit(parse_near!("0.1 N"))
@@ -1576,8 +1576,8 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
             "msg": json!({
                 "ft_contract_id": ft_contract.id(),
                 "price": price.to_string(),
-                "lease_start_ts_nano": lease_start_ts_nano,
-                "lease_end_ts_nano": lease_expiration_ts_nano,
+                "lease_start_ts_nano": lease_start_ts_nano.to_string(),
+                "lease_end_ts_nano": lease_expiration_ts_nano.to_string(),
             }).to_string()
         }))
         .deposit(parse_near!("0.1 N"))
@@ -1814,8 +1814,8 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
             "msg": json!({
                 "ft_contract_id": ft_contract.id(),
                 "price": price.to_string(),
-                "lease_start_ts_nano": lease_start_ts_nano,
-                "lease_end_ts_nano": lease_expiration_ts_nano,
+                "lease_start_ts_nano": lease_start_ts_nano.to_string(),
+                "lease_end_ts_nano": lease_expiration_ts_nano.to_string(),
             }).to_string()
         }))
         .deposit(parse_near!("0.1 N"))

@@ -5,7 +5,7 @@ use near_sdk::{
     collections::{LookupMap, UnorderedMap, UnorderedSet},
     env::{self},
     ext_contract, is_promise_success,
-    json_types::U128,
+    json_types::{U64, U128},
     near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,

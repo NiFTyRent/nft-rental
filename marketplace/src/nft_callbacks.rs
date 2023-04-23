@@ -6,8 +6,8 @@ use crate::*;
 pub struct ListingJson {
     ft_contract_id: AccountId,
     price: U128,
-    lease_start_ts_nano: u64,
-    lease_end_ts_nano: u64,
+    lease_start_ts_nano: U64,
+    lease_end_ts_nano: U64,
 }
 
 /**
@@ -94,8 +94,8 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             token_id,
             listing_json.ft_contract_id,
             listing_json.price.0,
-            listing_json.lease_start_ts_nano,
-            listing_json.lease_end_ts_nano,
+            listing_json.lease_start_ts_nano.0,
+            listing_json.lease_end_ts_nano.0,
         );
     }
 }
