@@ -93,7 +93,7 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             nft_contract_id,
             token_id,
             listing_json.ft_contract_id,
-            listing_json.price,
+            listing_json.price.0,
             listing_json.lease_start_ts_nano.0,
             listing_json.lease_end_ts_nano.0,
         );

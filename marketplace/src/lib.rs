@@ -3,12 +3,13 @@ use near_sdk::{
     assert_one_yocto,
     borsh::{self, BorshDeserialize, BorshSerialize},
     collections::{LookupMap, UnorderedMap, UnorderedSet},
-    env, ext_contract, is_promise_success,
-    json_types::{U128, U64},
+    env::{self},
+    ext_contract, is_promise_success,
+    json_types::{U64, U128},
     near_bindgen, require,
     serde::{Deserialize, Serialize},
     serde_json::json,
-    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault,
+    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault, PromiseResult,
 };
 
 mod externals;
@@ -19,7 +20,7 @@ use crate::externals::*;
 pub const TGAS: u64 = 1_000_000_000_000;
 
 // In the current design, one nft token can only have one active lease, even at different rental periods.
-// (NFT Contract, NFT Token ID). 
+// (NFT Contract, NFT Token ID).
 type ListingId = (AccountId, TokenId);
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -123,14 +124,23 @@ impl Contract {
     }
 
     pub fn list_listings_by_owner_id(&self, owner_id: AccountId) -> Vec<Listing> {
-        return self.listing_ids_by_owner_id
-        .get(&owner_id).unwrap_or(UnorderedSet::new(StorageKey::Listings))
-        .iter().map(|list_id| self.listing_by_id.get(&list_id).unwrap()).collect::<Vec<_>>();
+        return self
+            .listing_ids_by_owner_id
+            .get(&owner_id)
+            .unwrap_or(UnorderedSet::new(StorageKey::Listings))
+            .iter()
+            .map(|list_id| self.listing_by_id.get(&list_id).unwrap())
+            .collect::<Vec<_>>();
     }
 
     pub fn list_listings_by_nft_contract_id(&self, nft_contract_id: AccountId) -> Vec<Listing> {
-        return self.listing_ids_by_nft_contract_id.get(&nft_contract_id).unwrap_or(UnorderedSet::new(StorageKey::Listings))
-        .iter().map(|list_id| self.listing_by_id.get(&list_id).unwrap()).collect::<Vec<_>>();
+        return self
+            .listing_ids_by_nft_contract_id
+            .get(&nft_contract_id)
+            .unwrap_or(UnorderedSet::new(StorageKey::Listings))
+            .iter()
+            .map(|list_id| self.listing_by_id.get(&list_id).unwrap())
+            .collect::<Vec<_>>();
     }
 
     // ------------------ XCC RPCs -----------------
@@ -149,10 +159,22 @@ impl Contract {
         memo: Option<String>,
         listing_id: ListingId,
     ) -> U128 {
+        // previoux XCC should be successful
         require!(
             is_promise_success(),
             "NFT transfer failed. Abort rent transfer!"
         );
+
+        // previoux XCC, nft_transfer_call, should not result in reverting the transfer
+        // expected status: SuccessValue(`true`)
+        if let PromiseResult::Successful(value) = env::promise_result(0) {
+            if let Ok(token_transfered) = near_sdk::serde_json::from_slice::<bool>(&value) {
+                require!(
+                    token_transfered, // true to
+                    "NFT transfer wasn't successful. Abort rent transfer!"
+                );
+            }
+        }
 
         // Trasnfer the rent to Core contract.
         // msg to be passed in ft_transfer_call. Used for specifying the targeting lease.
@@ -169,7 +191,7 @@ impl Contract {
         // log rent transfer
         env::log_str(
             &json!({
-                "type": "transfer_rent",
+                "type": "[INFO] NiFTyRent Marketplace: transfer rent",
                 "params": {
                     "nft_contract_id": listing.nft_contract_id.clone(),
                     "nft_token_id": listing.nft_token_id.clone(),
@@ -207,12 +229,12 @@ impl Contract {
         nft_contract_id: AccountId,
         nft_token_id: TokenId,
         ft_contract_id: AccountId,
-        price: U128,
+        price: u128,
         lease_start_ts_nano: u64,
         lease_end_ts_nano: u64,
     ) {
         // create listing_id
-        let listing_id = (nft_contract_id.clone(),nft_token_id.clone());
+        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
 
         self.listing_by_id.insert(
             &listing_id,
@@ -304,23 +326,19 @@ impl Contract {
             self.listing_ids_by_nft_contract_id
                 .remove(&listing.nft_contract_id);
         } else {
-            self.listing_ids_by_owner_id
+            self.listing_ids_by_nft_contract_id
                 .insert(&listing.nft_contract_id, &listing_id_set);
         }
 
         // log the listing removal
         env::log_str(
             &json!({
-                "type": "remove_listing",
+                "type": "[INFO] NiFTyRent Marketplace: remove listing",
                 "params": {
+                    "listing_id": &listing_id,
                     "owner_id": listing.owner_id,
-                    "approval_id": listing.approval_id,
                     "nft_contract_id": listing.nft_contract_id,
                     "nft_token_id": listing.nft_token_id,
-                    "ft_contract_id": listing.ft_contract_id,
-                    "price": listing.price,
-                    "lease_start_ts_nano": listing.lease_start_ts_nano,
-                    "lease_end_ts_nano": listing.lease_end_ts_nano,
                 }
             })
             .to_string(),
@@ -367,13 +385,13 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
     use super::*;
-    use near_sdk::test_utils::{accounts};
+    use near_sdk::test_utils::accounts;
 
     #[test]
     fn test_new() {
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
+        let owner_id: AccountId = accounts(1).into();
+        let treasury_id: AccountId = accounts(2).into();
+        let rental_contract_id: AccountId = accounts(3).into();
 
         let contract = Contract::new(owner_id, treasury_id, rental_contract_id);
         assert_eq!(accounts(1), contract.owner_id);
@@ -386,37 +404,41 @@ mod tests {
 
     #[test]
     fn test_list_allowed_ft_contract_ids_succeed() {
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
+        let owner_id: AccountId = accounts(1).into();
+        let treasury_id: AccountId = accounts(2).into();
+        let rental_contract_id: AccountId = accounts(3).into();
 
         let mut contract = Contract::new(owner_id, treasury_id, rental_contract_id);
-        let ft_contract_id:AccountId = accounts(4).into();
-        contract.allowed_ft_contract_ids.insert(&ft_contract_id.clone());
+        let ft_contract_id: AccountId = accounts(4).into();
+        contract
+            .allowed_ft_contract_ids
+            .insert(&ft_contract_id.clone());
         assert_eq!(ft_contract_id, contract.list_allowed_ft_contract_ids()[0]);
     }
 
     #[test]
     fn test_list_allowed_nft_contract_ids_succeed() {
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
+        let owner_id: AccountId = accounts(1).into();
+        let treasury_id: AccountId = accounts(2).into();
+        let rental_contract_id: AccountId = accounts(3).into();
 
         let mut contract = Contract::new(owner_id, treasury_id, rental_contract_id);
-        let nft_contract_id:AccountId = accounts(4).into();
-        contract.allowed_nft_contract_ids.insert(&nft_contract_id.clone());
+        let nft_contract_id: AccountId = accounts(4).into();
+        contract
+            .allowed_nft_contract_ids
+            .insert(&nft_contract_id.clone());
         assert_eq!(nft_contract_id, contract.list_allowed_nft_contract_ids()[0]);
     }
 
     #[test]
     fn test_list_listings_by_owner_id_succeed() {
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
+        let owner_id: AccountId = accounts(1).into();
+        let treasury_id: AccountId = accounts(2).into();
+        let rental_contract_id: AccountId = accounts(3).into();
 
         let mut contract = Contract::new(owner_id.clone(), treasury_id, rental_contract_id);
 
-        let listing_owner_id:AccountId = accounts(5).into();
+        let listing_owner_id: AccountId = accounts(5).into();
         let approval_id: u64 = 1;
         let nft_contract_id: AccountId = accounts(2).into();
         let nft_token_id: TokenId = "test_token".to_string();
@@ -427,23 +449,31 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(listing_owner_id.clone(), approval_id, nft_contract_id, nft_token_id, ft_contract_id, price, lease_start_ts_nano, lease_end_ts_nano);
+        contract.internal_insert_listing(
+            listing_owner_id.clone(),
+            approval_id,
+            nft_contract_id,
+            nft_token_id,
+            ft_contract_id,
+            price.0,
+            lease_start_ts_nano,
+            lease_end_ts_nano,
+        );
 
         let res = contract.list_listings_by_owner_id(listing_owner_id.clone());
         assert_eq!(1, res.len());
         assert_eq!(listing_owner_id, res[0].owner_id);
     }
 
-
     #[test]
     fn test_list_listings_by_owner_id_id_not_found() {
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
+        let owner_id: AccountId = accounts(1).into();
+        let treasury_id: AccountId = accounts(2).into();
+        let rental_contract_id: AccountId = accounts(3).into();
 
         let mut contract = Contract::new(owner_id.clone(), treasury_id, rental_contract_id);
 
-        let listing_owner_id:AccountId = accounts(5).into();
+        let listing_owner_id: AccountId = accounts(5).into();
         let approval_id: u64 = 1;
         let nft_contract_id: AccountId = accounts(2).into();
         let nft_token_id: TokenId = "test_token".to_string();
@@ -454,7 +484,16 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(listing_owner_id, approval_id, nft_contract_id, nft_token_id, ft_contract_id, price, lease_start_ts_nano, lease_end_ts_nano);
+        contract.internal_insert_listing(
+            listing_owner_id,
+            approval_id,
+            nft_contract_id,
+            nft_token_id,
+            ft_contract_id,
+            price.0,
+            lease_start_ts_nano,
+            lease_end_ts_nano,
+        );
 
         let res = contract.list_listings_by_owner_id(accounts(1).into());
         assert_eq!(0, res.len());
@@ -462,13 +501,13 @@ mod tests {
 
     #[test]
     fn test_list_listings_by_nft_contract_id_succeed() {
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
+        let owner_id: AccountId = accounts(1).into();
+        let treasury_id: AccountId = accounts(2).into();
+        let rental_contract_id: AccountId = accounts(3).into();
 
         let mut contract = Contract::new(owner_id.clone(), treasury_id, rental_contract_id);
 
-        let listing_owner_id:AccountId = accounts(5).into();
+        let listing_owner_id: AccountId = accounts(5).into();
         let approval_id: u64 = 1;
         let nft_contract_id: AccountId = accounts(2).into();
         let nft_token_id: TokenId = "test_token".to_string();
@@ -479,7 +518,16 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(listing_owner_id, approval_id, nft_contract_id.clone(), nft_token_id, ft_contract_id, price, lease_start_ts_nano, lease_end_ts_nano);
+        contract.internal_insert_listing(
+            listing_owner_id,
+            approval_id,
+            nft_contract_id.clone(),
+            nft_token_id,
+            ft_contract_id,
+            price.0,
+            lease_start_ts_nano,
+            lease_end_ts_nano,
+        );
 
         let res = contract.list_listings_by_nft_contract_id(nft_contract_id.clone());
         assert_eq!(1, res.len());
@@ -488,13 +536,13 @@ mod tests {
 
     #[test]
     fn test_list_listings_by_nft_contract_id_id_not_found() {
-        let owner_id:AccountId = accounts(1).into();
-        let treasury_id:AccountId = accounts(2).into();
-        let rental_contract_id:AccountId = accounts(3).into();
+        let owner_id: AccountId = accounts(1).into();
+        let treasury_id: AccountId = accounts(2).into();
+        let rental_contract_id: AccountId = accounts(3).into();
 
         let mut contract = Contract::new(owner_id.clone(), treasury_id, rental_contract_id);
 
-        let listing_owner_id:AccountId = accounts(5).into();
+        let listing_owner_id: AccountId = accounts(5).into();
         let approval_id: u64 = 1;
         let nft_contract_id: AccountId = accounts(2).into();
         let nft_token_id: TokenId = "test_token".to_string();
@@ -505,10 +553,26 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(listing_owner_id, approval_id, nft_contract_id, nft_token_id, ft_contract_id, price, lease_start_ts_nano, lease_end_ts_nano);
+        contract.internal_insert_listing(
+            listing_owner_id,
+            approval_id,
+            nft_contract_id,
+            nft_token_id,
+            ft_contract_id,
+            price.0,
+            lease_start_ts_nano,
+            lease_end_ts_nano,
+        );
 
         let res = contract.list_listings_by_nft_contract_id(accounts(3).into());
         assert_eq!(0, res.len());
     }
 
+    // ===== Unit Test =====
+    // TODO: test_add_allowed_ft_contract_ids_succeeds
+    // TODO: test_add_allowed_nft_contract_ids_succeeds
+    // TODO: test_add_allowed_ft_contract_ids_fails_wrong_caller
+    // TODO: test_add_allowed_nft_contract_ids_fails_wrong_caller
+    // TODO: test_remove_allowed_ft_contract_ids
+    // TODO: test_remove_allowed_nft_contract_ids
 }

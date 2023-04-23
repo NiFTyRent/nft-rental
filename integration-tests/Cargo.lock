@@ -1122,6 +1122,7 @@ dependencies = [
  "near-sdk",
  "near-units",
  "nft_rental",
+ "niftyrent_marketplace",
  "pkg-config",
  "serde_json",
  "tokio",
@@ -1723,6 +1724,15 @@ dependencies = [
 
 [[package]]
 name = "nft_rental"
+version = "1.0.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "uint",
+]
+
+[[package]]
+name = "niftyrent_marketplace"
 version = "1.0.0"
 dependencies = [
  "near-contract-standards",

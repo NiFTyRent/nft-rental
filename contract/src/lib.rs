@@ -7,11 +7,10 @@ use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     bs58, ext_contract, is_promise_success, promise_result_as_success, require, serde_json,
-    CryptoHash,
+    serde_json::json, CryptoHash, PromiseOrValue,
 };
 use near_sdk::{
-    env, log, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
-    PromiseOrValue,
+    env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
 };
 
 mod externals;
@@ -51,36 +50,20 @@ pub struct Payout {
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub enum LeaseState {
-    Pending, // TODO(syu): Remove after merging Marketplace
     PendingOnRent,
     Active,
 }
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct LeaseJson {
-    contract_addr: AccountId,
-    token_id: TokenId,
-    borrower_id: AccountId,
-    ft_contract_addr: AccountId,
-    price: U128,
-    start_ts_nano: u64,
-    end_ts_nano: u64,
-}
-
-// TODO(syu): update LeaseJson to LeaseJsonV2
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct LeaseJsonV2 {
-    nft_contract_addr: AccountId,
+    nft_contract_id: AccountId,
     nft_token_id: TokenId,
     lender_id: AccountId,
     borrower_id: AccountId,
-    approval_id: u64, // TODO(syu): no longer needed after using marketplace. Remove it.
     ft_contract_addr: AccountId,
+    price: U128,
     start_ts_nano: u64,
     end_ts_nano: u64,
-    price: U128,
 }
 
 /// Struct for keeping track of the lease conditions
@@ -92,7 +75,6 @@ pub struct LeaseCondition {
     pub lender_id: AccountId,        // Owner of the NFT
     pub borrower_id: AccountId,      // Borrower of the NFT
     pub ft_contract_addr: AccountId, // the account id for the ft contract
-    pub approval_id: u64,            // Approval from owner to lease
     pub start_ts_nano: u64, // The timestamp in nano to start the lease, i.e. the current user will be the borrower
     pub end_ts_nano: u64, // The timestamp in nano to end the lease, i.e. the lender can claim back the NFT
     pub price: U128,      // Proposed lease price
@@ -139,13 +121,6 @@ enum StorageKey {
     ActiveLeaseIdsByOwner,
     ActiveLeaseIdsByOwnerInner { account_id_hash: CryptoHash },
     ActiveLeaseIds,
-}
-
-// TODO(syu): Update to RentAcceptanceJson
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct LeaseAcceptanceJson {
-    lease_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -199,38 +174,26 @@ impl Contract {
         Self::new(prev.owner)
     }
 
-    // TODO(syu): Update to v2 after merging in marketplace
-    #[private]
-    pub fn activate_lease(&mut self, lease_id: LeaseId) -> U128 {
-        require!(
-            is_promise_success(),
-            "NFT transfer failed, abort lease activation."
+    fn activate_lease(&mut self, lease_id: LeaseId) {
+        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
+        let new_lease_condition = LeaseCondition {
+            state: LeaseState::Active,
+            ..lease_condition
+        };
+        self.lease_map.insert(&lease_id, &new_lease_condition);
+
+        env::log_str(
+            &json!({
+                "type": "[INFO] NiFTyRent Rental: A lease has been activated",
+                "params": {
+                    "lease_id": lease_id.clone(),
+                    "lease_state": new_lease_condition.state,
+                    "nft_contract": new_lease_condition.contract_addr.clone(),
+                    "nft_token_id": new_lease_condition.token_id.clone(),
+                }
+            })
+            .to_string(),
         );
-        log!("Activating lease ({})", &lease_id);
-
-        // TODO: avoid re-fetch lease condition
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-
-        let new_lease_condition = LeaseCondition {
-            state: LeaseState::Active,
-            ..lease_condition
-        };
-        self.lease_map.insert(&lease_id, &new_lease_condition);
-
-        self.nft_mint(lease_id, new_lease_condition.lender_id.clone());
-
-        // TODO: currently we do not return any amount to the borrower, revisit this logic if necessary
-        let unused_ammount: U128 = U128::from(0);
-        return unused_ammount;
-    }
-
-    fn activate_lease_v2(&mut self, lease_id: LeaseId) {
-        let lease_condition: LeaseCondition = self.lease_map.get(&lease_id).unwrap();
-        let new_lease_condition = LeaseCondition {
-            state: LeaseState::Active,
-            ..lease_condition
-        };
-        self.lease_map.insert(&lease_id, &new_lease_condition);
 
         self.nft_mint(lease_id, new_lease_condition.lender_id.clone());
     }
@@ -466,77 +429,8 @@ impl Contract {
         );
     }
 
-    // TODO(syu): Update to v2 for marketplace
     #[private]
     pub fn create_lease_with_payout(
-        &mut self,
-        contract_id: AccountId,
-        token_id: TokenId,
-        owner_id: AccountId,
-        borrower_id: AccountId,
-        ft_contract_addr: AccountId,
-        start_ts_nano: u64,
-        end_ts_nano: u64,
-        price: U128,
-        approval_id: u64,
-    ) {
-        // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
-        let optional_payout;
-        if is_promise_success() {
-            // If NFT has implemented the `nft_payout` interface
-            // then process the result and verify if sum of payout is close enough to the original price
-            optional_payout = promise_result_as_success().map(|value| {
-                let payout = serde_json::from_slice::<Payout>(&value).unwrap();
-                let payout_diff: u128 = price
-                    .0
-                    .checked_sub(
-                        payout
-                            .payout
-                            .values()
-                            .map(|v| v.0)
-                            .into_iter()
-                            .sum::<u128>(),
-                    )
-                    .unwrap();
-                assert!(
-                    payout_diff <= PAYOUT_DIFF_TORLANCE_YACTO,
-                    "The difference between the lease price and the sum of payout is too large"
-                );
-                payout
-            });
-        } else {
-            // If leased nft didn't provide payouts, we add a proxy payout record making original lender own all the rent.
-            // This will make claiming back using LEASE NFT easier.
-            optional_payout = Some(Payout {
-                payout: HashMap::from([(owner_id.clone(), U128::from(price.clone()))]),
-            });
-        }
-
-        // build lease condition from the parsed json
-        let lease_condition: LeaseCondition = LeaseCondition {
-            lender_id: owner_id.clone(),
-            approval_id,
-            contract_addr: contract_id,
-            token_id: token_id,
-            borrower_id: borrower_id,
-            ft_contract_addr: ft_contract_addr,
-            start_ts_nano: start_ts_nano,
-            end_ts_nano: end_ts_nano,
-            price: price,
-            payout: optional_payout,
-            state: LeaseState::Pending, // TODO(syu): Pending is no longer needed after introducing Marketplace
-        };
-
-        let seed = near_sdk::env::random_seed();
-        let lease_id = bs58::encode(seed)
-            .with_alphabet(bs58::Alphabet::BITCOIN)
-            .into_string();
-
-        self.internal_insert_lease(&lease_id, &lease_condition);
-    }
-
-    #[private]
-    pub fn create_lease_with_payout_v2(
         &mut self,
         nft_contract_id: AccountId,
         nft_token_id: TokenId,
@@ -546,8 +440,20 @@ impl Contract {
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
-        approval_id: u64,
-    ) {
+    ) -> bool {
+        env::log_str(
+            &json!({
+                "type": "[DEBUG] NiFTyRent Rental: processing payput for nft token.",
+                "params": {
+                    "nft_contract_id": nft_contract_id.clone(),
+                    "nft_token_id": nft_token_id.clone(),
+                    "lender": owner_id.clone(),
+                    "borrower": borrower_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
         let optional_payout;
         if is_promise_success() {
@@ -582,15 +488,14 @@ impl Contract {
 
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
-            lender_id: owner_id.clone(),
-            approval_id,
             contract_addr: nft_contract_id,
             token_id: nft_token_id,
+            lender_id: owner_id.clone(),
             borrower_id: borrower_id,
             ft_contract_addr: ft_contract_addr,
+            price: price,
             start_ts_nano: start_ts_nano,
             end_ts_nano: end_ts_nano,
-            price: price,
             payout: optional_payout,
             state: LeaseState::PendingOnRent,
         };
@@ -601,6 +506,9 @@ impl Contract {
             .into_string();
 
         self.internal_insert_lease(&lease_id, &lease_condition);
+
+        // return false to indict no need to revert the nft transfer
+        return false;
     }
 
     // helper method to remove records of a lease
@@ -718,6 +626,23 @@ impl Contract {
             ),
             &lease_id,
         );
+
+        // log lease insertion
+        env::log_str(
+            &json!({
+                "type": "[INFO] NiFTyRent Rental: A new lease has been inserted.",
+                "params": {
+                    "lease_id": lease_id.clone(),
+                    "nft_contract_id": lease_condition.contract_addr.clone(),
+                    "nft_token_id": lease_condition.token_id.clone(),
+                    "lender": lease_condition.lender_id.clone(),
+                    "borrower": lease_condition.borrower_id.clone(),
+                    "lease_state": lease_condition.state,
+                }
+            })
+            .to_string(),
+        );
+
     }
 
     /// This function updates only the lender info in an active lease
@@ -797,65 +722,6 @@ impl Contract {
         self.lease_map.insert(&lease_id, &lease_condition); // insert data back to persis the value
     }
 }
-// TODO(syu): nft_on_approve is no longer needed after introduing marketplace. Remove it.
-// TODO: move nft callback function to separate file e.g. nft_callbacks.rs
-/**
-    trait that will be used as the callback from the NFT contract. When nft_approve is
-    called, it will fire a cross contract call to this marketplace and this is the function
-    that is invoked.
-*/
-trait NonFungibleTokenApprovalsReceiver {
-    fn nft_on_approve(
-        &mut self,
-        token_id: TokenId,
-        owner_id: AccountId,
-        approval_id: u64,
-        msg: String,
-    );
-}
-
-#[near_bindgen]
-impl NonFungibleTokenApprovalsReceiver for Contract {
-    /// where we add the sale because we know nft owner can only call nft_approve
-    #[payable]
-    fn nft_on_approve(
-        &mut self,
-        token_id: TokenId,
-        owner_id: AccountId,
-        approval_id: u64,
-        msg: String,
-    ) {
-        //the lease conditions come from the msg field
-        let lease_json: LeaseJson =
-            near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
-
-        assert_eq!(token_id, lease_json.token_id);
-
-        ext_nft::ext(lease_json.contract_addr.clone())
-            .nft_payout(
-                lease_json.token_id.clone(),    // token_id
-                U128::from(lease_json.price.0), // price
-                Some(MAX_LEN_PAYOUT),           // max_len_payout
-            )
-            .then(
-                ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
-                    .with_static_gas(GAS_FOR_ROYALTIES)
-                    .create_lease_with_payout(
-                        lease_json.contract_addr,
-                        lease_json.token_id,
-                        owner_id,
-                        lease_json.borrower_id,
-                        lease_json.ft_contract_addr,
-                        lease_json.start_ts_nano,
-                        lease_json.end_ts_nano,
-                        lease_json.price,
-                        approval_id,
-                    ),
-            )
-            .as_return();
-    }
-}
 
 /**
  * Trait that will handle the receival of the leasing NFT.
@@ -869,7 +735,7 @@ trait NonFungibleTokenTransferReceiver {
         previous_owner_id: AccountId,
         token_id: TokenId,
         msg: String,
-    );
+    ) -> PromiseOrValue<bool>;
 }
 
 #[near_bindgen]
@@ -885,7 +751,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
         previous_owner_id: AccountId,
         token_id: TokenId,
         msg: String,
-    ) {
+    ) -> PromiseOrValue<bool> {
         // Enforce cross contract call
         let nft_contract_id = env::predecessor_account_id();
         assert_ne!(
@@ -893,18 +759,28 @@ impl NonFungibleTokenTransferReceiver for Contract {
             nft_contract_id,
             "nft_on_transfer should only be called via XCC."
         );
-
-        // TODO(syu): enforce sender_id is marketplace contract.
-
-        let lease_json: LeaseJsonV2 =
+        
+        let lease_json: LeaseJson =
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 
         // Enforce the leasing token is the same as the transferring token
-        assert_eq!(nft_contract_id, lease_json.nft_contract_addr);
+        assert_eq!(nft_contract_id, lease_json.nft_contract_id);
         assert_eq!(token_id, lease_json.nft_token_id);
 
+        // log nft transfer
+        env::log_str(
+            &json!({
+                "type": "[DEBUG] NiFTyRent Rental: Checking payout for leasing NFT.",
+                "params": {
+                    "nft_contract_id": nft_contract_id.clone(),
+                    "nft_token_id": token_id.clone(),
+                }
+            })
+            .to_string(),
+        );
+
         // Create a lease after resolving payouts of the leasing token
-        ext_nft::ext(lease_json.nft_contract_addr.clone())
+        ext_nft::ext(lease_json.nft_contract_id.clone())
             .nft_payout(
                 lease_json.nft_token_id.clone(), // token_id
                 U128::from(lease_json.price.0),  // price
@@ -912,103 +788,18 @@ impl NonFungibleTokenTransferReceiver for Contract {
             )
             .then(
                 ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
                     .with_static_gas(GAS_FOR_ROYALTIES)
-                    .create_lease_with_payout_v2(
-                        lease_json.nft_contract_addr,
+                    .create_lease_with_payout(
+                        lease_json.nft_contract_id,
                         lease_json.nft_token_id,
-                        lease_json.lender_id,
+                        lease_json.lender_id,  // use lender here, as the token owner has been updated to Rental contract
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
                         lease_json.start_ts_nano,
                         lease_json.end_ts_nano,
                         lease_json.price,
-                        lease_json.approval_id,
                     ),
             )
-            .as_return();
-    }
-}
-
-// TODO(syu): update to V2 after using marketplace.
-/*
-    The trait for receiving FT payment
-    Depending on the FT contract implementation, it may need the users to register to deposit.
-    So far we do not check if all partis have registered thier account on the FT contract,
-        - Lender: he should make sure he has registered otherwise he will not receive the payment
-        - Borrower: he cannot accept the lease if he does not register
-        - Royalty payments: if any accounts in the royalty didn't register, they will not receive the payout. That
-                             part of payment will be kept in this smart contract
-*/
-#[ext_contract(ext_ft_receiver)]
-pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
-}
-#[near_bindgen]
-impl FungibleTokenReceiver for Contract {
-    /// where we add the sale because we know nft owner can only call nft_approve
-    #[payable]
-    fn ft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128> {
-        //the lease conditions come from the msg field
-        let lease_acceptance_json: LeaseAcceptanceJson =
-            near_sdk::serde_json::from_str(&msg).expect("Not valid lease data");
-
-        // Borrower can accept a pending lending. When this happened, the lease contract does the following:
-        // 1. Retrieve the lease data from the lease_map
-        // 2. Check if the tx sender is the borrower
-        // 2. Check if the FT contract is designated by the lender
-        // 3. Check if the deposit equals rent
-        // 4. Transfer the NFT to the lease contract
-        // 5. Update the lease state, when transfer succeeds
-
-        // TODO: check if the FT contract is the designated one
-        let lease_condition: LeaseCondition = self
-            .lease_map
-            .get(&lease_acceptance_json.lease_id.clone())
-            .unwrap();
-        assert_eq!(lease_condition.borrower_id, sender_id, "Wrong borrower!");
-        assert_eq!(
-            lease_condition.ft_contract_addr,
-            env::predecessor_account_id(),
-            "Wrong FT contract address!"
-        );
-        // TODO(libo): Allow surplus tokens transferred, refund the extra in the end.
-        assert_eq!(
-            amount.0, lease_condition.price.0,
-            "Transferred amount doesn't match the asked rent!"
-        );
-        assert_eq!(
-            lease_condition.state,
-            LeaseState::Pending,
-            "This lease is not pending on acceptance!"
-        );
-
-        ext_nft::ext(lease_condition.contract_addr.clone())
-            .with_static_gas(Gas(10 * TGAS))
-            .with_attached_deposit(1)
-            .nft_transfer(
-                env::current_account_id(),                 // receiver_id
-                lease_condition.token_id.clone(),          // token_id
-                Some(lease_condition.approval_id.clone()), // approval_id
-                None,                                      // memo
-            )
-            .then(
-                ext_self::ext(env::current_account_id())
-                    .with_attached_deposit(0)
-                    .with_static_gas(GAS_FOR_ROYALTIES)
-                    .activate_lease(lease_acceptance_json.lease_id.clone()),
-            )
-            .as_return()
             .into()
     }
 }
@@ -1022,9 +813,9 @@ impl FungibleTokenReceiver for Contract {
         - Royalty payments: if any accounts in the royalty didn't register, they will not receive the payout. That
                              part of payment will be kept in this smart contract
 */
-#[ext_contract(ext_ft_receiver_v2)]
-pub trait FungibleTokenReceiverV2 {
-    fn ft_on_transfer_v2(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128;
+#[ext_contract(ext_ft_receiver)]
+pub trait FungibleTokenReceiver {
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128;
 }
 
 /**
@@ -1036,9 +827,9 @@ pub trait FungibleTokenReceiverV2 {
  * 5. Rental contract returns Promise accordingly.
  */
 #[near_bindgen]
-impl FungibleTokenReceiverV2 for Contract {
+impl FungibleTokenReceiver for Contract {
     #[payable]
-    fn ft_on_transfer_v2(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
         // update the lease state to from PendingOnRent to active
 
         // Enforce cross contract call
@@ -1063,8 +854,14 @@ impl FungibleTokenReceiverV2 for Contract {
 
         // Enforce the ft contract matches
         assert_eq!(
-            ft_contract_id, lease_condition.ft_contract_addr, 
+            ft_contract_id, lease_condition.ft_contract_addr,
             "Wrong FT contract address!"
+        );
+
+        // Enforce the rent amount matches
+        assert_eq!(
+            amount.0, lease_condition.price.0,
+            "Transferred amount doesn't match the asked rent!"
         );
 
         // Update the lease state accordingly
@@ -1082,7 +879,7 @@ impl FungibleTokenReceiverV2 for Contract {
             ))
             .expect("The targeting lease id does not exist!");
 
-        self.activate_lease_v2(lease_id);
+        self.activate_lease(lease_id);
 
         // Specify the unused amount as required by NEP-141
         let unused_ammount: U128 = U128::from(0);
@@ -1112,14 +909,13 @@ mod tests {
         assert!(UnorderedMap::is_empty(&contract.lease_map));
     }
 
-    #[test]
-    #[should_panic(expected = "Wrong borrower!")]
+    // TODO(syu): borrower check is done on marketside. Maybe update to check target lease exist, or remove this
     fn test_lending_accept_wrong_borrower() {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
+        let lease_id = "test_key".to_string();
 
-        contract.lease_map.insert(&key, &lease_condition);
+        contract.lease_map.insert(&lease_id, &lease_condition);
         let wrong_borrower: AccountId = accounts(4).into();
 
         testing_env!(VMContextBuilder::new()
@@ -1129,7 +925,7 @@ mod tests {
         contract.ft_on_transfer(
             wrong_borrower.clone(),
             U128::from(lease_condition.price),
-            json!({ "lease_id": key }).to_string(),
+            json!({ "lease_id": lease_id }).to_string(),
         );
     }
 
@@ -1138,18 +934,32 @@ mod tests {
     fn test_lending_accept_fail_wrong_ft_addr() {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
+        let lease_id = "test_lease_id".to_string();
         let wrong_ft_addr = accounts(0);
-        contract.lease_map.insert(&key, &lease_condition);
+        contract.lease_map.insert(&lease_id, &lease_condition);
+        // needed for finding the target lease_condition at ft_on_transfer
+        contract.lease_id_by_contract_addr_and_token_id.insert(
+            &(
+                lease_condition.contract_addr.clone(),
+                lease_condition.token_id.clone(),
+            ),
+            &lease_id,
+        );
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(wrong_ft_addr.into())
             .build());
 
+        let msg_rent_transfer_json = json!({
+            "nft_contract_id": lease_condition.contract_addr.clone().to_string(),
+            "nft_token_id": lease_condition.token_id.clone().to_string(),
+        })
+        .to_string();
+
         contract.ft_on_transfer(
             lease_condition.borrower_id.clone(),
             U128::from(lease_condition.price),
-            json!({ "lease_id": key }).to_string(),
+            msg_rent_transfer_json,
         );
     }
 
@@ -1158,37 +968,65 @@ mod tests {
     fn test_lending_accept_fail_wrong_rent() {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
+        let lease_id = "test_lease_id".to_string();
+        contract.lease_map.insert(&lease_id, &lease_condition);
+        // needed for finding the target lease_condition at ft_on_transfer
+        contract.lease_id_by_contract_addr_and_token_id.insert(
+            &(
+                lease_condition.contract_addr.clone(),
+                lease_condition.token_id.clone(),
+            ),
+            &lease_id,
+        );
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(lease_condition.ft_contract_addr.clone())
             .build());
+
+        let msg_rent_transfer_json = json!({
+            "nft_contract_id": lease_condition.contract_addr.clone().to_string(),
+            "nft_token_id": lease_condition.token_id.clone().to_string(),
+        })
+        .to_string();
 
         contract.ft_on_transfer(
             lease_condition.borrower_id.clone(),
             U128::from(lease_condition.price.0 - 1),
-            json!({ "lease_id": key }).to_string(),
+            msg_rent_transfer_json,
         );
     }
 
     #[test]
-    #[should_panic(expected = "This lease is not pending on acceptance!")]
+    #[should_panic(expected = "This lease is not pending on rent!")]
     fn test_lending_accept_fail_wrong_lease_state() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
         lease_condition.state = LeaseState::Active;
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
+        let lease_id = "test_lease_id".to_string();
+        contract.lease_map.insert(&lease_id, &lease_condition);
+        // needed for finding the target lease_condition at ft_on_transfer
+        contract.lease_id_by_contract_addr_and_token_id.insert(
+            &(
+                lease_condition.contract_addr.clone(),
+                lease_condition.token_id.clone(),
+            ),
+            &lease_id,
+        );
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(lease_condition.ft_contract_addr.clone())
             .build());
 
+        let msg_rent_transfer_json = json!({
+            "nft_contract_id": lease_condition.contract_addr.clone().to_string(),
+            "nft_token_id": lease_condition.token_id.clone().to_string(),
+        })
+        .to_string();
+
         contract.ft_on_transfer(
             lease_condition.borrower_id.clone(),
             U128::from(lease_condition.price),
-            json!({ "lease_id": key }).to_string(),
+            msg_rent_transfer_json,
         );
     }
 
@@ -1196,17 +1034,31 @@ mod tests {
     fn test_lending_accept_success() {
         let mut contract = Contract::new(accounts(1).into());
         let lease_condition = create_lease_condition_default();
-        let key = "test_key".to_string();
-        contract.lease_map.insert(&key, &lease_condition);
+        let lease_id = "test_lease_id".to_string();
+        contract.lease_map.insert(&lease_id, &lease_condition);
+        // needed for finding the target lease_condition at ft_on_transfer
+        contract.lease_id_by_contract_addr_and_token_id.insert(
+            &(
+                lease_condition.contract_addr.clone(),
+                lease_condition.token_id.clone(),
+            ),
+            &lease_id,
+        );
 
         testing_env!(VMContextBuilder::new()
             .predecessor_account_id(lease_condition.ft_contract_addr.clone())
             .build());
 
+        let msg_rent_transfer_json = json!({
+            "nft_contract_id": lease_condition.contract_addr.clone().to_string(),
+            "nft_token_id": lease_condition.token_id.clone().to_string(),
+        })
+        .to_string();
+
         contract.ft_on_transfer(
             lease_condition.borrower_id.clone(),
             U128::from(lease_condition.price),
-            json!({ "lease_id": key }).to_string(),
+            msg_rent_transfer_json,
         );
 
         // Nothing can be checked, except the fact the call doesn't panic.
@@ -1293,7 +1145,7 @@ mod tests {
 
         let lease_condition_result = contract.lease_map.get(&key).unwrap();
         assert_eq!(lease_condition_result.payout, None);
-        assert_eq!(lease_condition_result.state, LeaseState::Pending);
+        assert_eq!(lease_condition_result.state, LeaseState::PendingOnRent);
     }
 
     #[test]
@@ -1341,7 +1193,7 @@ mod tests {
     fn test_claim_back_inactive_lease() {
         let mut contract = Contract::new(accounts(1).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         let key = "test_key".to_string();
 
         contract.lease_map.insert(&key, &lease_condition);
@@ -1433,7 +1285,6 @@ mod tests {
             0,
             1000,
             price,
-            1,
         );
 
         assert!(!contract.lease_map.is_empty());
@@ -1483,7 +1334,6 @@ mod tests {
             0,
             1000,
             price,
-            1,
         );
 
         let payout_expected = Payout {
@@ -1547,7 +1397,6 @@ mod tests {
             0,
             1000,
             price,
-            1,
         );
     }
 
@@ -1593,7 +1442,7 @@ mod tests {
         let expected_token_id = "test_token".to_string();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.borrower_id = expected_borrower_id.clone();
@@ -1644,7 +1493,7 @@ mod tests {
         let expected_lender_id: AccountId = accounts(2).into();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
@@ -1699,7 +1548,7 @@ mod tests {
         let expected_lender_id: AccountId = accounts(2).into();
         let expected_borrower_id: AccountId = accounts(3).into();
 
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
         lease_condition.contract_addr = expected_contract_address.clone();
         lease_condition.token_id = expected_token_id.clone();
         lease_condition.lender_id = expected_lender_id.clone();
@@ -2085,7 +1934,7 @@ mod tests {
     fn test_internal_update_active_lease_lender_fails_not_an_active_lease() {
         let mut contract = Contract::new(accounts(0).into());
         let mut lease_condition = create_lease_condition_default();
-        lease_condition.state = LeaseState::Pending;
+        lease_condition.state = LeaseState::PendingOnRent;
 
         let lease_key = "test_key".to_string();
         contract.internal_insert_lease(&lease_key, &lease_condition);
@@ -2127,7 +1976,6 @@ mod tests {
     // Helper function to return a lease condition using default seting
     pub(crate) fn create_lease_condition_default() -> LeaseCondition {
         let token_id: TokenId = "test_token".to_string();
-        let approval_id = 1;
         let lender: AccountId = accounts(2).into();
         let borrower: AccountId = accounts(3).into();
         let nft_address: AccountId = accounts(4).into();
@@ -2142,12 +1990,11 @@ mod tests {
             lender.clone(),
             borrower.clone(),
             ft_contract_addr.clone(),
-            approval_id,
             start_ts_nano.clone(),
             end_ts_nano.clone(),
             price,
             None,
-            LeaseState::Pending,
+            LeaseState::PendingOnRent,
         )
     }
 
@@ -2163,7 +2010,6 @@ mod tests {
         lender_id: AccountId,
         borrower_id: AccountId,
         ft_contract_addr: AccountId,
-        approval_id: u64,
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
@@ -2176,7 +2022,6 @@ mod tests {
             lender_id,
             borrower_id,
             ft_contract_addr,
-            approval_id,
             start_ts_nano,
             end_ts_nano,
             price,
