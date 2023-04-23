@@ -1256,7 +1256,7 @@ async fn test_lender_creates_a_listing_in_marketplace_succeeds() -> anyhow::Resu
     let lease_start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
     let lease_expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 100;
 
-    log!("Creating a listing on maketplace...");
+    log!("Creating a listing on marketplace...");
     lender
         .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
@@ -1322,7 +1322,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     let lease_start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
     let lease_expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 100;
 
-    log!("Creating a listing on maketplace...");
+    log!("Creating a listing on marketplace...");
     lender
         .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
@@ -1419,7 +1419,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     );
     log!("*** END ***");
 
-    log!("Borrower accepting the created listing ...");
+    log!("Borrower accepting the created listing...");
     let listing_id: (String, String) = (
         nft_contract.id().clone().to_string(),
         nft_token_id.clone().to_string(),
@@ -1444,7 +1444,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
     // log!("\n>[DEBUG] ft_transfer_call outcomes: {:?}", result.outcomes());
     assert!(result.is_success());
 
-    log!("      Confirming the activated listing has been removed from markectplace ...");
+    log!("      Confirming the activated listing has been removed from marketplace ...");
     let listings: Vec<Listing> = marketplace_contract
         .call("list_listings_by_owner_id")
         .args_json(json!({"owner_id": lender.id()}))
@@ -1567,7 +1567,7 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
     let lease_start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
     let lease_expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 15;
 
-    log!("Creating a listing on maketplace...");
+    log!("Creating a listing on marketplace...");
     lender
         .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
@@ -1586,7 +1586,6 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .await?
         .into_result()?;
 
-    log!("      Confirming the created listing ...");
     let listings: Vec<Listing> = marketplace_contract
         .call("list_listings_by_owner_id")
         .args_json(json!({"owner_id": lender.id()}))
@@ -1594,33 +1593,9 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .await?
         .json()?;
     assert_eq!(listings.len(), 1);
-
-    let new_listing = &listings[0];
-    assert_eq!(new_listing.owner_id.as_str(), lender.id().as_str());
-    assert_eq!(
-        new_listing.nft_contract_id.as_str(),
-        nft_contract.id().as_str()
-    );
-    assert_eq!(new_listing.nft_token_id, nft_token_id);
     log!("      ✅ Confirmed the created listing");
 
-    let balance_before_accepting_lease_borrower: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": borrower.id(),
-        }))
-        .await?
-        .json()?;
-
-    let balance_before_accepting_lease_rental_contract: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": rental_contract.id(),
-        }))
-        .await?
-        .json()?;
-
-    log!("Borrower accepting the created listing ...");
+    log!("Borrower accepting the created listing...");
     let listing_id: (String, String) = (
         nft_contract.id().clone().to_string(),
         nft_token_id.clone().to_string(),
@@ -1642,58 +1617,6 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .await?;
     assert!(result.is_success());
 
-    log!("      Confirming the activated listing has been removed from markectplace ...");
-    let listings: Vec<Listing> = marketplace_contract
-        .call("list_listings_by_owner_id")
-        .args_json(json!({"owner_id": lender.id()}))
-        .transact()
-        .await?
-        .json()?;
-
-    assert_eq!(listings.len(), 0);
-    log!("      ✅ The activated listing has been removed from marketplace");
-
-    log!("      Confirming the nft is transferred ...");
-    let token: Token = nft_contract
-        .view("nft_token")
-        .args_json(json!({
-            "token_id": nft_token_id,
-        }))
-        .await?
-        .json()?;
-
-    assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
-    log!("      ✅ Lease nft has been transferred from lender to rental contract");
-
-    log!("      Confirming the rent is paid ...");
-    let balance_after_accepting_lease_borrower: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": borrower.id(),
-        }))
-        .await?
-        .json()?;
-
-    let balance_after_accepting_lease_rental_contract: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": rental_contract.id(),
-        }))
-        .await?
-        .json()?;
-
-    assert_eq!(
-        price,
-        balance_before_accepting_lease_borrower.0 - balance_after_accepting_lease_borrower.0
-    );
-    assert_eq!(
-        price,
-        balance_after_accepting_lease_rental_contract.0
-            - balance_before_accepting_lease_rental_contract.0
-    );
-    log!("      ✅ Lease rent has been received by rental contract from borrower");
-
-    log!("      Confirming the lease is activated by Rental contract...");
     let leases: Vec<(String, LeaseCondition)> = rental_contract
         .call("leases_by_borrower")
         .args_json(json!({
@@ -1702,18 +1625,13 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .transact()
         .await?
         .json()?;
-    assert_eq!(leases.len(), 1);
-
     let lease_id = &leases[0].0;
     let lease = &leases[0].1;
-    assert_eq!(lease.contract_addr.as_str(), nft_contract.id().as_str());
-    assert_eq!(lease.token_id, nft_token_id);
-    assert_eq!(lease.lender_id.as_str(), lender.id().as_str());
-    assert_eq!(lease.borrower_id.as_str(), borrower.id().as_str());
-    assert_eq!(lease.price.0, price);
+    
+    assert_eq!(leases.len(), 1);
     assert_eq!(lease.state, LeaseState::Active);
     log!("      ✅ Confirmed Lease activation on Rental contract");
-
+    
     log!("Fast forword to post Lease expiration.");
     worker.fast_forward(20).await?;
 
@@ -1805,7 +1723,7 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
     let lease_start_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 10;
     let lease_expiration_ts_nano = latest_block.timestamp() + ONE_BLOCK_IN_NANO * 15;
 
-    log!("Creating a listing on maketplace...");
+    log!("Creating a listing on marketplace...");
     lender
         .call(nft_contract.id(), "nft_approve")
         .args_json(json!({
@@ -1824,7 +1742,6 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
         .await?
         .into_result()?;
 
-    log!("      Confirming the created listing ...");
     let listings: Vec<Listing> = marketplace_contract
         .call("list_listings_by_owner_id")
         .args_json(json!({"owner_id": lender.id()}))
@@ -1832,33 +1749,9 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
         .await?
         .json()?;
     assert_eq!(listings.len(), 1);
-
-    let new_listing = &listings[0];
-    assert_eq!(new_listing.owner_id.as_str(), lender.id().as_str());
-    assert_eq!(
-        new_listing.nft_contract_id.as_str(),
-        nft_contract.id().as_str()
-    );
-    assert_eq!(new_listing.nft_token_id, nft_token_id);
     log!("      ✅ Confirmed the created listing");
 
-    let balance_before_accepting_lease_borrower: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": borrower.id(),
-        }))
-        .await?
-        .json()?;
-
-    let balance_before_accepting_lease_rental_contract: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": rental_contract.id(),
-        }))
-        .await?
-        .json()?;
-
-    log!("Borrower accepting the created listing ...");
+    log!("Borrower accepting the created listing...");
     let listing_id: (String, String) = (
         nft_contract.id().clone().to_string(),
         nft_token_id.clone().to_string(),
@@ -1880,58 +1773,6 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
         .await?;
     assert!(result.is_success());
 
-    log!("      Confirming the activated listing has been removed from markectplace ...");
-    let listings: Vec<Listing> = marketplace_contract
-        .call("list_listings_by_owner_id")
-        .args_json(json!({"owner_id": lender.id()}))
-        .transact()
-        .await?
-        .json()?;
-
-    assert_eq!(listings.len(), 0);
-    log!("      ✅ The activated listing has been removed from marketplace");
-
-    log!("      Confirming the nft is transferred ...");
-    let token: Token = nft_contract
-        .view("nft_token")
-        .args_json(json!({
-            "token_id": nft_token_id,
-        }))
-        .await?
-        .json()?;
-
-    assert_eq!(token.owner_id.to_string(), rental_contract.id().to_string());
-    log!("      ✅ Lease nft has been transferred from lender to rental contract");
-
-    log!("      Confirming the rent is paid ...");
-    let balance_after_accepting_lease_borrower: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": borrower.id(),
-        }))
-        .await?
-        .json()?;
-
-    let balance_after_accepting_lease_rental_contract: U128 = ft_contract
-        .view("ft_balance_of")
-        .args_json(json!({
-            "account_id": rental_contract.id(),
-        }))
-        .await?
-        .json()?;
-
-    assert_eq!(
-        price,
-        balance_before_accepting_lease_borrower.0 - balance_after_accepting_lease_borrower.0
-    );
-    assert_eq!(
-        price,
-        balance_after_accepting_lease_rental_contract.0
-            - balance_before_accepting_lease_rental_contract.0
-    );
-    log!("      ✅ Lease rent has been received by rental contract from borrower");
-
-    log!("      Confirming the lease is activated by Rental contract...");
     let leases: Vec<(String, LeaseCondition)> = rental_contract
         .call("leases_by_borrower")
         .args_json(json!({
@@ -1940,15 +1781,11 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
         .transact()
         .await?
         .json()?;
-    assert_eq!(leases.len(), 1);
-
+    
     let lease_id = &leases[0].0;
     let lease = &leases[0].1;
-    assert_eq!(lease.contract_addr.as_str(), nft_contract.id().as_str());
-    assert_eq!(lease.token_id, nft_token_id);
-    assert_eq!(lease.lender_id.as_str(), lender.id().as_str());
-    assert_eq!(lease.borrower_id.as_str(), borrower.id().as_str());
-    assert_eq!(lease.price.0, price);
+
+    assert_eq!(leases.len(), 1);
     assert_eq!(lease.state, LeaseState::Active);
     log!("      ✅ Confirmed Lease activation on Rental contract");
 
