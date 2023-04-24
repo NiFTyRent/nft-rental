@@ -39,7 +39,7 @@ export async function getPayout(contract, tokenId, balance) {
   }
 }
 
-export async function newLease(
+export async function newListing(
   contract,
   tokenId,
   startTsNano,
@@ -49,16 +49,15 @@ export async function newLease(
 ) {
   if (tokenId == "") return;
   const ftContract = await initFtContract(ftAddress);
-  const priceNormalised = toNormalisedAmount(ftContract, price);
+  const priceNormalised = await toNormalisedAmount(ftContract, price);
   // TODO(libo): Revist the message
   const message = JSON.stringify({
-    contract_addr: contract.contractId,
-    token_id: tokenId,
-    start_ts_nano: startTsNano,
-    end_ts_nano: endTsNano,
-    ft_contract_addr: ftAddress,
+    ft_contract_id: ftAddress,
     price: priceNormalised,
+    lease_start_ts_nano: startTsNano.toString(),
+    lease_end_ts_nano: endTsNano.toString(),
   });
+  console.log("newListing", tokenId, message);
   return await contract.nft_approve({
     args: {
       token_id: tokenId,
@@ -66,6 +65,6 @@ export async function newLease(
       msg: message,
     },
     gas: "300000000000000",
-    amount: "1000000000000000000000",
+    amount: "1",
   });
 }

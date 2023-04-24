@@ -27,7 +27,11 @@ export async function initContract() {
     window.walletConnection.account(),
     nearConfig.contractName,
     {
-      viewMethods: ["leases_by_borrower", "leases_by_owner", "get_allowed_ft_contract_addrs"],
+      viewMethods: [
+        "list_listings_by_nft_contract_id",
+        "list_allowed_ft_contract_ids",
+        // TODO(libo): remove these when cleaning up
+        "leases_by_borrower", "leases_by_owner"],
       changeMethods: ["lending_accept", "claim_back"],
     }
   );
@@ -60,7 +64,7 @@ export async function myBorrowings() {
 }
 
 export async function getAllowedFTs() {
-  const ftAddrs = await window.contract.get_allowed_ft_contract_addrs({});
+  const ftAddrs = await window.contract.list_allowed_ft_contract_ids({});
   const fts = await Promise.all(ftAddrs.map(async addr => {
     const contract = await initFtContract(addr);
     const ftMetadata = await contract.ft_metadata({});
@@ -89,4 +93,12 @@ export async function claimBack(leaseId) {
     amount: 1,
   });
   return response;
+}
+
+
+export async function listingsByNftContractId(nftContractId) {
+  const listings = await window.contract.list_listings_by_nft_contract_id({
+    nft_contract_id: nftContractId,
+  });
+  return listings;
 }
