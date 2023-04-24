@@ -1,10 +1,10 @@
 const { Contract } = window.nearApi;
 import { nearConfig } from "./near-api";
-import { initFtContract } from "./FtContract"
+import { initFtContract, toNormalisedAmount } from "./FtContract"
 
 export async function initContract(contractName) {
   return await new Contract(window.walletConnection.account(), contractName, {
-    viewMethods: ["nft_tokens_for_owner", "nft_token"],
+    viewMethods: ["nft_tokens_for_owner", "nft_token", "nft_payout"],
     changeMethods: ["nft_approve"],
   });
 }
@@ -25,28 +25,39 @@ export async function getToken(contract, tokenId) {
   return token;
 }
 
+export async function getPayout(contract, tokenId, balance) {
+  try {
+    let payouts = await contract.nft_payout({
+      token_id: tokenId,
+      balance: balance,
+      max_len_payout: 50
+    });
+    return (await payouts).payout;
+  } catch (e) {
+    // TODO(libo): improve the error handling, only match the error due to unimplemented nft_payout method.
+    return []
+  }
+}
+
 export async function newLease(
   contract,
   tokenId,
-  borrower,
-  expiration,
+  startTsNano,
+  endTsNano,
   ftAddress,
   price,
 ) {
   if (tokenId == "") return;
   const ftContract = await initFtContract(ftAddress);
-  const ftMetadata = await ftContract.ft_metadata();
-  const ftDecimals = ftMetadata.decimals;
-
-  const scale = BigInt(10) ** BigInt(ftDecimals - 3);
-  const priceNormalised = BigInt(Math.round(price * 1000)) * scale;
+  const priceNormalised = toNormalisedAmount(ftContract, price);
+  // TODO(libo): Revist the message
   const message = JSON.stringify({
     contract_addr: contract.contractId,
     token_id: tokenId,
-    borrower_id: borrower,
-    expiration: expiration,
+    start_ts_nano: startTsNano,
+    end_ts_nano: endTsNano,
     ft_contract_addr: ftAddress,
-    price: priceNormalised.toString(),
+    price: priceNormalised,
   });
   return await contract.nft_approve({
     args: {

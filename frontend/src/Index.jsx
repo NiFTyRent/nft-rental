@@ -15,6 +15,8 @@ import {
   InMemoryCache,
   ApolloProvider,
 } from "@apollo/client";
+import MyNftPage from "./MyNftPage";
+import NftPage from "./NftPage";
 
 const reactRoot = createRoot(document.querySelector("#root"));
 
@@ -29,8 +31,16 @@ async function render() {
             <Route exact path="/" element={<Home />} />
             <Route path="/app" element={<App />}>
               <Route index element={<AppHome />} />
+              <Route path="nfts" element={<MyNftPage />} />
+              <Route
+                path="nfts/:contractId/:tokenId/lend"
+                element={<NewLendingPage />}
+              />
+              <Route
+                path="nfts/:contractId/:tokenId"
+                element={<NftPage />}
+              />
               <Route path="lendings" element={<LendingsPage />} />
-              <Route path="lendings/new" element={<NewLendingPage />} />
               <Route path="borrowings" element={<BorrowingsPage />} />
               <Route
                 path="borrowings/:leaseId/accept"
