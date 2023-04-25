@@ -276,22 +276,23 @@ impl Contract {
         self.listing_ids_by_nft_contract_id
             .insert(&nft_contract_id, &listing_ids_set);
 
-        env::log_str(
-            &json!({
-                "type": "insert_listing",
-                "params": {
-                    "owner_id": owner_id,
-                    "approval_id": approval_id,
-                    "nft_contract_id": nft_contract_id,
-                    "nft_token_id": nft_token_id,
-                    "ft_contract_id": ft_contract_id,
-                    "price": price,
-                    "lease_start_ts_nano": lease_start_ts_nano,
-                    "lease_end_ts_nano": lease_end_ts_nano,
-                }
-            })
-            .to_string(),
-        );
+        // TODO(steven): remove this logging or find out why it breaks when running on testnet.
+        // env::log_str(
+        //     &json!({
+        //         "type": "insert_listing",
+        //         "params": {
+        //             "owner_id": owner_id,
+        //             "approval_id": approval_id,
+        //             "nft_contract_id": nft_contract_id,
+        //             "nft_token_id": nft_token_id,
+        //             "ft_contract_id": ft_contract_id,
+        //             "price": price,
+        //             "lease_start_ts_nano": lease_start_ts_nano,
+        //             "lease_end_ts_nano": lease_end_ts_nano,
+        //         }
+        //     })
+        //     .to_string(),
+        // );
     }
 
     fn internal_remove_listing(&mut self, listing_id: ListingId) {

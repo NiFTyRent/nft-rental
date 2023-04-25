@@ -2,7 +2,7 @@ import React from "react";
 
 import { CurrencySelector } from "./CurrencySelector";
 import { useParams } from "react-router-dom";
-import { initContract, newLease, getPayout } from "./NftContract";
+import { initContract, newListing, getPayout } from "./NftContract";
 import { fromNormalisedAmount, initFtContract, toNormalisedAmount } from "./FtContract";
 import { NftInfo } from "./NftInfo";
 import { MS_TO_NS_SCALE } from "./Utils";
@@ -18,7 +18,6 @@ export default function NewLendingPage() {
   // TODO(libo): Set marketplace fee
   const [marketFee, setMarketFee] = React.useState(0);
   const [validationErrors, setValidationErrors] = React.useState({});
-
 
   let validate = () => {
     const errors = {}
@@ -42,8 +41,7 @@ export default function NewLendingPage() {
 
   let calcuateRoyaltySplit = async () => {
     const contract = await initContract(contractId);
-    const ftContract = await initFtContract(rentCurrency.address);
-    const priceNormalised = await toNormalisedAmount(ftContract, rent);
+    const priceNormalised = toNormalisedAmount(rentCurrency.address, rent);
 
 
     const payouts = await getPayout(contract, tokenId, priceNormalised);
@@ -54,7 +52,7 @@ export default function NewLendingPage() {
       }
     }
 
-    return fromNormalisedAmount(ftContract, royalty);
+    return fromNormalisedAmount(rentCurrency.address, royalty);
   }
 
   React.useEffect(() => {
@@ -71,7 +69,7 @@ export default function NewLendingPage() {
     const startTsNano = new Date(startTimeStr).valueOf() * MS_TO_NS_SCALE;
     const endTsNano = new Date(endTimeStr).valueOf() * MS_TO_NS_SCALE;
 
-    newLease(contract, tokenId, startTsNano, endTsNano, rentCurrency.address, rent);
+    newListing(contract, tokenId, startTsNano, endTsNano, rentCurrency.address, rent);
   };
 
   let errorMessage = (message) => {

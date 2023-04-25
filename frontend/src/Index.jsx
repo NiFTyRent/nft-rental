@@ -17,6 +17,7 @@ import {
 } from "@apollo/client";
 import MyNftPage from "./MyNftPage";
 import NftPage from "./NftPage";
+import ShopPage from "./ShopPage";
 
 const reactRoot = createRoot(document.querySelector("#root"));
 
@@ -40,6 +41,7 @@ async function render() {
                 path="nfts/:contractId/:tokenId"
                 element={<NftPage />}
               />
+              <Route path="shops/:contractId" element={<ShopPage />} />
               <Route path="lendings" element={<LendingsPage />} />
               <Route path="borrowings" element={<BorrowingsPage />} />
               <Route
