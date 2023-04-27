@@ -29,7 +29,9 @@ export async function initContract() {
     {
       viewMethods: [
         "list_listings_by_nft_contract_id",
+        "list_allowed_nft_contract_ids",
         "list_allowed_ft_contract_ids",
+        "get_listing_by_id",
         // TODO(libo): remove these when cleaning up
         "leases_by_borrower", "leases_by_owner"],
       changeMethods: ["lending_accept", "claim_back"],
@@ -101,4 +103,15 @@ export async function listingsByNftContractId(nftContractId) {
     nft_contract_id: nftContractId,
   });
   return listings;
+}
+
+export async function listAllowedNftContractIds(nftContractId) {
+  return await window.contract.list_allowed_nft_contract_ids({})
+}
+
+export async function listingByContractIdAndTokenId(nftContractId, tokenId) {
+  const listing = await window.contract.get_listing_by_id({
+    listing_id: [nftContractId, tokenId],
+  });
+  return listing;
 }

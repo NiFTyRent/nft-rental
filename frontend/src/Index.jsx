@@ -5,8 +5,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./Home";
 import App from "./App";
 import AppHome from "./AppHome";
-import NewLendingPage from "./NewLendingPage";
-import AcceptBorrowingPage from "./AcceptBorrowingPage";
+import ListingCreationPage from "./ListingCreationPage";
+import ListingAcceptPage from "./ListingAcceptPage";
 import BorrowingsPage from "./BorrowingsPage";
 import LendingsPage from "./LendingsPage";
 import { initContract, getAllowedFTs } from "./near-api";
@@ -18,6 +18,7 @@ import {
 import MyNftPage from "./MyNftPage";
 import NftPage from "./NftPage";
 import ShopPage from "./ShopPage";
+import ShopsPage from "./ShopsPage";
 
 const reactRoot = createRoot(document.querySelector("#root"));
 
@@ -35,18 +36,19 @@ async function render() {
               <Route path="nfts" element={<MyNftPage />} />
               <Route
                 path="nfts/:contractId/:tokenId/lend"
-                element={<NewLendingPage />}
+                element={<ListingCreationPage />}
               />
               <Route
                 path="nfts/:contractId/:tokenId"
                 element={<NftPage />}
               />
+              <Route path="shops" element={<ShopsPage />} />
               <Route path="shops/:contractId" element={<ShopPage />} />
               <Route path="lendings" element={<LendingsPage />} />
               <Route path="borrowings" element={<BorrowingsPage />} />
               <Route
-                path="borrowings/:leaseId/accept"
-                element={<AcceptBorrowingPage />}
+                path="listings/:contractId/:tokenId/accept"
+                element={<ListingAcceptPage />}
               />
             </Route>
           </Routes>

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { CurrencySelector } from "./CurrencySelector";
+import { CurrencySelector } from "./components/CurrencySelector";
 import { useParams } from "react-router-dom";
 import { initContract, newListing, getPayout } from "./NftContract";
 import { fromNormalisedAmount, initFtContract, toNormalisedAmount } from "./FtContract";
@@ -8,7 +8,7 @@ import { NftInfo } from "./NftInfo";
 import { MS_TO_NS_SCALE } from "./Utils";
 
 
-export default function NewLendingPage() {
+export default function ListingCreationPage() {
   const { contractId, tokenId } = useParams();
   const [startTimeStr, setStartTimeStr] = React.useState("");
   const [endTimeStr, setEndTimeStr] = React.useState("");
