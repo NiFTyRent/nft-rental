@@ -22,9 +22,9 @@ use crate::externals::*;
 // https://github.com/ParasHQ/paras-marketplace-contract/blob/2dcb9e8b3bc8b9d4135d0f96f0255cd53116a6b4/paras-marketplace-contract/src/lib.rs#L17
 pub const TGAS: u64 = 1_000_000_000_000;
 pub const XCC_GAS: Gas = Gas(5 * TGAS); // cross contract gas
-pub const GAS_FOR_NFT_TRANSFER: Gas = Gas(20_000_000_000_000);
+pub const GAS_FOR_NFT_TRANSFER: Gas = Gas(5 * TGAS);
 pub const BASE_GAS: Gas = Gas(5 * TGAS);
-pub const GAS_FOR_ROYALTIES: Gas = Gas(BASE_GAS.0 * 10u64);
+pub const GAS_FOR_ROYALTIES: Gas = BASE_GAS;
 pub const GAS_FOR_RESOLVE_CLAIM_BACK: Gas = Gas(BASE_GAS.0 * 10u64);
 // the tolerance of lease price minus the sum of payout
 // Set it to 1 to avoid linter error
