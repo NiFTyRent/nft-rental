@@ -204,7 +204,7 @@ impl Contract {
 
         ext_ft::ext(ft_contract_id.clone())
             .with_attached_deposit(1)
-            .with_static_gas(Gas(10 * TGAS))
+            .with_static_gas(Gas(3 * TGAS))
             .ft_transfer_call(
                 self.rental_contract_id.clone(), // receiver_id
                 amount,                          // amount
