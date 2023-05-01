@@ -10,6 +10,7 @@ export async function initFtContract(contractName) {
 
 export function toNormalisedAmount(contractId, amount) {
   const metadata = window.CURRENCY_OPTIONS.find((m) => m.address === contractId);
+  if (metadata == null) { return `ERROR unrecognised FT ${contractId}`}
   const decimals = metadata.decimals;
 
   const scale = BigInt(10) ** BigInt(decimals - 3);
@@ -19,6 +20,7 @@ export function toNormalisedAmount(contractId, amount) {
 
 export function fromNormalisedAmount(contractId, amount) {
   const metadata = window.CURRENCY_OPTIONS.find((m) => m.address === contractId);
+  if (metadata == null) { return `ERROR unrecognised FT ${contractId}`}
   const decimals = metadata.decimals;
 
   const scale = BigInt(10) ** BigInt(decimals - 3);

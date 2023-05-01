@@ -143,6 +143,10 @@ impl Contract {
             .collect::<Vec<_>>();
     }
 
+    pub fn get_listing_by_id(&self, listing_id: ListingId) -> Listing {
+        return self.listing_by_id.get(&listing_id).expect("Listing not found");
+    }
+
     // ------------------ XCC RPCs -----------------
     /**
      * This method will handle the transfer of rent to Core rental contract,

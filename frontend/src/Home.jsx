@@ -1,7 +1,7 @@
 import React from "react";
-import TwitterIcon from "./TwitterIcon";
-import GithubIcon from "./GithubIcon";
-import MediumIcon from "./MediumIcon";
+import TwitterIcon from "./components/TwitterIcon";
+import GithubIcon from "./components/GithubIcon";
+import MediumIcon from "./components/MediumIcon";
 import logoUrl from "/assets/logo.svg";
 import bgUrl from "/assets/background.webp";
 
