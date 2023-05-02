@@ -147,6 +147,10 @@ impl Contract {
         return self.listing_by_id.get(&listing_id).expect("Listing not found");
     }
 
+    pub fn get_rental_contract_id(&self) -> AccountId {
+        return self.rental_contract_id.clone();
+    }
+
     // ------------------ XCC RPCs -----------------
     /**
      * This method will handle the transfer of rent to Core rental contract,
