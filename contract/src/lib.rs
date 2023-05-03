@@ -62,6 +62,7 @@ pub struct LeaseJson {
     price: U128,
     start_ts_nano: u64,
     end_ts_nano: u64,
+    nft_payout: Payout
 }
 
 /// Struct for keeping track of the lease conditions
@@ -788,6 +789,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                 "params": {
                     "nft_contract_id": nft_contract_id.clone(),
                     "nft_token_id": token_id.clone(),
+                    "nft_payout": lease_json.nft_payout.clone(),
                 }
             })
             .to_string(),

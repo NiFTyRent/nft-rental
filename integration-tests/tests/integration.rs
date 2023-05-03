@@ -1357,6 +1357,7 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
         nft_contract.id().as_str()
     );
     assert_eq!(new_listing.nft_token_id, nft_token_id);
+    assert!(new_listing.payout.is_some());
     log!("      ✅ Confirmed the created listing");
 
     // Some useful info for debugging. Keep this block for future test reference
@@ -1441,7 +1442,10 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
         .await?;
 
     // Next line is used for debug Execution history. Keep for reference
-    // log!("\n>[DEBUG] ft_transfer_call outcomes: {:?}", result.outcomes());
+    log!(
+        "\n>[DEBUG] ft_transfer_call outcomes: {:?}",
+        result.outcomes()
+    );
     assert!(result.is_success());
 
     log!("      Confirming the activated listing has been removed from marketplace ...");
@@ -1627,11 +1631,11 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .json()?;
     let lease_id = &leases[0].0;
     let lease = &leases[0].1;
-    
+
     assert_eq!(leases.len(), 1);
     assert_eq!(lease.state, LeaseState::Active);
     log!("      ✅ Confirmed Lease activation on Rental contract");
-    
+
     log!("Fast forword to post Lease expiration.");
     worker.fast_forward(20).await?;
 
@@ -1781,7 +1785,7 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
         .transact()
         .await?
         .json()?;
-    
+
     let lease_id = &leases[0].0;
     let lease = &leases[0].1;
 

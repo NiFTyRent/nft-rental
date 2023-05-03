@@ -533,16 +533,22 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(
-            listing_owner_id.clone(),
-            approval_id,
-            nft_contract_id,
-            nft_token_id,
-            ft_contract_id,
-            price.0,
-            lease_start_ts_nano,
-            lease_end_ts_nano,
-        );
+        // build the listing
+        let new_listing: Listing = Listing {
+            owner_id: listing_owner_id.clone(),
+            approval_id: approval_id.clone(),
+            nft_contract_id: nft_contract_id.clone(),
+            nft_token_id: nft_token_id.clone(),
+            ft_contract_id: ft_contract_id.clone(),
+            price: price.clone(),
+            lease_start_ts_nano: lease_start_ts_nano.clone(),
+            lease_end_ts_nano: lease_end_ts_nano.clone(),
+            payout: None,
+        };
+        // create listing_id
+        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
+
+        contract.internal_insert_listing(&listing_id, &new_listing);
 
         let res = contract.list_listings_by_owner_id(listing_owner_id.clone());
         assert_eq!(1, res.len());
@@ -568,16 +574,22 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(
-            listing_owner_id,
-            approval_id,
-            nft_contract_id,
-            nft_token_id,
-            ft_contract_id,
-            price.0,
-            lease_start_ts_nano,
-            lease_end_ts_nano,
-        );
+        // build the listing
+        let new_listing: Listing = Listing {
+            owner_id: listing_owner_id.clone(),
+            approval_id: approval_id.clone(),
+            nft_contract_id: nft_contract_id.clone(),
+            nft_token_id: nft_token_id.clone(),
+            ft_contract_id: ft_contract_id.clone(),
+            price: price.clone(),
+            lease_start_ts_nano: lease_start_ts_nano.clone(),
+            lease_end_ts_nano: lease_end_ts_nano.clone(),
+            payout: None,
+        };
+        // create listing_id
+        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
+
+        contract.internal_insert_listing(&listing_id, &new_listing);
 
         let res = contract.list_listings_by_owner_id(accounts(1).into());
         assert_eq!(0, res.len());
@@ -602,16 +614,22 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(
-            listing_owner_id,
-            approval_id,
-            nft_contract_id.clone(),
-            nft_token_id,
-            ft_contract_id,
-            price.0,
-            lease_start_ts_nano,
-            lease_end_ts_nano,
-        );
+        // build the listing
+        let new_listing: Listing = Listing {
+            owner_id: listing_owner_id.clone(),
+            approval_id: approval_id.clone(),
+            nft_contract_id: nft_contract_id.clone(),
+            nft_token_id: nft_token_id.clone(),
+            ft_contract_id: ft_contract_id.clone(),
+            price: price.clone(),
+            lease_start_ts_nano: lease_start_ts_nano.clone(),
+            lease_end_ts_nano: lease_end_ts_nano.clone(),
+            payout: None,
+        };
+        // create listing_id
+        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
+
+        contract.internal_insert_listing(&listing_id, &new_listing);
 
         let res = contract.list_listings_by_nft_contract_id(nft_contract_id.clone());
         assert_eq!(1, res.len());
@@ -637,16 +655,22 @@ mod tests {
         // Tuesday, March 28, 2023 2:32:10 AM
         let lease_end_ts_nano: u64 = 1679970730000000000;
 
-        contract.internal_insert_listing(
-            listing_owner_id,
-            approval_id,
-            nft_contract_id,
-            nft_token_id,
-            ft_contract_id,
-            price.0,
-            lease_start_ts_nano,
-            lease_end_ts_nano,
-        );
+        // build the listing
+        let new_listing: Listing = Listing {
+            owner_id: listing_owner_id.clone(),
+            approval_id: approval_id.clone(),
+            nft_contract_id: nft_contract_id.clone(),
+            nft_token_id: nft_token_id.clone(),
+            ft_contract_id: ft_contract_id.clone(),
+            price: price.clone(),
+            lease_start_ts_nano: lease_start_ts_nano.clone(),
+            lease_end_ts_nano: lease_end_ts_nano.clone(),
+            payout: None,
+        };
+        // create listing_id
+        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
+
+        contract.internal_insert_listing(&listing_id, &new_listing);
 
         let res = contract.list_listings_by_nft_contract_id(accounts(3).into());
         assert_eq!(0, res.len());
