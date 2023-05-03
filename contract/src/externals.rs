@@ -6,6 +6,7 @@ use crate::*;
 trait ExtSelf {
     fn activate_lease(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
+    // TODO(syu): no longer need to be a external function
     fn create_lease_with_payout(
         &mut self,
         nft_contract_id: AccountId,
@@ -16,6 +17,7 @@ trait ExtSelf {
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
+        nft_payout:Payout,
     ) -> bool;
 }
 
