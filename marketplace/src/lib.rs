@@ -299,7 +299,7 @@ impl Contract {
                     .unwrap();
                 assert!(
                     payout_diff <= PAYOUT_DIFF_TORLANCE_YACTO,
-                    "The difference between the lease price and the sum of payout is too large"
+                    "The difference between the listing price and the sum of payout is too large."
                 );
                 payout
             });
@@ -696,7 +696,7 @@ mod tests {
         let ft_contract_id: AccountId = create_a_dummy_account_id("ft_contract_id");
         let price: U128 = U128::from(5);
 
-        let expected_payout = Payout {
+        let payout_expected = Payout {
             payout: HashMap::from([
                 (accounts(2).into(), U128::from(1)),
                 (accounts(3).into(), U128::from(4)),
@@ -712,7 +712,7 @@ mod tests {
             RuntimeFeesConfig::test(),
             HashMap::default(),
             vec![PromiseResult::Successful(
-                serde_json::to_vec(&expected_payout).unwrap()
+                serde_json::to_vec(&payout_expected).unwrap()
             )],
         );
 
@@ -728,21 +728,137 @@ mod tests {
         );
 
         assert!(!contract.listing_by_id.is_empty());
-        assert!(!contract.list_listings_by_nft_contract_id(nft_contract_id.clone()).is_empty());
+        assert!(!contract
+            .list_listings_by_nft_contract_id(nft_contract_id.clone())
+            .is_empty());
 
         let listing_info = &contract.list_listings_by_owner_id(nft_token_owner_id.clone())[0];
         assert_eq!(nft_contract_id, listing_info.nft_contract_id);
         assert_eq!(nft_token_id, listing_info.nft_token_id);
         assert_eq!(nft_token_owner_id, listing_info.owner_id);
-        assert_eq!(Some(expected_payout), listing_info.payout);
+        assert_eq!(Some(payout_expected), listing_info.payout);
         assert_eq!(5, listing_info.price.0);
         assert_eq!(1000, listing_info.lease_end_ts_nano);
     }
 
-    // helper method to generate a dummy AccountId using input name
+    #[test]
+    fn test_create_listing_with_payout_succeeds_when_nft_payout_xcc_failed() {
+        // When nft_payout xcc failed, we should still produce a internal payout record,
+        // allocating to the original lender the whole price.
+
+        let marketplace_owner_id: AccountId = create_a_dummy_account_id("marketplace_owner");
+        let treasury_id: AccountId = create_a_dummy_account_id("treasury_owner");
+        let rental_contract_id: AccountId = create_a_dummy_account_id("rental_contract_owner");
+
+        let mut contract = Contract::new(
+            marketplace_owner_id.clone(),
+            treasury_id,
+            rental_contract_id,
+        );
+
+        let nft_contract_id: AccountId = create_a_dummy_account_id("nft_contract");
+        let nft_token_id: TokenId = "test_token".to_string();
+        let nft_token_owner_id: AccountId = create_a_dummy_account_id("nft_token_owner");
+        let ft_contract_id: AccountId = create_a_dummy_account_id("ft_contract_id");
+        let price: U128 = U128::from(5);
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(nft_token_owner_id.clone())
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Failed],
+        );
+
+        contract.create_listing_with_payout(
+            nft_token_owner_id.clone(),
+            1, // dummy approval id
+            nft_contract_id.clone(),
+            nft_token_id.clone(),
+            ft_contract_id.clone(),
+            price,
+            0,
+            1000,
+        );
+
+        assert!(!contract.listing_by_id.is_empty());
+        assert!(!contract
+            .list_listings_by_nft_contract_id(nft_contract_id.clone())
+            .is_empty());
+
+        let payout_expected = Payout {
+            payout: HashMap::from([(nft_token_owner_id.clone().into(), U128::from(price.clone()))]),
+        };
+        let listing_info = &contract.list_listings_by_owner_id(nft_token_owner_id.clone())[0];
+
+        assert!(listing_info.payout.is_some());
+        assert_eq!(1, listing_info.payout.as_ref().unwrap().payout.keys().len());
+        assert_eq!(Some(payout_expected), listing_info.payout);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "The difference between the listing price and the sum of payout is too large."
+    )]
+    fn test_create_listing_with_payout_failed_invalid_payout() {
+        let marketplace_owner_id: AccountId = create_a_dummy_account_id("marketplace_owner");
+        let treasury_id: AccountId = create_a_dummy_account_id("treasury_owner");
+        let rental_contract_id: AccountId = create_a_dummy_account_id("rental_contract_owner");
+
+        let mut contract = Contract::new(
+            marketplace_owner_id.clone(),
+            treasury_id,
+            rental_contract_id,
+        );
+
+        let nft_contract_id: AccountId = create_a_dummy_account_id("nft_contract");
+        let nft_token_id: TokenId = "test_token".to_string();
+        let nft_token_owner_id: AccountId = create_a_dummy_account_id("nft_token_owner");
+        let ft_contract_id: AccountId = create_a_dummy_account_id("ft_contract_id");
+        let price: U128 = U128::from(5);
+
+        // payout is hard coded and its add up differs from asking price
+        let payout_returned = Payout {
+            payout: HashMap::from([
+                (nft_token_owner_id.clone(), U128::from(1)),
+                (accounts(3).into(), U128::from(2)),
+            ]),
+        };
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(nft_token_owner_id.clone())
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(
+                serde_json::to_vec(&payout_returned).unwrap()
+            )],
+        );
+
+        contract.create_listing_with_payout(
+            nft_token_owner_id.clone(),
+            1, // dummy approval id
+            nft_contract_id.clone(),
+            nft_token_id.clone(),
+            ft_contract_id.clone(),
+            price,
+            0,
+            1000,
+        );
+
+    }
+
+    // Helper function to generate a dummy AccountId using input name
     pub(crate) fn create_a_dummy_account_id(account_name: &str) -> AccountId {
         AccountId::new_unchecked(account_name.to_string())
     }
+
     // ===== Unit Test =====
     // TODO: test_add_allowed_ft_contract_ids_succeeds
     // TODO: test_add_allowed_nft_contract_ids_succeeds
