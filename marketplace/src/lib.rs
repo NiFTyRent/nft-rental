@@ -146,6 +146,7 @@ impl Contract {
         return self.allowed_ft_contract_ids.to_vec();
     }
 
+    // TODO(syu): check if the reuturn should be a vector of <(listing_id, listing)>, instead of just listing
     pub fn list_listings_by_owner_id(&self, owner_id: AccountId) -> Vec<Listing> {
         return self
             .listing_ids_by_owner_id
@@ -269,7 +270,7 @@ impl Contract {
         // log the request to create a listing
         env::log_str(
             &json!({
-                "type": "[DEBUG] NiFTyRent Marketplace: processing payput for nft token.",
+                "type": "[DEBUG] NiFTyRent Marketplace: Create a listing for the leasing NFT.",
                 "params": {
                     "nft_contract_id": nft_contract_id.clone(),
                     "nft_token_id": nft_token_id.clone(),
@@ -469,7 +470,8 @@ mod tests {
     follow the code order of testing failing conditions first and success condition last
     */
     use super::*;
-    use near_sdk::test_utils::accounts;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig, VMConfig};
 
     #[test]
     fn test_new() {
@@ -676,6 +678,71 @@ mod tests {
         assert_eq!(0, res.len());
     }
 
+    #[test]
+    fn test_create_listing_with_payout_succeeds_when_nft_payout_xcc_succeeded() {
+        let marketplace_owner_id: AccountId = create_a_dummy_account_id("marketplace_owner");
+        let treasury_id: AccountId = create_a_dummy_account_id("treasury_owner");
+        let rental_contract_id: AccountId = create_a_dummy_account_id("rental_contract_owner");
+
+        let mut contract = Contract::new(
+            marketplace_owner_id.clone(),
+            treasury_id,
+            rental_contract_id,
+        );
+
+        let nft_contract_id: AccountId = create_a_dummy_account_id("nft_contract");
+        let nft_token_id: TokenId = "test_token".to_string();
+        let nft_token_owner_id: AccountId = create_a_dummy_account_id("nft_token_owner");
+        let ft_contract_id: AccountId = create_a_dummy_account_id("ft_contract_id");
+        let price: U128 = U128::from(5);
+
+        let expected_payout = Payout {
+            payout: HashMap::from([
+                (accounts(2).into(), U128::from(1)),
+                (accounts(3).into(), U128::from(4)),
+            ]),
+        };
+
+        testing_env!(
+            VMContextBuilder::new()
+                .current_account_id(accounts(0))
+                .predecessor_account_id(nft_token_owner_id.clone())
+                .build(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
+            HashMap::default(),
+            vec![PromiseResult::Successful(
+                serde_json::to_vec(&expected_payout).unwrap()
+            )],
+        );
+
+        contract.create_listing_with_payout(
+            nft_token_owner_id.clone(),
+            1, // dummy approval id
+            nft_contract_id.clone(),
+            nft_token_id.clone(),
+            ft_contract_id.clone(),
+            price,
+            0,
+            1000,
+        );
+
+        assert!(!contract.listing_by_id.is_empty());
+        assert!(!contract.list_listings_by_nft_contract_id(nft_contract_id.clone()).is_empty());
+
+        let listing_info = &contract.list_listings_by_owner_id(nft_token_owner_id.clone())[0];
+        assert_eq!(nft_contract_id, listing_info.nft_contract_id);
+        assert_eq!(nft_token_id, listing_info.nft_token_id);
+        assert_eq!(nft_token_owner_id, listing_info.owner_id);
+        assert_eq!(Some(expected_payout), listing_info.payout);
+        assert_eq!(5, listing_info.price.0);
+        assert_eq!(1000, listing_info.lease_end_ts_nano);
+    }
+
+    // helper method to generate a dummy AccountId using input name
+    pub(crate) fn create_a_dummy_account_id(account_name: &str) -> AccountId {
+        AccountId::new_unchecked(account_name.to_string())
+    }
     // ===== Unit Test =====
     // TODO: test_add_allowed_ft_contract_ids_succeeds
     // TODO: test_add_allowed_nft_contract_ids_succeeds

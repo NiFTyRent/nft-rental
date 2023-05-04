@@ -1216,59 +1216,6 @@ mod tests {
     }
 
     // TODO(syu): move to marketplace test
-    // fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_succeeded() {
-    //     let mut contract = Contract::new(accounts(1).into());
-    //     let nft_contract_id: AccountId = accounts(4).into();
-    //     let token_id: TokenId = "test_token".to_string();
-    //     let owner_id: AccountId = accounts(2).into();
-    //     let borrower_id: AccountId = accounts(3).into();
-    //     let ft_contract_addr: AccountId = accounts(4).into();
-    //     let price: U128 = U128::from(5);
-
-    //     let payout = Payout {
-    //         payout: HashMap::from([
-    //             (accounts(2).into(), U128::from(1)),
-    //             (accounts(3).into(), U128::from(4)),
-    //         ]),
-    //     };
-
-    //     testing_env!(
-    //         VMContextBuilder::new()
-    //             .current_account_id(accounts(0))
-    //             .predecessor_account_id(borrower_id.clone())
-    //             .build(),
-    //         VMConfig::test(),
-    //         RuntimeFeesConfig::test(),
-    //         HashMap::default(),
-    //         vec![PromiseResult::Successful(
-    //             serde_json::to_vec(&payout).unwrap()
-    //         )],
-    //     );
-
-    //     contract.create_lease_with_payout(
-    //         nft_contract_id.clone(),
-    //         token_id.clone(),
-    //         owner_id.clone(),
-    //         borrower_id.clone(),
-    //         ft_contract_addr,
-    //         0,
-    //         1000,
-    //         price,
-    //     );
-
-    //     assert!(!contract.lease_map.is_empty());
-    //     let lease_condition = &contract.leases_by_owner(owner_id.clone())[0].1;
-
-    //     assert_eq!(nft_contract_id, lease_condition.contract_addr);
-    //     assert_eq!(token_id, lease_condition.token_id);
-    //     assert_eq!(owner_id, lease_condition.lender_id);
-    //     assert_eq!(borrower_id, lease_condition.borrower_id);
-    //     assert_eq!(5, lease_condition.price.0);
-    //     assert_eq!(1000, lease_condition.end_ts_nano);
-    //     assert_eq!(Some(payout), lease_condition.payout);
-    // }
-
-    // TODO(syu): move to marketplace test
     // fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_failed() {
     //     // When nft_payout xcc failed, we should still produce a internal payout record,
     //     // allocating to the original lender the whole price.
