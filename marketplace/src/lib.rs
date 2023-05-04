@@ -10,7 +10,7 @@ use near_sdk::{
     serde::{Deserialize, Serialize},
     serde_json,
     serde_json::json,
-    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault, Promise, PromiseResult,
+    AccountId, BorshStorageKey, CryptoHash, Gas, PanicOnDefault, PromiseResult,
 };
 use std::collections::HashMap;
 

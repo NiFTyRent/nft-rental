@@ -1441,11 +1441,11 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    // Next line is used for debug Execution history. Keep for reference
-    log!(
-        "\n>[DEBUG] ft_transfer_call outcomes: {:?}",
-        result.outcomes()
-    );
+    // Next line is used for debugging Execution history. Keep for reference
+    // log!(
+    //     "\n>[DEBUG] ft_transfer_call outcomes: {:?}",
+    //     result.outcomes()
+    // );
     assert!(result.is_success());
 
     log!("      Confirming the activated listing has been removed from marketplace ...");
