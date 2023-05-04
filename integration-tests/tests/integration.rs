@@ -1681,15 +1681,13 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
+
     // This is based on the demo NFT royalty logic: the NFT contract always keep 5% for itself.
     // So the lender get the rest 95% of the rent.
-
-    // TODO(syu): current demo nft_with_payout contract, slipts payout using token owner.
-    // However, token has been transferred to rental during nft_transfer_call. Need fix.
-    // assert_aprox_eq(
-    //     balance_after_claim_back_lender.0 - balance_before_claim_back_lender.0,
-    //     price / 20 * 19,
-    // );
+    assert_aprox_eq(
+        balance_after_claim_back_lender.0 - balance_before_claim_back_lender.0,
+        price / 20 * 19,
+    );
     assert_aprox_eq(
         balance_after_claim_back_nft_contract.0 - balance_before_claim_back_nft_contract.0,
         price / 20,
