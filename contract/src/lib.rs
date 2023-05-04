@@ -445,8 +445,8 @@ impl Contract {
         );
     }
 
-    #[private]
-    pub fn create_lease_with_payout(
+    // internal function to create a lease based on given info
+    fn create_lease_with_payout(
         &mut self,
         nft_contract_id: AccountId,
         nft_token_id: TokenId,
@@ -458,21 +458,6 @@ impl Contract {
         price: U128,
         nft_payout: Payout,
     ) -> bool {
-        // TODO(syu): log can be removed
-        env::log_str(
-            &json!({
-                "type": "[DEBUG] NiFTyRent Rental: processing payput for nft token.",
-                "params": {
-                    "nft_contract_id": nft_contract_id.clone(),
-                    "nft_token_id": nft_token_id.clone(),
-                    "lender": owner_id.clone(),
-                    "borrower": borrower_id.clone(),
-                    "nft_payout": nft_payout.clone(),
-                }
-            })
-            .to_string(),
-        );
-
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
             contract_addr: nft_contract_id,
@@ -494,8 +479,8 @@ impl Contract {
 
         self.internal_insert_lease(&lease_id, &lease_condition);
 
-        // return false to indict no need to revert the nft transfer
-        return false;
+        // return ture when the lease got created successfully
+        return true;
     }
 
     // helper method to remove records of a lease
@@ -756,7 +741,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
         // log nft transfer
         env::log_str(
             &json!({
-                "type": "[DEBUG] NiFTyRent Rental: Checking payout for leasing NFT.",
+                "type": "[DEBUG] NiFTyRent Rental: Creating a lease for the received NFT.",
                 "params": {
                     "nft_contract_id": nft_contract_id.clone(),
                     "nft_token_id": token_id.clone(),
@@ -766,44 +751,25 @@ impl NonFungibleTokenTransferReceiver for Contract {
             .to_string(),
         );
 
-        // Create a lease after resolving payouts of the leasing token
-        ext_self::ext(env::current_account_id())
-            .with_static_gas(GAS_FOR_ROYALTIES)
-            .create_lease_with_payout(
-                lease_json.nft_contract_id,
-                lease_json.nft_token_id,
-                lease_json.lender_id, // use lender here, as the token owner has been updated to Rental contract
-                lease_json.borrower_id,
-                lease_json.ft_contract_addr,
-                lease_json.start_ts_nano,
-                lease_json.end_ts_nano,
-                lease_json.price,
-                lease_json.nft_payout.clone()
-            )
-            .into()
+        // Create a lease using recieved lease info
+        if self.create_lease_with_payout(
+            lease_json.nft_contract_id,
+            lease_json.nft_token_id,
+            lease_json.lender_id, // use lender here, as the token owner has been updated to Rental contract
+            lease_json.borrower_id,
+            lease_json.ft_contract_addr,
+            lease_json.start_ts_nano,
+            lease_json.end_ts_nano,
+            lease_json.price,
+            lease_json.nft_payout.clone(),
+        ) {
+            // when lease creation succeeded
+            // return false to indicate that don't revert the nft transfer
+            return PromiseOrValue::Value(false);
+        }
 
-        // Create a lease after resolving payouts of the leasing token
-        // ext_nft::ext(lease_json.nft_contract_id.clone())
-        //     .nft_payout(
-        //         lease_json.nft_token_id.clone(), // token_id
-        //         U128::from(lease_json.price.0),  // price
-        //         Some(MAX_LEN_PAYOUT),            // max_len_payout
-        //     )
-        //     .then(
-        //         ext_self::ext(env::current_account_id())
-        //             .with_static_gas(GAS_FOR_ROYALTIES)
-        //             .create_lease_with_payout(
-        //                 lease_json.nft_contract_id,
-        //                 lease_json.nft_token_id,
-        //                 lease_json.lender_id,  // use lender here, as the token owner has been updated to Rental contract
-        //                 lease_json.borrower_id,
-        //                 lease_json.ft_contract_addr,
-        //                 lease_json.start_ts_nano,
-        //                 lease_json.end_ts_nano,
-        //                 lease_json.price,
-        //             ),
-        //     )
-        //     .into()
+        // return true to indicate that the nft transfer should be reverted
+        return PromiseOrValue::Value(true);
     }
 }
 

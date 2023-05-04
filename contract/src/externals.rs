@@ -6,19 +6,6 @@ use crate::*;
 trait ExtSelf {
     fn activate_lease(&mut self, lease_id: LeaseId) -> PromiseOrValue<U128>;
     fn resolve_claim_back(&mut self, lease_id: LeaseId) -> Promise;
-    // TODO(syu): no longer need to be a external function
-    fn create_lease_with_payout(
-        &mut self,
-        nft_contract_id: AccountId,
-        nft_token_id: TokenId,
-        owner_id: AccountId,
-        borrower_id: AccountId,
-        ft_contract_addr: AccountId,
-        start_ts_nano: u64,
-        end_ts_nano: u64,
-        price: U128,
-        nft_payout:Payout,
-    ) -> bool;
 }
 
 /// NFT interface, for cross-contract calls
@@ -44,8 +31,6 @@ pub trait Nft {
         balance: U128,
         max_len_payout: Option<u32>,
     );
-
-    fn nft_payout(self, token_id: String, balance: U128, max_len_payout: Option<u32>) -> Payout;
 }
 
 #[ext_contract(ext_ft_core)]
