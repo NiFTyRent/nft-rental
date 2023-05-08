@@ -85,6 +85,7 @@ impl FungibleTokenReceiver for Contract {
             "price": listing.price.clone(),
             "start_ts_nano": listing.lease_start_ts_nano.clone(),
             "end_ts_nano": listing.lease_end_ts_nano.clone(),
+            "nft_payout":listing.payout.clone(),
         })
         .to_string();
 
@@ -97,7 +98,7 @@ impl FungibleTokenReceiver for Contract {
                     "nft_token_id": listing.nft_token_id.clone(),
                     "lender": listing.owner_id.clone(),
                     "borrower": sender_id.clone(),
-                    "rental_contract": self.rental_contract_id.clone(),
+                    "nft_payout": listing.payout.clone(),
                 }
             })
             .to_string(),

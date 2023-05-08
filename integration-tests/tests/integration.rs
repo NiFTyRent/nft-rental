@@ -1350,13 +1350,14 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
         .json()?;
     assert_eq!(listings.len(), 1);
 
-    let new_listing = &listings[0];
+    let new_listing: &Listing = &listings[0];
     assert_eq!(new_listing.owner_id.as_str(), lender.id().as_str());
     assert_eq!(
         new_listing.nft_contract_id.as_str(),
         nft_contract.id().as_str()
     );
     assert_eq!(new_listing.nft_token_id, nft_token_id);
+    assert!(new_listing.payout.payout.len() > 0);
     log!("      ✅ Confirmed the created listing");
 
     // Some useful info for debugging. Keep this block for future test reference
@@ -1440,8 +1441,11 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    // Next line is used for debug Execution history. Keep for reference
-    // log!("\n>[DEBUG] ft_transfer_call outcomes: {:?}", result.outcomes());
+    // Next line is used for debugging Execution history. Keep for reference
+    // log!(
+    //     "\n>[DEBUG] ft_transfer_call outcomes: {:?}",
+    //     result.outcomes()
+    // );
     assert!(result.is_success());
 
     log!("      Confirming the activated listing has been removed from marketplace ...");
@@ -1627,11 +1631,11 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         .json()?;
     let lease_id = &leases[0].0;
     let lease = &leases[0].1;
-    
+
     assert_eq!(leases.len(), 1);
     assert_eq!(lease.state, LeaseState::Active);
     log!("      ✅ Confirmed Lease activation on Rental contract");
-    
+
     log!("Fast forword to post Lease expiration.");
     worker.fast_forward(20).await?;
 
@@ -1677,15 +1681,13 @@ async fn test_owner_claims_back_with_payout_succeeds() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
+
     // This is based on the demo NFT royalty logic: the NFT contract always keep 5% for itself.
     // So the lender get the rest 95% of the rent.
-
-    // TODO(syu): current demo nft_with_payout contract, slipts payout using token owner.
-    // However, token has been transferred to rental during nft_transfer_call. Need fix.
-    // assert_aprox_eq(
-    //     balance_after_claim_back_lender.0 - balance_before_claim_back_lender.0,
-    //     price / 20 * 19,
-    // );
+    assert_aprox_eq(
+        balance_after_claim_back_lender.0 - balance_before_claim_back_lender.0,
+        price / 20 * 19,
+    );
     assert_aprox_eq(
         balance_after_claim_back_nft_contract.0 - balance_before_claim_back_nft_contract.0,
         price / 20,
@@ -1781,7 +1783,7 @@ async fn test_owner_claims_back_without_payout_succeeds() -> anyhow::Result<()> 
         .transact()
         .await?
         .json()?;
-    
+
     let lease_id = &leases[0].0;
     let lease = &leases[0].1;
 

@@ -1,6 +1,7 @@
 use crate::*;
 /// approval callbacks from NFT Contracts
 
+pub const MAX_LEN_PAYOUT: u32 = 50;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ListingJson {
@@ -73,29 +74,26 @@ impl NonFungibleTokenApprovalsReceiver for Contract {
             "ft_contract_id is not allowed!"
         );
 
-        // log the request to create a listing
-        env::log_str(
-            &json!({
-                "type": "request_to_create_a_listing",
-                "params": {
-                    "lender": signer_id.clone(),
-                    "nft_contract_id": nft_contract_id.clone(),
-                    "nft_token_id": token_id.clone(),
-                }
-            })
-            .to_string(),
-        );
-
-        // create a listing
-        self.internal_insert_listing(
-            owner_id,
-            approval_id,
-            nft_contract_id,
-            token_id,
-            listing_json.ft_contract_id,
-            listing_json.price.0,
-            listing_json.lease_start_ts_nano.0,
-            listing_json.lease_end_ts_nano.0,
-        );
+        // query the payouts field of the leasing token & create a listing accordingly
+        ext_nft::ext(nft_contract_id.clone())
+        .nft_payout(
+            token_id.clone(), 
+            U128::from(listing_json.price.0),  // price
+            Some(MAX_LEN_PAYOUT),            // max_len_payout
+        ).then(
+            ext_self::ext(env::current_account_id())
+            .with_static_gas(GAS_FOR_ROYALTIES)
+            .create_listing_with_payout(
+                owner_id, 
+                approval_id, 
+                nft_contract_id, 
+                token_id, 
+                listing_json.ft_contract_id, 
+                listing_json.price, 
+                listing_json.lease_start_ts_nano.0,
+                listing_json.lease_end_ts_nano.0,
+            ),
+        ).as_return();
+        
     }
 }

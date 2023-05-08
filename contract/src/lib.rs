@@ -62,6 +62,7 @@ pub struct LeaseJson {
     price: U128,
     start_ts_nano: u64,
     end_ts_nano: u64,
+    nft_payout: Payout,
 }
 
 /// Struct for keeping track of the lease conditions
@@ -444,8 +445,8 @@ impl Contract {
         );
     }
 
-    #[private]
-    pub fn create_lease_with_payout(
+    // internal function to create a lease based on given info
+    fn create_lease_with_payout(
         &mut self,
         nft_contract_id: AccountId,
         nft_token_id: TokenId,
@@ -455,52 +456,8 @@ impl Contract {
         start_ts_nano: u64,
         end_ts_nano: u64,
         price: U128,
-    ) -> bool {
-        env::log_str(
-            &json!({
-                "type": "[DEBUG] NiFTyRent Rental: processing payput for nft token.",
-                "params": {
-                    "nft_contract_id": nft_contract_id.clone(),
-                    "nft_token_id": nft_token_id.clone(),
-                    "lender": owner_id.clone(),
-                    "borrower": borrower_id.clone(),
-                }
-            })
-            .to_string(),
-        );
-
-        // TODO(syu): payout field no longer needs to be Optional, e.g. resolve_claim_back
-        let optional_payout;
-        if is_promise_success() {
-            // If NFT has implemented the `nft_payout` interface
-            // then process the result and verify if sum of payout is close enough to the original price
-            optional_payout = promise_result_as_success().map(|value| {
-                let payout = serde_json::from_slice::<Payout>(&value).unwrap();
-                let payout_diff: u128 = price
-                    .0
-                    .checked_sub(
-                        payout
-                            .payout
-                            .values()
-                            .map(|v| v.0)
-                            .into_iter()
-                            .sum::<u128>(),
-                    )
-                    .unwrap();
-                assert!(
-                    payout_diff <= PAYOUT_DIFF_TORLANCE_YACTO,
-                    "The difference between the lease price and the sum of payout is too large"
-                );
-                payout
-            });
-        } else {
-            // If leased nft didn't provide payouts, we add a proxy payout record making original lender own all the rent.
-            // This will make claiming back using LEASE NFT easier.
-            optional_payout = Some(Payout {
-                payout: HashMap::from([(owner_id.clone(), U128::from(price.clone()))]),
-            });
-        }
-
+        nft_payout: Payout,
+    ) {
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
             contract_addr: nft_contract_id,
@@ -511,7 +468,7 @@ impl Contract {
             price: price,
             start_ts_nano: start_ts_nano,
             end_ts_nano: end_ts_nano,
-            payout: optional_payout,
+            payout: Some(nft_payout),
             state: LeaseState::PendingOnRent,
         };
 
@@ -521,9 +478,6 @@ impl Contract {
             .into_string();
 
         self.internal_insert_lease(&lease_id, &lease_condition);
-
-        // return false to indict no need to revert the nft transfer
-        return false;
     }
 
     // helper method to remove records of a lease
@@ -784,37 +738,32 @@ impl NonFungibleTokenTransferReceiver for Contract {
         // log nft transfer
         env::log_str(
             &json!({
-                "type": "[DEBUG] NiFTyRent Rental: Checking payout for leasing NFT.",
+                "type": "[DEBUG] NiFTyRent Rental: Creating a lease for the received NFT.",
                 "params": {
                     "nft_contract_id": nft_contract_id.clone(),
                     "nft_token_id": token_id.clone(),
+                    "nft_payout": lease_json.nft_payout.clone(),
                 }
             })
             .to_string(),
         );
 
-        // Create a lease after resolving payouts of the leasing token
-        ext_nft::ext(lease_json.nft_contract_id.clone())
-            .nft_payout(
-                lease_json.nft_token_id.clone(), // token_id
-                U128::from(lease_json.price.0),  // price
-                Some(MAX_LEN_PAYOUT),            // max_len_payout
-            )
-            .then(
-                ext_self::ext(env::current_account_id())
-                    .with_static_gas(GAS_FOR_ROYALTIES)
-                    .create_lease_with_payout(
-                        lease_json.nft_contract_id,
-                        lease_json.nft_token_id,
-                        lease_json.lender_id, // use lender here, as the token owner has been updated to Rental contract
-                        lease_json.borrower_id,
-                        lease_json.ft_contract_addr,
-                        lease_json.start_ts_nano,
-                        lease_json.end_ts_nano,
-                        lease_json.price,
-                    ),
-            )
-            .into()
+        // Create a lease using recieved lease info
+        self.create_lease_with_payout(
+            lease_json.nft_contract_id,
+            lease_json.nft_token_id,
+            lease_json.lender_id, // use lender here, as the token owner has been updated to Rental contract
+            lease_json.borrower_id,
+            lease_json.ft_contract_addr,
+            lease_json.start_ts_nano,
+            lease_json.end_ts_nano,
+            lease_json.price,
+            lease_json.nft_payout.clone(),
+        );
+
+        // at this stage, lease creation has succedded
+        // return false to indicate that don't revert the nft transfer
+        return PromiseOrValue::Value(false);
     }
 }
 
@@ -1258,160 +1207,6 @@ mod tests {
         contract.claim_back(key);
 
         // Nothing can be checked, except the fact the call doesn't panic.
-    }
-
-    #[test]
-    fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_succeeded() {
-        let mut contract = Contract::new(accounts(1).into());
-        let nft_contract_id: AccountId = accounts(4).into();
-        let token_id: TokenId = "test_token".to_string();
-        let owner_id: AccountId = accounts(2).into();
-        let borrower_id: AccountId = accounts(3).into();
-        let ft_contract_addr: AccountId = accounts(4).into();
-        let price: U128 = U128::from(5);
-
-        let payout = Payout {
-            payout: HashMap::from([
-                (accounts(2).into(), U128::from(1)),
-                (accounts(3).into(), U128::from(4)),
-            ]),
-        };
-
-        testing_env!(
-            VMContextBuilder::new()
-                .current_account_id(accounts(0))
-                .predecessor_account_id(borrower_id.clone())
-                .build(),
-            VMConfig::test(),
-            RuntimeFeesConfig::test(),
-            HashMap::default(),
-            vec![PromiseResult::Successful(
-                serde_json::to_vec(&payout).unwrap()
-            )],
-        );
-
-        contract.create_lease_with_payout(
-            nft_contract_id.clone(),
-            token_id.clone(),
-            owner_id.clone(),
-            borrower_id.clone(),
-            ft_contract_addr,
-            0,
-            1000,
-            price,
-        );
-
-        assert!(!contract.lease_map.is_empty());
-        let lease_condition = &contract.leases_by_owner(owner_id.clone())[0].1;
-
-        assert_eq!(nft_contract_id, lease_condition.contract_addr);
-        assert_eq!(token_id, lease_condition.token_id);
-        assert_eq!(owner_id, lease_condition.lender_id);
-        assert_eq!(borrower_id, lease_condition.borrower_id);
-        assert_eq!(5, lease_condition.price.0);
-        assert_eq!(1000, lease_condition.end_ts_nano);
-        assert_eq!(Some(payout), lease_condition.payout);
-    }
-
-    #[test]
-    fn test_create_lease_with_payout_succeeds_when_nft_payout_xcc_failed() {
-        // When nft_payout xcc failed, we should still produce a internal payout record,
-        // allocating to the original lender the whole price.
-
-        let mut contract = Contract::new(accounts(1).into());
-
-        let nft_contract_id: AccountId = accounts(1).into();
-        let token_id: TokenId = "test_token".to_string();
-        let owner_id: AccountId = accounts(2).into();
-        let borrower_id: AccountId = accounts(3).into();
-        let ft_contract_addr: AccountId = accounts(1).into();
-        let price: U128 = U128::from(5);
-
-        testing_env!(
-            VMContextBuilder::new()
-                .current_account_id(accounts(0))
-                .predecessor_account_id(borrower_id.clone())
-                .attached_deposit(price.0)
-                .build(),
-            VMConfig::test(),
-            RuntimeFeesConfig::test(),
-            HashMap::default(),
-            vec![PromiseResult::Failed],
-        );
-
-        contract.create_lease_with_payout(
-            nft_contract_id.clone(),
-            token_id.clone(),
-            owner_id.clone(),
-            borrower_id.clone(),
-            ft_contract_addr,
-            0,
-            1000,
-            price,
-        );
-
-        let payout_expected = Payout {
-            payout: HashMap::from([(owner_id.clone().into(), U128::from(price.clone()))]),
-        };
-        let lease_condition = &contract.leases_by_owner(owner_id.clone())[0].1;
-
-        assert!(lease_condition.payout.is_some());
-        assert_eq!(
-            1,
-            lease_condition.payout.as_ref().unwrap().payout.keys().len()
-        );
-        assert!(lease_condition
-            .payout
-            .as_ref()
-            .unwrap()
-            .payout
-            .contains_key(&owner_id));
-        assert_eq!(Some(payout_expected), lease_condition.payout);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "The difference between the lease price and the sum of payout is too large"
-    )]
-    fn test_create_lease_with_payout_failed_invalid_payout() {
-        let mut contract = Contract::new(accounts(1).into());
-        let nft_contract_id: AccountId = accounts(4).into();
-        let token_id: TokenId = "test_token".to_string();
-        let owner_id: AccountId = accounts(2).into();
-        let borrower_id: AccountId = accounts(3).into();
-        let ft_contract_addr: AccountId = accounts(4).into();
-        let price: U128 = U128::from(5);
-
-        let payout = Payout {
-            payout: HashMap::from([
-                (accounts(2).into(), U128::from(1)),
-                (accounts(3).into(), U128::from(2)),
-            ]),
-        };
-
-        testing_env!(
-            VMContextBuilder::new()
-                .current_account_id(accounts(0))
-                .predecessor_account_id(borrower_id.clone())
-                .build(),
-            VMConfig::test(),
-            RuntimeFeesConfig::test(),
-            HashMap::default(),
-            vec![PromiseResult::Successful(
-                serde_json::to_vec(&payout).unwrap()
-            )],
-        );
-
-        contract.create_lease_with_payout(
-            nft_contract_id.clone(),
-            token_id.clone(),
-            owner_id.clone(),
-            borrower_id.clone(),
-            ft_contract_addr,
-            0,
-            1000,
-            price,
-        );
     }
 
     #[test]
