@@ -58,7 +58,7 @@ pub struct Listing {
     pub lease_start_ts_nano: u64,
     pub lease_end_ts_nano: u64,
     /// Lease token's payout info
-    pub payout: Option<Payout>,
+    pub payout: Payout,
 }
 
 #[near_bindgen]
@@ -321,7 +321,7 @@ impl Contract {
             price: price,
             lease_start_ts_nano: lease_start_ts_nano,
             lease_end_ts_nano: lease_end_ts_nano,
-            payout: optional_payout,
+            payout: optional_payout.unwrap(),
         };
 
         self.internal_insert_listing(&new_listing);
@@ -548,7 +548,9 @@ mod tests {
             price: price.clone(),
             lease_start_ts_nano: lease_start_ts_nano.clone(),
             lease_end_ts_nano: lease_end_ts_nano.clone(),
-            payout: None,
+            payout: Payout {
+                payout: HashMap::new(),
+            },
         };
 
         contract.internal_insert_listing(&new_listing);
@@ -587,7 +589,9 @@ mod tests {
             price: price.clone(),
             lease_start_ts_nano: lease_start_ts_nano.clone(),
             lease_end_ts_nano: lease_end_ts_nano.clone(),
-            payout: None,
+            payout: Payout {
+                payout: HashMap::new(),
+            },  // dummy payout field for testing
         };
 
         contract.internal_insert_listing(&new_listing);
@@ -625,7 +629,9 @@ mod tests {
             price: price.clone(),
             lease_start_ts_nano: lease_start_ts_nano.clone(),
             lease_end_ts_nano: lease_end_ts_nano.clone(),
-            payout: None,
+            payout: Payout {
+                payout: HashMap::new(),
+            },   // dummy payout field for testing
         };
 
         contract.internal_insert_listing(&new_listing);
@@ -664,7 +670,9 @@ mod tests {
             price: price.clone(),
             lease_start_ts_nano: lease_start_ts_nano.clone(),
             lease_end_ts_nano: lease_end_ts_nano.clone(),
-            payout: None,
+            payout: Payout {
+                payout: HashMap::new(),
+            },   // dummy payout field for testing
         };
 
         contract.internal_insert_listing(&new_listing);
@@ -731,7 +739,7 @@ mod tests {
         assert_eq!(nft_contract_id, listing_info.nft_contract_id);
         assert_eq!(nft_token_id, listing_info.nft_token_id);
         assert_eq!(nft_token_owner_id, listing_info.owner_id);
-        assert_eq!(Some(payout_expected), listing_info.payout);
+        assert_eq!(payout_expected, listing_info.payout);
         assert_eq!(5, listing_info.price.0);
         assert_eq!(1000, listing_info.lease_end_ts_nano);
     }
@@ -789,9 +797,8 @@ mod tests {
         };
         let listing_info = &contract.list_listings_by_owner_id(nft_token_owner_id.clone())[0];
 
-        assert!(listing_info.payout.is_some());
-        assert_eq!(1, listing_info.payout.as_ref().unwrap().payout.keys().len());
-        assert_eq!(Some(payout_expected), listing_info.payout);
+        assert_eq!(1, listing_info.payout.payout.keys().len());
+        assert_eq!(payout_expected, listing_info.payout);
     }
 
     #[test]

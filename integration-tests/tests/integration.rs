@@ -1350,14 +1350,14 @@ async fn test_borrower_accepts_a_lease_succeeds() -> anyhow::Result<()> {
         .json()?;
     assert_eq!(listings.len(), 1);
 
-    let new_listing = &listings[0];
+    let new_listing: &Listing = &listings[0];
     assert_eq!(new_listing.owner_id.as_str(), lender.id().as_str());
     assert_eq!(
         new_listing.nft_contract_id.as_str(),
         nft_contract.id().as_str()
     );
     assert_eq!(new_listing.nft_token_id, nft_token_id);
-    assert!(new_listing.payout.is_some());
+    assert!(new_listing.payout.payout.len() > 0);
     log!("      ✅ Confirmed the created listing");
 
     // Some useful info for debugging. Keep this block for future test reference
