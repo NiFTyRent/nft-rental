@@ -324,14 +324,17 @@ impl Contract {
             payout: optional_payout,
         };
 
-        // create listing_id
-        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
-
-        self.internal_insert_listing(&listing_id, &new_listing);
+        self.internal_insert_listing(&new_listing);
     }
     // ------------------ Internal Helpers -----------------
 
-    fn internal_insert_listing(&mut self, listing_id: &ListingId, listing_info: &Listing) {
+    fn internal_insert_listing(&mut self, listing_info: &Listing) {
+        // create listing_id based on listing info
+        let listing_id = (
+            listing_info.nft_contract_id.clone(),
+            listing_info.nft_token_id.clone(),
+        );
+
         self.listing_by_id.insert(&listing_id, &listing_info);
 
         // Update the index: listing_ids_by_owner_id
@@ -547,10 +550,8 @@ mod tests {
             lease_end_ts_nano: lease_end_ts_nano.clone(),
             payout: None,
         };
-        // create listing_id
-        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
 
-        contract.internal_insert_listing(&listing_id, &new_listing);
+        contract.internal_insert_listing(&new_listing);
 
         let res = contract.list_listings_by_owner_id(listing_owner_id.clone());
         assert_eq!(1, res.len());
@@ -588,10 +589,8 @@ mod tests {
             lease_end_ts_nano: lease_end_ts_nano.clone(),
             payout: None,
         };
-        // create listing_id
-        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
 
-        contract.internal_insert_listing(&listing_id, &new_listing);
+        contract.internal_insert_listing(&new_listing);
 
         let res = contract.list_listings_by_owner_id(accounts(1).into());
         assert_eq!(0, res.len());
@@ -628,10 +627,8 @@ mod tests {
             lease_end_ts_nano: lease_end_ts_nano.clone(),
             payout: None,
         };
-        // create listing_id
-        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
 
-        contract.internal_insert_listing(&listing_id, &new_listing);
+        contract.internal_insert_listing(&new_listing);
 
         let res = contract.list_listings_by_nft_contract_id(nft_contract_id.clone());
         assert_eq!(1, res.len());
@@ -669,10 +666,8 @@ mod tests {
             lease_end_ts_nano: lease_end_ts_nano.clone(),
             payout: None,
         };
-        // create listing_id
-        let listing_id = (nft_contract_id.clone(), nft_token_id.clone());
 
-        contract.internal_insert_listing(&listing_id, &new_listing);
+        contract.internal_insert_listing(&new_listing);
 
         let res = contract.list_listings_by_nft_contract_id(accounts(3).into());
         assert_eq!(0, res.len());
@@ -851,7 +846,6 @@ mod tests {
             0,
             1000,
         );
-
     }
 
     // Helper function to generate a dummy AccountId using input name
