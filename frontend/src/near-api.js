@@ -5,6 +5,20 @@ import { initFtContract } from "./FtContract";
 
 export const nearConfig = getConfig(import.meta.env.MODE || "development");
 
+export function signOutNearWallet() {
+  window.walletConnection.signOut();
+  // reload page
+  window.location.replace(window.location.origin + window.location.pathname);
+}
+
+export function signInWithNearWallet() {
+  // Allow the current app to make calls to the specified contract on the
+  // user's behalf.
+  // This works by creating a new access key for the user's account and storing
+  // the private key in localStorage.
+  window.walletConnection.requestSignIn(nearConfig.contractName);
+}
+
 // Initialize contract & set global variables
 export async function initContract() {
   // Initialize connection to the NEAR testnet
@@ -32,38 +46,28 @@ export async function initContract() {
         "list_allowed_nft_contract_ids",
         "list_allowed_ft_contract_ids",
         "get_listing_by_id",
-        // TODO(libo): remove these when cleaning up
-        "leases_by_borrower", "leases_by_owner"],
-      changeMethods: ["lending_accept", "claim_back"],
+        "get_rental_contract_id"
+      ],
+      changeMethods: [],
     }
   );
+
+  // Initializing the rental contract.
+  window.rentalContractId = await getRentalContractId();
+  window.rentalContract = await new Contract(
+    window.walletConnection.account(),
+    window.rentalContractId,
+    {
+      viewMethods: ["leases_by_borrower", "leases_by_owner"],
+      changeMethods: ["claim_back"],
+    });
 }
 
-export function signOutNearWallet() {
-  window.walletConnection.signOut();
-  // reload page
-  window.location.replace(window.location.origin + window.location.pathname);
+export async function getRentalContractId() {
+  return await window.contract.get_rental_contract_id();
 }
 
-export function signInWithNearWallet() {
-  // Allow the current app to make calls to the specified contract on the
-  // user's behalf.
-  // This works by creating a new access key for the user's account and storing
-  // the private key in localStorage.
-  window.walletConnection.requestSignIn(nearConfig.contractName);
-}
 
-export async function myLendings() {
-  return await window.contract.leases_by_owner({
-    account_id: window.accountId,
-  });
-}
-
-export async function myBorrowings() {
-  return await window.contract.leases_by_borrower({
-    account_id: window.accountId,
-  });
-}
 
 export async function getAllowedFTs() {
   const ftAddrs = await window.contract.list_allowed_ft_contract_ids({});
@@ -86,18 +90,6 @@ export async function acceptLease(leaseId, rent) {
   return response;
 }
 
-export async function claimBack(leaseId) {
-  let response = await window.contract.claim_back({
-    args: {
-      lease_id: leaseId,
-    },
-    gas: "300000000000000",
-    amount: 1,
-  });
-  return response;
-}
-
-
 export async function listingsByNftContractId(nftContractId) {
   const listings = await window.contract.list_listings_by_nft_contract_id({
     nft_contract_id: nftContractId,
@@ -114,4 +106,27 @@ export async function listingByContractIdAndTokenId(nftContractId, tokenId) {
     listing_id: [nftContractId, tokenId],
   });
   return listing;
+}
+
+export async function myLendings() {
+  return await window.rentalContract.leases_by_owner({
+    account_id: window.accountId,
+  });
+}
+
+export async function myBorrowings() {
+  return await window.rentalContract.leases_by_borrower({
+    account_id: window.accountId,
+  });
+}
+
+export async function claimBack(leaseId) {
+  let response = await window.rentalContract.claim_back({
+    args: {
+      lease_id: leaseId,
+    },
+    gas: "300000000000000",
+    amount: 1,
+  });
+  return response;
 }
