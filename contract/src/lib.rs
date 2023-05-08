@@ -457,7 +457,7 @@ impl Contract {
         end_ts_nano: u64,
         price: U128,
         nft_payout: Payout,
-    ) -> bool {
+    ) {
         // build lease condition from the parsed json
         let lease_condition: LeaseCondition = LeaseCondition {
             contract_addr: nft_contract_id,
@@ -478,9 +478,6 @@ impl Contract {
             .into_string();
 
         self.internal_insert_lease(&lease_id, &lease_condition);
-
-        // return ture when the lease got created successfully
-        return true;
     }
 
     // helper method to remove records of a lease
@@ -752,7 +749,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
         );
 
         // Create a lease using recieved lease info
-        if self.create_lease_with_payout(
+        self.create_lease_with_payout(
             lease_json.nft_contract_id,
             lease_json.nft_token_id,
             lease_json.lender_id, // use lender here, as the token owner has been updated to Rental contract
@@ -762,14 +759,11 @@ impl NonFungibleTokenTransferReceiver for Contract {
             lease_json.end_ts_nano,
             lease_json.price,
             lease_json.nft_payout.clone(),
-        ) {
-            // when lease creation succeeded
-            // return false to indicate that don't revert the nft transfer
-            return PromiseOrValue::Value(false);
-        }
+        );
 
-        // return true to indicate that the nft transfer should be reverted
-        return PromiseOrValue::Value(true);
+        // at this stage, lease creation has succedded
+        // return false to indicate that don't revert the nft transfer
+        return PromiseOrValue::Value(false);
     }
 }
 
