@@ -18,24 +18,17 @@ import logoUrl from "/assets/logo.svg";
 const navigation = [
   { name: "Home", href: "/app", icon: HomeIcon, current: false },
   {
+    name: "Shops",
+    href: "/app/shops",
+    icon: BuildingStorefrontIcon,
+    current: false
+  },
+  {
     name: "My NFT",
     href: "/app/nfts",
     icon: SparklesIcon,
     current: false,
   },
-  {
-    name: "My Lendings",
-    href: "/app/lendings",
-    icon: BuildingStorefrontIcon,
-    current: false,
-  },
-  {
-    name: "My Borrowings",
-    href: "/app/borrowings",
-    icon: ShoppingBagIcon,
-    current: false,
-  },
-  { name: "Marketplace", href: "#", icon: ChartBarIcon, current: false },
 ];
 
 export default function App() {

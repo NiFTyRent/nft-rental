@@ -55,6 +55,14 @@ export default function ListingCreationPage() {
     return fromNormalisedAmount(rentCurrency.address, royalty);
   }
 
+  // If the transactionHashes appears in the URL paramters, redirect to the shop page.
+  React.useEffect(() => {
+    if (window.location.search.includes("transactionHashes")) {
+      window.location.href = "/app/shops/" + contractId;
+    }
+  }, [])
+
+  // Calculate the royalty split
   React.useEffect(() => {
     (async () => setRoyalty(await calcuateRoyaltySplit()))();
   }, [rent])

@@ -32,6 +32,12 @@ export default function ListingAcceptPage() {
     })
   };
 
+  // If the transactionHashes appears in the URL paramters, redirect to my NFT page
+  React.useEffect(() => {
+    if (window.location.search.includes("transactionHashes")) {
+      window.location.href = "/app/nfts/";
+    }
+  }, [])
 
   return listing ? (
     <>
