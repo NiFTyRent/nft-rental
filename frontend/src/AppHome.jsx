@@ -9,9 +9,8 @@ export default function AppHome() {
         </div>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
           <div className="flex flex-col space-y-4 max-w-md mx-auto">
-            <a href="/app/nfts" className="primary-btn" > My NFTs </a>
-            <a href="/app/lendings" className="btn" > View My Lendings </a>
-            <a href="/app/borrowings" className="btn" > View My Borrowings </a>
+            <a href="/app/shops" className="primary-btn" > All Shops </a>
+            <a href="/app/nfts" className="btn" > My NFTs </a>
           </div>
         </div>
       </div>

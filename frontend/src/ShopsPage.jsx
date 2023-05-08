@@ -33,6 +33,7 @@ export default function ShopPage() {
       </div>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {
+          // TODO(libo): filter out the Lease Ownership Token contract
           shops.map(({ name, contractId }) => {
             return <div key={contractId} className="border p-4 border-black rounded-md space-y-4">
               <p>{name}</p>

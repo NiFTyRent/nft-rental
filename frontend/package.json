@@ -4,8 +4,8 @@
   "license": "(MIT AND Apache-2.0)",
   "scripts": {
     "start": "env-cmd -f ../marketplace/neardev/dev-account.env vite",
-    "build": "CONTRACT_NAME=nft-rental.near vite build && yarn netlify_redirects",
-    "build_testnet": "CONTRACT_NAME=nft-rental.testnet vite build -m testnet && yarn netlify_redirects",
+    "build": "CONTRACT_NAME=niftyrent.testnet vite build -m testnet && yarn netlify_redirects",
+    "build_testnet": "CONTRACT_NAME=niftyrent.testnet vite build -m testnet && yarn netlify_redirects",
     "build_mainnet": "CONTRACT_NAME=nft-rental.near vite build -m mainnet && yarn netlify_redirects",
     "netlify_redirects": "echo \"/* /index.html 200\" > dist/_redirects"
   },

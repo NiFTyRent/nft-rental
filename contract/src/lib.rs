@@ -9,9 +9,7 @@ use near_sdk::{
     bs58, ext_contract, is_promise_success, promise_result_as_success, require, serde_json,
     serde_json::json, CryptoHash, PromiseOrValue,
 };
-use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise,
-};
+use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise};
 
 mod externals;
 mod nft;
@@ -310,6 +308,23 @@ impl Contract {
             results.push((id, lease_condition))
         }
         return results;
+    }
+
+    pub fn lease_by_contract_and_token(
+        &self,
+        contract_id: AccountId,
+        token_id: TokenId,
+    ) -> Option<(String, LeaseCondition)> {
+        let lease_id = self
+            .lease_id_by_contract_addr_and_token_id
+            .get(&(contract_id, token_id));
+
+        if lease_id.is_none() {
+            return None;
+        } else {
+            let lease_condition = self.lease_map.get(&lease_id.clone().unwrap()).unwrap();
+            return Some((lease_id.unwrap(), lease_condition));
+        }
     }
 
     pub fn active_leases_by_lender(&self, account_id: AccountId) -> Vec<(String, LeaseCondition)> {
@@ -642,7 +657,6 @@ impl Contract {
             })
             .to_string(),
         );
-
     }
 
     /// This function updates only the lender info in an active lease
@@ -759,7 +773,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
             nft_contract_id,
             "nft_on_transfer should only be called via XCC."
         );
-        
+
         let lease_json: LeaseJson =
             near_sdk::serde_json::from_str(&msg).expect("Invalid lease json!");
 
@@ -792,7 +806,7 @@ impl NonFungibleTokenTransferReceiver for Contract {
                     .create_lease_with_payout(
                         lease_json.nft_contract_id,
                         lease_json.nft_token_id,
-                        lease_json.lender_id,  // use lender here, as the token owner has been updated to Rental contract
+                        lease_json.lender_id, // use lender here, as the token owner has been updated to Rental contract
                         lease_json.borrower_id,
                         lease_json.ft_contract_addr,
                         lease_json.start_ts_nano,

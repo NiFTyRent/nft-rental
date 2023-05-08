@@ -16,9 +16,10 @@ export default function AcceptBorrowingPage() {
           <div className="pt-5 space-x-4">
             <a
               href={"/app/nfts/" + contractId + "/" + tokenId + "/lend"}
-              className="primary-btn"
             >
-              Lend
+              <div className="primary-btn inline-block">
+                Lend
+              </div>
             </a>
             <button
               className="btn"

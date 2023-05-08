@@ -58,7 +58,7 @@ export async function initContract() {
     window.walletConnection.account(),
     window.rentalContractId,
     {
-      viewMethods: ["leases_by_borrower", "leases_by_owner"],
+      viewMethods: ["leases_by_borrower", "leases_by_owner", "lease_by_contract_and_token"],
       changeMethods: ["claim_back"],
     });
 }
@@ -66,7 +66,6 @@ export async function initContract() {
 export async function getRentalContractId() {
   return await window.contract.get_rental_contract_id();
 }
-
 
 
 export async function getAllowedFTs() {
@@ -117,6 +116,13 @@ export async function myLendings() {
 export async function myBorrowings() {
   return await window.rentalContract.leases_by_borrower({
     account_id: window.accountId,
+  });
+}
+
+export async function leaseByContractIdAndTokenId(nftContractId, tokenId) {
+  return await window.rentalContract.lease_by_contract_and_token({
+    contract_id: nftContractId,
+    token_id: tokenId,
   });
 }
 
