@@ -1,4 +1,6 @@
+import React from "react";
 import { useQuery, gql } from "@apollo/client";
+import { leaseByContractIdAndTokenId } from "./near-api";
 
 export function NftInfo({ contractId, tokenId }) {
   const GET_TOKEN = gql`
@@ -16,12 +18,27 @@ export function NftInfo({ contractId, tokenId }) {
     }
   `;
 
+  const [lease, setLease] = React.useState();
+
+  React.useEffect(() => {
+    async function fetchLease() {
+      let lease = await leaseByContractIdAndTokenId(contractId, tokenId);
+      setLease((_) => lease);
+    }
+    fetchLease();
+  }, [contractId, tokenId]);
+
+  console.log(lease);
+
   const { loading, error, data } = useQuery(GET_TOKEN, { variables: { contract_id: contractId, token_id: tokenId } });
   if (loading) return <p>Loading ...</p>
   if (error) return <p>Error</p>;
 
   let nft = data.mb_views_nft_tokens[0];
   if (!nft) return <p>Error: NFT info not found!</p>
+
+
+
 
   return (
     <div className="sm:flex sm:flex-row justify-between">
@@ -77,13 +94,44 @@ export function NftInfo({ contractId, tokenId }) {
         </div>
 
         <div className="sm:flex sm:flex-row">
-          <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
-            Current Owner
-          </label>
-          <div className="mt-1 sm:w-1/2 sm:mt-0">
-            {nft.owner}
-          </div>
+          {nft.owner == window.rentalContract.contractId ?
+            <>
+              <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+                Currently Rented via
+              </label>
+              <div className="mt-1 sm:w-1/2 sm:mt-0">
+                {nft.owner}
+              </div>
+            </>
+            :
+            <>
+              <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+                Current Owner
+              </label>
+              <div className="mt-1 sm:w-1/2 sm:mt-0">
+                {nft.owner}
+              </div>
+            </>
+          }
         </div>
+        {lease && <>
+          <div className="sm:flex sm:flex-row">
+            <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+              Owner
+            </label>
+            <div className="mt-1 sm:w-1/2 sm:mt-0">
+              {lease[1].lender_id}
+            </div>
+          </div>
+          <div className="sm:flex sm:flex-row">
+            <label className="block sm:w-1/2 text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" >
+              Rented to
+            </label>
+            <div className="mt-1 sm:w-1/2 sm:mt-0">
+              {lease[1].borrower_id}
+            </div>
+          </div>
+        </>}
       </div>
     </div>);
 }
