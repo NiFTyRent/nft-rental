@@ -42,3 +42,12 @@ export function dateTimeString(tsNs) {
   const date = new Date(tsMs);
   return date.toLocaleString();
 }
+
+// TODO(libo): revisit it before launch.
+const SHOP_NAME_BY_CONTRACT_ID = {
+  "dev-1661810963414-16661057092973": "Pixel Hero",
+  "niftyrpg.mintspace2.testnet": "Nifty RPG",
+}
+export  function contractIdToName(nftContractId) {
+  return SHOP_NAME_BY_CONTRACT_ID[nftContractId] || nftContractId
+}

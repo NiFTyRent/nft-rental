@@ -1,15 +1,5 @@
 import React from "react";
-import { useParams } from "react-router-dom";
-import { useQuery, gql } from "@apollo/client";
-import { listingsByNftContractId } from "./near-api";
-import { fromNormalisedAmount, ftSymbol } from "./FtContract"
-import { dateTimeString, durationString } from "./Utils";
-
-// TODO(libo): revisit it before launch.
-const SHOP_NAME_BY_CONTRACT_ID = {
-  "dev-1661810963414-16661057092973": "Pixel Hero",
-  "niftyrpg.mintspace2.testnet": "Nifty RPG",
-}
+import { contractIdToName } from "./Utils";
 
 export default function ShopPage() {
   const [shops, setShops] = React.useState([]);
@@ -18,7 +8,7 @@ export default function ShopPage() {
     async function fetchContractIds() {
       const nftContractIds = await window.contract.list_allowed_nft_contract_ids({})
       setShops((_) => nftContractIds.map((nftContractId) => (
-        { contractId: nftContractId, name: SHOP_NAME_BY_CONTRACT_ID[nftContractId] || nftContractId }
+        { contractId: nftContractId, name: contractIdToName(nftContractId) }
       )))
     }
     fetchContractIds();

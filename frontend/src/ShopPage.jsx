@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery, gql } from "@apollo/client";
 import { listingsByNftContractId } from "./near-api";
 import { fromNormalisedAmount, ftSymbol } from "./FtContract"
-import { dateTimeString, durationString } from "./Utils";
+import { contractIdToName, dateTimeString, durationString } from "./Utils";
 
 const GET_TOKENS = gql`
     query GetTokens($nft_contract_id: String!, $nft_token_ids: [String!]!) {
@@ -23,7 +23,7 @@ const GET_TOKENS = gql`
 
 export default function ShopPage() {
   let { contractId } = useParams();
-  let shopName = "Pixel Hero"
+  let shopName = contractIdToName(contractId);
   const [listings, setListings] = React.useState([]);
 
   React.useEffect(() => {
