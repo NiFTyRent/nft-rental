@@ -6,9 +6,37 @@ If you haven't installed dependencies during setup:
 
     yarn deps-install
 
-To deploy dev contract on testnet
+To deploy the rental dev contract on testnet
 
     yarn deploy
+
+Initilise the rental dev contract
+
+    export OWNER=<your test account id>
+    export RENTAL_CONTRACT=`cat contract/neardev/dev-account`
+    near call $RENTAL_CONTRACT new "{\"owner_id\": \"$OWNER\"}" --accountId $OWNER
+
+Deploy the marketplace dev contract on testnet
+
+    yarn deploy:marketplace
+
+Initilise the marketplace dev contract
+
+    export MARKETPLACE_CONTRACT=`cat marketplace/neardev/dev-account`
+    near call $MARKETPLACE_CONTRACT new "{\"owner_id\": \"$OWNER\", \"treasury_id\": \"$OWNER\", \"rental_contract_id\": \"$RENTAL_CONTRACT\"}" --accountId $OWNER
+
+Add and register allowed FTs for both contracts
+
+    near repl -s ./scripts/set_allowed_fts.js --accountId $OWNER
+
+Add allowed NFT contracts for the marketplace contract
+
+    near call $MARKETPLACE_CONTRACT add_allowed_nft_contract_ids '{"nft_contract_ids": ["niftyrpg.mintspace2.testnet"]}' --accountId $OWNER
+    // You can add more testing NFT contracts
+
+
+
+
 
 To start dev server
 

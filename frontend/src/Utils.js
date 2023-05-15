@@ -29,6 +29,10 @@ export function durationString(durationNs) {
     return `${Math.round(durationM)} minutes`;
   } else if (durationM >= 1) {
     return `1 minute`;
+  } else if (durationS >= 2) {
+    return `${Math.round(durationS)} seconds`;
+  } else if (durationS >= 1) {
+    return `1 second`;
   }
 }
 

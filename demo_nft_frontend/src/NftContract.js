@@ -18,7 +18,6 @@ export async function nftTokensForOwner(contract, accountId) {
 }
 
 export async function getToken(contract, tokenId) {
-  console.log(tokenId);
   if (tokenId == "") return null;
   let token = await contract.nft_token({
     token_id: tokenId,
