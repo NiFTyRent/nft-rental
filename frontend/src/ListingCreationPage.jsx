@@ -58,7 +58,7 @@ export default function ListingCreationPage() {
   // If the transactionHashes appears in the URL paramters, redirect to the shop page.
   React.useEffect(() => {
     if (window.location.search.includes("transactionHashes")) {
-      window.location.href = "/app/shops/" + contractId;
+      window.location.href = "/app/shops/" + contractId + "/";
     }
   }, [])
 

@@ -237,6 +237,7 @@ impl Contract {
             .to_string(),
         );
 
+        // The result of this XCC should be properly handled.
         ext_ft::ext(ft_contract_id.clone())
             .with_attached_deposit(1)
             .with_static_gas(Gas(3 * TGAS))
