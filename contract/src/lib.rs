@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
+use near_contract_standards::non_fungible_token::events::NftBurn;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{
-    bs58, ext_contract, is_promise_success, promise_result_as_success, require, serde_json,
-    serde_json::json, CryptoHash, PromiseOrValue,
-};
+use near_sdk::{bs58, ext_contract, require, serde_json::json, CryptoHash, PromiseOrValue};
 use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault, Promise};
 
 mod externals;
@@ -544,6 +542,16 @@ impl Contract {
                     .insert(&lease_condition.lender_id, &active_lease_id_set);
             }
         }
+
+        // Event Log to capture token burning as per the Events standard
+        let token_id = self.lease_id_to_lease_token_id(&lease_id);
+        NftBurn {
+            owner_id: &lease_condition.lender_id,
+            token_ids: &[&token_id],
+            authorized_id: None,
+            memo: None,
+        }
+        .emit()
     }
 
     // helper method to insert a new lease and update all indices
