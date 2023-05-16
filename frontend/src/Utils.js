@@ -45,9 +45,26 @@ export function dateTimeString(tsNs) {
 
 // TODO(libo): revisit it before launch.
 const SHOP_NAME_BY_CONTRACT_ID = {
-  "dev-1661810963414-16661057092973": "Pixel Hero",
+  "dev-1661810963414-16661057092973": "Lucky Mooncake",
   "niftyrpg.mintspace2.testnet": "Nifty RPG",
 }
 export  function contractIdToName(nftContractId) {
   return SHOP_NAME_BY_CONTRACT_ID[nftContractId] || nftContractId
+}
+
+const SHOP_DESCRIPTION_BY_CONTRACT_ID = {
+  "dev-1661810963414-16661057092973": "A collection of mooncakes bringing luck to you.",
+  "niftyrpg.mintspace2.testnet": "A demo RPG game utilizing NFTs. You can buy and rent NFTs, and equip them in the game. https://nifty-rpg.netlify.app/",
+}
+export  function contractIdToDescription(nftContractId) {
+  return SHOP_DESCRIPTION_BY_CONTRACT_ID[nftContractId] || "";
+}
+
+export function mintbaseStoreUrl(nftContractId) {
+  // If the contract id ends with ".near" then return the mainnet url
+  if (nftContractId.endsWith(".near")) {
+    return `https://mintbase.xyz/contract/${nftContractId}`
+  } else {
+    return `https://testnet.mintbase.xyz/contract/${nftContractId}`
+  }
 }

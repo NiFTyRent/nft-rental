@@ -1,10 +1,12 @@
 import React from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { NftInfo } from "./NftInfo";
 
 
 export default function AcceptBorrowingPage() {
-  let { contractId, tokenId } = useParams();
+  const { contractId } = useParams();
+  const [searchParams, _setSearchParams] = useSearchParams();
+  const tokenId = searchParams.get("tokenId")
   return (
     <>
       <div className="py-6">
@@ -15,7 +17,7 @@ export default function AcceptBorrowingPage() {
           <NftInfo contractId={contractId} tokenId={tokenId} />
           <div className="pt-5 space-x-4">
             <a
-              href={"/app/nfts/" + contractId + "/" + tokenId + "/lend"}
+              href={"/app/nfts/" + contractId + "/lend" + "?tokenId=" + tokenId}
             >
               <div className="primary-btn inline-block">
                 Lend

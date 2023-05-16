@@ -35,11 +35,11 @@ async function render() {
               <Route index element={<AppHome />} />
               <Route path="nfts" element={<MyNftPage />} />
               <Route
-                path="nfts/:contractId/:tokenId/lend"
+                path="nfts/:contractId/lend"
                 element={<ListingCreationPage />}
               />
               <Route
-                path="nfts/:contractId/:tokenId"
+                path="nfts/:contractId"
                 element={<NftPage />}
               />
               <Route path="shops" element={<ShopsPage />} />
