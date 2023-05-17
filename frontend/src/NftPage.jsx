@@ -17,7 +17,7 @@ export default function AcceptBorrowingPage() {
           <NftInfo contractId={contractId} tokenId={tokenId} />
           <div className="pt-5 space-x-4">
             <a
-              href={"/app/nfts/" + contractId + "/lend" + "?tokenId=" + tokenId}
+              href={"/app/nfts/" + contractId + "/lend/?tokenId=" + tokenId}
             >
               <div className="primary-btn inline-block">
                 Lend

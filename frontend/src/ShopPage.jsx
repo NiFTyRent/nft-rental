@@ -85,7 +85,7 @@ export default function ShopPage() {
               <div className="flex flex-row justify-center space-x-2">
                 <a href={"/app/listings/" + contractId + "/" + nft_token_id + "/accept"}
                   className="primary-btn flex-1 w-32 text-center"> Rent </a>
-                <a href={"/app/nfts/" + contractId + "?tokenId=" + nft_token_id}
+                <a href={"/app/nfts/" + contractId + "/?tokenId=" + nft_token_id}
                   className="btn flex-1 w-32 text-center"> Details </a>
               </div>
             </div>
