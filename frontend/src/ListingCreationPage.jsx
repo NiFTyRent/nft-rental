@@ -1,15 +1,17 @@
 import React from "react";
 
 import { CurrencySelector } from "./components/CurrencySelector";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { initContract, newListing, getPayout } from "./NftContract";
-import { fromNormalisedAmount, initFtContract, toNormalisedAmount } from "./FtContract";
+import { fromNormalisedAmount, toNormalisedAmount } from "./FtContract";
 import { NftInfo } from "./NftInfo";
 import { MS_TO_NS_SCALE } from "./Utils";
 
 
 export default function ListingCreationPage() {
-  const { contractId, tokenId } = useParams();
+  const { contractId } = useParams();
+  const [searchParams, _setSearchParams] = useSearchParams();
+  const tokenId = searchParams.get("tokenId")
   const [startTimeStr, setStartTimeStr] = React.useState("");
   const [endTimeStr, setEndTimeStr] = React.useState("");
   const [rentCurrency, setRentCurrency] = React.useState(window.CURRENCY_OPTIONS[0]);
@@ -89,7 +91,7 @@ export default function ListingCreationPage() {
       <div className="py-6">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
           <h1 className="text-2xl mb-8 font-semibold text-gray-900">
-            Lent My NFT
+            Lend My NFT
           </h1>
         </div>
 

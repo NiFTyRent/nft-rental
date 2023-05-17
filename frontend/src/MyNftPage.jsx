@@ -146,7 +146,7 @@ export default function MyNftPage() {
                     </p>}
                     <div className="flex flex-row justify-center space-x-2">
                       {!lender_id && !borrower_id &&
-                        <a href={"/app/nfts/" + nft_contract_id + "/" + token_id + "/lend"}
+                        <a href={"/app/nfts/" + nft_contract_id + "/lend/?tokenId=" + token_id}
                           className="primary-btn flex-1 w-32 text-center"> Lend </a>
                       }
                       {lease_end_ts_nano && lease_end_ts_nano < Date.now() * MS_TO_NS_SCALE &&
@@ -154,7 +154,7 @@ export default function MyNftPage() {
                         <button
                           onClick={_ => claimBack(lease_id)} className="primary-btn flex-1 w-32 text-center"> Claim back </button>
                       }
-                      <a href={"/app/nfts/" + nft_contract_id + "/" + token_id}
+                      <a href={"/app/nfts/" + nft_contract_id + "/?tokenId=" + token_id}
                         className="btn flex-1 w-32 text-center"> Details </a>
                     </div>
                   </div>

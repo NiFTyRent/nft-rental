@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery, gql } from "@apollo/client";
 import { listingsByNftContractId } from "./near-api";
 import { fromNormalisedAmount, ftSymbol } from "./FtContract"
-import { contractIdToName, dateTimeString, durationString } from "./Utils";
+import { contractIdToDescription, contractIdToName, dateTimeString, durationString, mintbaseStoreUrl } from "./Utils";
 
 const GET_TOKENS = gql`
     query GetTokens($nft_contract_id: String!, $nft_token_ids: [String!]!) {
@@ -22,8 +22,9 @@ const GET_TOKENS = gql`
   `;
 
 export default function ShopPage() {
-  let { contractId } = useParams();
-  let shopName = contractIdToName(contractId);
+  const { contractId } = useParams();
+  const shopName = contractIdToName(contractId);
+  const shopDescription = contractIdToDescription(contractId);
   const [listings, setListings] = React.useState([]);
 
   React.useEffect(() => {
@@ -59,11 +60,17 @@ export default function ShopPage() {
 
   return (
     <div className="px-4 py-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center mb-8">
+      <div className="sm:flex sm:items-center mb-12">
         <div className="sm:flex-auto">
           <h1 className="text-3xl font-semibold text-gray-900">{shopName}</h1>
+          <div className="flex flex-row justify-between">
+            <div className="text-sm mt-2 text-gray-500">Contract Id: {contractId}</div>
+            <a className="btn" target="_blank" href={mintbaseStoreUrl(contractId)}>Open in Mintbase</a>
+          </div>
+          <div className="mt-4 text-gray-900">{shopDescription}</div>
         </div>
       </div>
+      {listings.length == 0 && <div className="text-center">No NFTs available for rent at the moment</div>}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {
           listings.map(({ nft_token_id, owner_id, price, ft_contract_id, lease_start_ts_nano, lease_end_ts_nano, }) => {
@@ -78,7 +85,7 @@ export default function ShopPage() {
               <div className="flex flex-row justify-center space-x-2">
                 <a href={"/app/listings/" + contractId + "/" + nft_token_id + "/accept"}
                   className="primary-btn flex-1 w-32 text-center"> Rent </a>
-                <a href={"/app/nfts/" + contractId + "/" + nft_token_id}
+                <a href={"/app/nfts/" + contractId + "/?tokenId=" + nft_token_id}
                   className="btn flex-1 w-32 text-center"> Details </a>
               </div>
             </div>
