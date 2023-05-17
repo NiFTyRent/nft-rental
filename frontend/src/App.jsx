@@ -40,7 +40,7 @@ export default function App() {
         <Transition.Root show={sidebarOpen} as={Fragment}>
           <Dialog
             as="div"
-            className="relative z-40 md:hidden"
+            className="relative z-40 lg:hidden"
             onClose={setSidebarOpen}
           >
             <Transition.Child
@@ -126,7 +126,7 @@ export default function App() {
         </Transition.Root>
 
         {/* Static sidebar for desktop */}
-        <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
+        <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
           {/* Sidebar component, swap this element with another sidebar if you like */}
           <div className="flex flex-grow flex-col overflow-y-auto bg-zinc-700 pt-5">
             <div className="flex flex-shrink-0 items-center px-4">
@@ -158,18 +158,18 @@ export default function App() {
             </div>
           </div>
         </div>
-        <div className="flex flex-1 flex-col md:pl-64">
+        <div className="flex flex-1 flex-col lg:pl-64">
           <div className="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-white shadow">
             <button
               type="button"
-              className="border-r border-zinc-200 px-4 text-zinc-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-zinc-500 md:hidden"
+              className="border-r border-zinc-200 px-4 text-zinc-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-zinc-500 lg:hidden"
               onClick={() => setSidebarOpen(true)}
             >
               <span className="sr-only">Open sidebar</span>
               <Bars3BottomLeftIcon className="h-6 w-6" aria-hidden="true" />
             </button>
             <div className="flex flex-1 justify-end px-4">
-              <div className="ml-4 flex items-center md:ml-6">
+              <div className="ml-4 flex items-center lg:ml-6">
                 <button
                   type="button"
                   className="rounded-full bg-white p-1 text-zinc-400 hover:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2"
